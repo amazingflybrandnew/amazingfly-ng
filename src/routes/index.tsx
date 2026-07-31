@@ -1,24 +1,326 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  ArrowRight,
+  CheckCircle2,
+  FileLock2,
+  Globe2,
+  HeartHandshake,
+  ListChecks,
+  MessagesSquare,
+  Route as RouteIcon,
+  Sparkles,
+  UserCheck,
+} from "lucide-react";
+import heroImage from "@/assets/hero-traveller.jpg";
+import { Button } from "@/components/ui/button";
+import { Disclaimer } from "@/components/PageParts";
+import { services, getService } from "@/data/services";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Amazingfly.ng | Amazingfly Travels" },
+      {
+        name: "description",
+        content:
+          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, flights, hotels, travel insurance and other essential travel services through Amazingfly.ng.",
+      },
+      { property: "og:title", content: "Amazingfly.ng | Amazingfly Travels" },
+      {
+        property: "og:description",
+        content:
+          "Visa assistance, travel documentation, flights, hotels and travel insurance support for Nigerian travellers.",
+      },
+      { property: "og:url", content: "/" },
+    ],
+    links: [{ rel: "canonical", href: "/" }],
+  }),
+  component: Home,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+const trustPoints = [
+  {
+    icon: UserCheck,
+    title: "Expert Application Support",
+    description:
+      "Guidance from a team that works with travel documentation and visa applications every day.",
+  },
+  {
+    icon: FileLock2,
+    title: "Secure Document Handling",
+    description:
+      "Your documents are handled carefully and treated as confidential throughout your request.",
+  },
+  {
+    icon: ListChecks,
+    title: "Clear Service Process",
+    description: "You always know the next step, what is required and what happens after it.",
+  },
+  {
+    icon: MessagesSquare,
+    title: "Human Support When You Need It",
+    description: "Real people answer your questions instead of automated replies.",
+  },
+];
+
+const steps = [
+  { title: "Choose a Service", description: "Select the travel service you need from Amazingfly.ng." },
+  { title: "Submit Your Request", description: "Share your travel details and the documents you already have." },
+  {
+    title: "Receive Guidance or a Quotation",
+    description: "Our team responds with a checklist, guidance or a written quotation.",
+  },
+  {
+    title: "Complete Payment and Processing",
+    description: "Confirm the details, complete payment and we proceed with the work.",
+  },
+];
+
+const reasons = [
+  { icon: Globe2, text: "Travel support designed for Nigerian travellers" },
+  { icon: Sparkles, text: "Multiple travel services in one place" },
+  { icon: HeartHandshake, text: "Professional human assistance" },
+  { icon: RouteIcon, text: "Clear and transparent service process" },
+  { icon: ListChecks, text: "Destination-specific guidance" },
+  { icon: MessagesSquare, text: "WhatsApp, email and phone support" },
+];
+
+const visaHighlights = [
+  "Destination-specific guidance",
+  "Document checklist support",
+  "Application review",
+  "Human assistance",
+  "Progress updates once the request system is introduced",
+];
+
+function Home() {
+  const visa = getService("visa-assistance")!;
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <>
+      {/* Hero */}
+      <section className="border-b border-border bg-navy-tint">
+        <div className="container-page grid gap-12 py-16 md:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Amazingfly.ng</p>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] md:text-6xl">
+              Travel Documents, Visas and Bookings Made Easier
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
+              Amazingfly Travels helps Nigerian travellers access professional visa assistance, travel
+              documentation support, flight and hotel services, travel insurance and other essential
+              travel services through Amazingfly.ng.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link to="/request">Start a Request</Link>
+              </Button>
+              <Button asChild size="lg" variant="secondary">
+                <Link to="/services">Explore Services</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="relative">
+            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-lift">
+              <img
+                src={heroImage}
+                alt="Nigerian traveller holding a passport and boarding pass in an airport departure hall"
+                width={1200}
+                height={1408}
+                className="h-[320px] w-full object-cover object-top md:h-[460px]"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust highlights */}
+      <section className="container-page section-y">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {trustPoints.map((point) => (
+            <div key={point.title} className="rounded-2xl border border-border bg-card p-7 shadow-card">
+              <point.icon className="h-6 w-6 text-orange" aria-hidden="true" />
+              <h2 className="mt-4 text-base font-bold">{point.title}</h2>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{point.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Services */}
+      <section className="bg-navy-tint">
+        <div className="container-page section-y">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Our services</p>
+            <h2 className="mt-4 text-3xl font-extrabold md:text-4xl">
+              Everything you need for your trip, in one place
+            </h2>
+          </div>
+          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {services.map((service) => {
+              const Icon = service.icon;
+              return (
+                <article
+                  key={service.slug}
+                  className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-card"
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-orange-tint">
+                    <Icon className="h-6 w-6 text-orange" aria-hidden="true" />
+                  </span>
+                  <h3 className="mt-5 text-lg font-bold">{service.name}</h3>
+                  <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
+                    {service.shortDescription}
+                  </p>
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    <Button asChild size="sm" variant="secondary">
+                      <Link to="/services/$slug" params={{ slug: service.slug }}>
+                        Learn More
+                      </Link>
+                    </Button>
+                    <Button asChild size="sm">
+                      <Link to="/request">
+                        {service.status === "Request and quotation" && service.slug !== "travel-insurance"
+                          ? "Request a Quote"
+                          : "Start a Request"}
+                      </Link>
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="container-page section-y">
+        <div className="max-w-2xl">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">How it works</p>
+          <h2 className="mt-4 text-3xl font-extrabold md:text-4xl">Four simple steps</h2>
+        </div>
+        <ol className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+          {steps.map((step, index) => (
+            <li key={step.title}>
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-navy text-sm font-bold text-white">
+                {index + 1}
+              </span>
+              <h3 className="mt-5 text-base font-bold">{step.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.description}</p>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-12 max-w-3xl">
+          <Disclaimer>
+            Flights and Hotels will initially operate through a request-and-quotation process.
+            Amazingfly.ng does not display live fares, live availability or instant booking
+            confirmations at this stage.
+          </Disclaimer>
+        </div>
+      </section>
+
+      {/* Why choose */}
+      <section className="bg-navy text-white">
+        <div className="container-page section-y">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Why us</p>
+            <h2 className="mt-4 text-3xl font-extrabold text-white md:text-4xl">
+              Why choose Amazingfly Travels
+            </h2>
+          </div>
+          <ul className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+            {reasons.map((reason) => (
+              <li key={reason.text} className="flex gap-4">
+                <reason.icon className="mt-0.5 h-5 w-5 shrink-0 text-orange" aria-hidden="true" />
+                <span className="text-sm leading-relaxed text-white/80">{reason.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Visa feature */}
+      <section className="container-page section-y">
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Main service</p>
+            <h2 className="mt-4 text-3xl font-extrabold md:text-4xl">Visa Assistance</h2>
+            <p className="mt-5 text-base leading-relaxed text-muted-foreground">{visa.introduction}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link to="/request">Begin Visa Assistance</Link>
+              </Button>
+              <Button asChild size="lg" variant="secondary">
+                <Link to="/services/$slug" params={{ slug: "visa-assistance" }}>
+                  Learn More
+                </Link>
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-card">
+            <ul className="space-y-4">
+              {visaHighlights.map((item) => (
+                <li key={item} className="flex gap-3 text-sm leading-relaxed text-muted-foreground">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-8">
+              <Disclaimer>
+                Amazingfly Travels provides visa application assistance but does not guarantee visa
+                approval.
+              </Disclaimer>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Other travel services */}
+      <section className="bg-navy-tint">
+        <div className="container-page section-y">
+          <div className="max-w-2xl">
+            <h2 className="text-3xl font-extrabold md:text-4xl">Other travel services</h2>
+            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+              Alongside visa assistance, customers can also request the following support from
+              Amazingfly Travels.
+            </p>
+          </div>
+          <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              "Flight reservations",
+              "Hotel reservations",
+              "Travel insurance",
+              "Police Character Certificates",
+              "Yellow Fever Cards",
+              "Proof of Funds document guidance",
+            ].map((item) => (
+              <li
+                key={item}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4 text-sm font-medium"
+              >
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="container-page section-y">
+        <div className="rounded-3xl bg-navy px-8 py-14 text-center md:px-16 md:py-20">
+          <h2 className="text-3xl font-extrabold text-white md:text-4xl">
+            Start Your Travel Request Today
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-white/75">
+            Choose the service you need and let the Amazingfly Travels team guide you through the next
+            steps on Amazingfly.ng.
+          </p>
+          <Button asChild size="lg" className="mt-9">
+            <Link to="/request">Start a Request</Link>
+          </Button>
+        </div>
+      </section>
+    </>
   );
 }
