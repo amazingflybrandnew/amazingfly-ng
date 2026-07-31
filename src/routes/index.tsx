@@ -29,7 +29,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Visa assistance, travel documentation, flights, hotels and travel insurance support for Nigerian travellers.",
+          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, flights, hotels, travel insurance and other essential travel services through Amazingfly.ng.",
       },
       { property: "og:url", content: "/" },
     ],
