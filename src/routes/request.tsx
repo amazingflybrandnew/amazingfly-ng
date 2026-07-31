@@ -58,12 +58,21 @@ const EMPTY_FORM: FormState = {
   consent: false,
 };
 
-type RequestSearch = { service?: string };
+type RequestSearch = { service?: string | undefined };
+
+type FormErrors = {
+  serviceId?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  details?: string;
+  preferredContact?: string;
+  consent?: string;
+};
 
 export const Route = createFileRoute("/request")({
-  validateSearch: (search: Record<string, unknown>): RequestSearch => ({
-    service: typeof search.service === "string" ? search.service : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): RequestSearch =>
+    typeof search["service"] === "string" ? { service: search["service"] } : {},
   head: () => ({
     meta: [
       { title: "Start a Request | Amazingfly.ng" },
@@ -106,7 +115,7 @@ function RequestPage() {
   const options = useMemo(() => servicesQuery.data ?? [], [servicesQuery.data]);
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
@@ -128,15 +137,15 @@ function RequestPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
 
   function validate(): boolean {
-    const next: Record<string, string> = {};
-    if (!form.serviceId) next.serviceId = "Please select a service.";
-    if (!form.fullName.trim()) next.fullName = "Please enter your full name.";
+    const next: FormErrors = {};
+    if (!form.serviceId) next["serviceId"] = "Please select a service.";
+    if (!form.fullName.trim()) next["fullName"] = "Please enter your full name.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
-      next.email = "Please enter a valid email address.";
-    if (!form.phone.trim()) next.phone = "Please enter your phone number.";
-    if (!form.details.trim()) next.details = "Please describe your request.";
-    if (!form.preferredContact) next.preferredContact = "Please choose a contact method.";
-    if (!form.consent) next.consent = "Please confirm that we may contact you.";
+      next["email"] = "Please enter a valid email address.";
+    if (!form.phone.trim()) next["phone"] = "Please enter your phone number.";
+    if (!form.details.trim()) next["details"] = "Please describe your request.";
+    if (!form.preferredContact) next["preferredContact"] = "Please choose a contact method.";
+    if (!form.consent) next["consent"] = "Please confirm that we may contact you.";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -266,7 +275,7 @@ function RequestPage() {
               className="rounded-2xl border border-border bg-card p-6 shadow-card md:p-10"
             >
               <div className="grid gap-6">
-                <Field label="Service" htmlFor="service" required error={errors.serviceId}>
+                <Field label="Service" htmlFor="service" required error={errors["serviceId"]}>
                   <select
                     id="service"
                     className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
@@ -288,7 +297,7 @@ function RequestPage() {
                   ) : null}
                 </Field>
 
-                <Field label="Full name" htmlFor="fullName" required error={errors.fullName}>
+                <Field label="Full name" htmlFor="fullName" required error={errors["fullName"]}>
                   <Input
                     id="fullName"
                     value={form.fullName}
@@ -298,7 +307,7 @@ function RequestPage() {
                 </Field>
 
                 <div className="grid gap-6 md:grid-cols-2">
-                  <Field label="Email address" htmlFor="email" required error={errors.email}>
+                  <Field label="Email address" htmlFor="email" required error={errors["email"]}>
                     <Input
                       id="email"
                       type="email"
@@ -308,7 +317,7 @@ function RequestPage() {
                     />
                   </Field>
 
-                  <Field label="Phone number" htmlFor="phone" required error={errors.phone}>
+                  <Field label="Phone number" htmlFor="phone" required error={errors["phone"]}>
                     <Input
                       id="phone"
                       type="tel"
@@ -365,7 +374,7 @@ function RequestPage() {
                   </Field>
                 </div>
 
-                <Field label="Request details" htmlFor="details" required error={errors.details}>
+                <Field label="Request details" htmlFor="details" required error={errors["details"]}>
                   <Textarea
                     id="details"
                     rows={5}
@@ -382,7 +391,7 @@ function RequestPage() {
                   label="Preferred contact method"
                   htmlFor="preferredContact"
                   required
-                  error={errors.preferredContact}
+                  error={errors["preferredContact"]}
                 >
                   <RadioGroup
                     id="preferredContact"
@@ -411,8 +420,8 @@ function RequestPage() {
                     />
                     I consent to Amazingfly Travels contacting me about this request.
                   </label>
-                  {errors.consent ? (
-                    <p className="mt-2 text-sm font-medium text-destructive">{errors.consent}</p>
+                  {errors["consent"] ? (
+                    <p className="mt-2 text-sm font-medium text-destructive">{errors["consent"]}</p>
                   ) : null}
                 </div>
 
@@ -448,8 +457,8 @@ function Field({
 }: {
   label: string;
   htmlFor: string;
-  required?: boolean;
-  error?: string;
+  required?: boolean | undefined;
+  error?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
