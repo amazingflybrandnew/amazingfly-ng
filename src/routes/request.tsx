@@ -107,7 +107,7 @@ function RequestPage() {
   const servicesQuery = useQuery({
     queryKey: ["active-services"],
     queryFn: async (): Promise<ServiceOption[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("services")
         .select("id, name, slug, cta_label, price_label, display_order")
         .eq("active", true)
@@ -157,7 +157,7 @@ function RequestPage() {
   }
 
   async function insertRequest(requestReference: string) {
-    return supabase.from("service_requests").insert({
+    return db.from("service_requests").insert({
       request_reference: requestReference,
       service_id: form.serviceId,
       full_name: form.fullName.trim(),
