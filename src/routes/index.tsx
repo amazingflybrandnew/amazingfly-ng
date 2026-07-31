@@ -178,7 +178,11 @@ function Home() {
                       </Link>
                     </Button>
                     <Button asChild size="sm">
-                      <Link to="/request">{service.ctaLabel}</Link>
+                      <Link to="/request">
+                        {service.status === "Request and quotation" && service.slug !== "travel-insurance"
+                          ? "Request a Quote"
+                          : "Start a Request"}
+                      </Link>
                     </Button>
                   </div>
                 </article>
