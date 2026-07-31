@@ -13,6 +13,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { generateRequestReference } from "@/lib/request-reference";
 
+// The generated Database types do not yet include the Stage 2 tables, so this
+// route talks to them through an untyped view of the same client.
+const db = supabase as unknown as {
+  from: (table: string) => any;
+};
+
 type ServiceOption = {
   id: string;
   name: string;
@@ -101,7 +107,7 @@ function RequestPage() {
   const servicesQuery = useQuery({
     queryKey: ["active-services"],
     queryFn: async (): Promise<ServiceOption[]> => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("services")
         .select("id, name, slug, cta_label, price_label, display_order")
         .eq("active", true)
@@ -151,7 +157,7 @@ function RequestPage() {
   }
 
   async function insertRequest(requestReference: string) {
-    return supabase.from("service_requests").insert({
+    return db.from("service_requests").insert({
       request_reference: requestReference,
       service_id: form.serviceId,
       full_name: form.fullName.trim(),
