@@ -14,7 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      service_requests: {
+        Row: {
+          agreed_fee: number | null
+          consent_to_contact: boolean
+          created_at: string
+          destination: string | null
+          email: string
+          full_name: string
+          id: string
+          payment_status: string
+          phone: string
+          preferred_contact: string
+          request_details: string
+          request_reference: string
+          request_status: string
+          service_id: string
+          staff_notes: string | null
+          travel_date: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          agreed_fee?: number | null
+          consent_to_contact: boolean
+          created_at?: string
+          destination?: string | null
+          email: string
+          full_name: string
+          id?: string
+          payment_status?: string
+          phone: string
+          preferred_contact?: string
+          request_details: string
+          request_reference: string
+          request_status?: string
+          service_id: string
+          staff_notes?: string | null
+          travel_date?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          agreed_fee?: number | null
+          consent_to_contact?: boolean
+          created_at?: string
+          destination?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          payment_status?: string
+          phone?: string
+          preferred_contact?: string
+          request_details?: string
+          request_reference?: string
+          request_status?: string
+          service_id?: string
+          staff_notes?: string | null
+          travel_date?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_requests_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          active: boolean
+          created_at: string
+          cta_label: string
+          display_order: number
+          fulfillment_mode: string
+          id: string
+          name: string
+          price_label: string | null
+          short_description: string
+          slug: string
+          starting_fee: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          cta_label: string
+          display_order?: number
+          fulfillment_mode?: string
+          id?: string
+          name: string
+          price_label?: string | null
+          short_description: string
+          slug: string
+          starting_fee?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          cta_label?: string
+          display_order?: number
+          fulfillment_mode?: string
+          id?: string
+          name?: string
+          price_label?: string | null
+          short_description?: string
+          slug?: string
+          starting_fee?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
+          business_hours: string | null
+          business_name: string
+          email: string | null
+          facebook_url: string | null
+          id: number
+          instagram_url: string | null
+          office_address: string | null
+          phone: string | null
+          platform_name: string
+          updated_at: string
+          whatsapp: string | null
+          x_url: string | null
+        }
+        Insert: {
+          business_hours?: string | null
+          business_name?: string
+          email?: string | null
+          facebook_url?: string | null
+          id: number
+          instagram_url?: string | null
+          office_address?: string | null
+          phone?: string | null
+          platform_name?: string
+          updated_at?: string
+          whatsapp?: string | null
+          x_url?: string | null
+        }
+        Update: {
+          business_hours?: string | null
+          business_name?: string
+          email?: string | null
+          facebook_url?: string | null
+          id?: number
+          instagram_url?: string | null
+          office_address?: string | null
+          phone?: string | null
+          platform_name?: string
+          updated_at?: string
+          whatsapp?: string | null
+          x_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
