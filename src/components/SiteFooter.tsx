@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
-import logo from "@/assets/amazingfly-logo.asset.json";
+import amazingflyLogo from "@/assets/amazingfly-logo.jpeg";
 import { services } from "@/data/services";
 
 const companyLinks = [
@@ -24,7 +24,7 @@ export function SiteFooter() {
         <div>
           <div className="flex items-center gap-3">
             <img
-              src={logo.url}
+              src={amazingflyLogo}
               alt="Amazingfly Travels logo"
               className="h-12 w-12 rounded-full object-cover"
               width={48}
