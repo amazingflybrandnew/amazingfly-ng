@@ -1,11 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import logo from "@/assets/amazingfly-logo.asset.json";
+import amazingflyLogo from "@/assets/amazingfly-logo.jpeg";
 
 export function Logo({ className = "h-11 w-11" }: { className?: string }) {
   return (
     <Link to="/" className="flex items-center gap-3" aria-label="Amazingfly.ng home">
       <img
-        src={logo.url}
+        src={amazingflyLogo}
         alt="Amazingfly Travels logo"
         className={`${className} rounded-full object-cover`}
         width={44}
