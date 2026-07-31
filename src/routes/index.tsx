@@ -178,7 +178,7 @@ function Home() {
                       </Link>
                     </Button>
                     <Button asChild size="sm">
-                      <Link to="/request">
+                      <Link to="/request" search={{ service: service.slug }}>
                         {service.status === "Request and quotation" && service.slug !== "travel-insurance"
                           ? "Request a Quote"
                           : "Start a Request"}
@@ -247,7 +247,7 @@ function Home() {
             <p className="mt-5 text-base leading-relaxed text-muted-foreground">{visa.introduction}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link to="/request">Begin Visa Assistance</Link>
+                <Link to="/request" search={{ service: "visa-assistance" }}>Begin Visa Assistance</Link>
               </Button>
               <Button asChild size="lg" variant="secondary">
                 <Link to="/services/$slug" params={{ slug: "visa-assistance" }}>

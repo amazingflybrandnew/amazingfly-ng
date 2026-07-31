@@ -43,7 +43,9 @@ export function ServicePage({ service }: { service: Service }) {
       <PageHero eyebrow={service.status} title={service.name} description={service.introduction}>
         <div className="flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link to="/request">{service.ctaLabel}</Link>
+            <Link to="/request" search={{ service: service.slug }}>
+              {service.ctaLabel}
+            </Link>
           </Button>
           <Button asChild size="lg" variant="secondary">
             <Link to="/contact">Contact Support</Link>
@@ -122,7 +124,9 @@ export function ServicePage({ service }: { service: Service }) {
 
         <div className="mt-10 flex flex-wrap gap-3">
           <Button asChild size="lg">
-            <Link to="/request">{service.ctaLabel}</Link>
+            <Link to="/request" search={{ service: service.slug }}>
+              {service.ctaLabel}
+            </Link>
           </Button>
           <Button asChild size="lg" variant="secondary">
             <Link to="/contact">Contact Support</Link>
