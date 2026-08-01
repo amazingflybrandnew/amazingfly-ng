@@ -42,14 +42,34 @@ alter table public.service_requests
 alter table public.service_requests
   add column if not exists request_status text not null default 'new_request';
 
-update public.service_requests set request_status = 'new_request'
-  where request_status is null or request_status = 'received';
+-- IMPORTANT: drop any previous constraint BEFORE rewriting values, otherwise the
+-- old Stage-2 check ('received', 'contacted', ...) rejects the new values.
+alter table public.service_requests
+  drop constraint if exists service_requests_request_status_check;
+
+update public.service_requests
+   set request_status = case request_status
+     when 'received' then 'new_request'
+     when 'contacted' then 'under_review'
+     when 'awaiting_information' then 'documents_required'
+     when 'quotation_sent' then 'under_review'
+     when 'processing' then 'processing'
+     when 'approved' then 'approved'
+     when 'completed' then 'completed'
+     when 'cancelled' then 'cancelled'
+     when 'new_request' then 'new_request'
+     when 'under_review' then 'under_review'
+     when 'documents_required' then 'documents_required'
+     else 'new_request'
+   end
+ where request_status is null
+    or request_status not in (
+      'new_request', 'under_review', 'documents_required',
+      'processing', 'approved', 'completed', 'cancelled'
+    );
 
 alter table public.service_requests
   alter column request_status set default 'new_request';
-
-alter table public.service_requests
-  drop constraint if exists service_requests_request_status_check;
 
 alter table public.service_requests
   add constraint service_requests_request_status_check
@@ -57,6 +77,7 @@ alter table public.service_requests
     'new_request', 'under_review', 'documents_required',
     'processing', 'approved', 'completed', 'cancelled'
   ));
+
 
 create index if not exists service_requests_customer_id_idx on public.service_requests (customer_id);
 create index if not exists service_requests_status_idx on public.service_requests (request_status);
