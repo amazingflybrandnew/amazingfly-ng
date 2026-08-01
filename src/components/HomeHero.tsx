@@ -1,15 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, ArrowRight, Briefcase, Headphones, MapPin, ShieldCheck, Star, Zap } from "lucide-react";
 
-import travellerImage from "@/assets/hero-traveller-cutout.png";
-
-const ROTATING_HEADLINES = [
-  "get your travel visa",
-  "book your next flight",
-  "plan your perfect trip",
-  "secure your travel documents",
-];
+import travellerImage from "@/assets/hero-traveller-photo.png";
 
 const ORIGINS = [
   "Nigeria",
@@ -40,10 +33,34 @@ const NEEDS = [
 ];
 
 const FEATURES = [
-  { icon: Zap, title: "Fast Processing", description: "Quick support for urgent travellers" },
-  { icon: ShieldCheck, title: "Secure & Protected", description: "Your documents are handled safely" },
-  { icon: Headphones, title: "Expert Guidance", description: "Real travel specialists helping you" },
-  { icon: Star, title: "High Success Rate", description: "Professional visa preparation support" },
+  {
+    icon: Zap,
+    title: "Super Fast",
+    description: "Quick processing for urgent travellers",
+    tint: "bg-lavender-tint",
+    tone: "text-lavender",
+  },
+  {
+    icon: ShieldCheck,
+    title: "100% Secure",
+    description: "Your data and documents stay safe with us",
+    tint: "bg-mint-tint",
+    tone: "text-mint",
+  },
+  {
+    icon: Headphones,
+    title: "Expert Support",
+    description: "Real people, real travel specialists",
+    tint: "bg-sky-tint",
+    tone: "text-sky",
+  },
+  {
+    icon: Star,
+    title: "High Success",
+    description: "Careful, professional application preparation",
+    tint: "bg-peach-tint",
+    tone: "text-orange",
+  },
 ];
 
 const selectClass =
@@ -57,22 +74,72 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Low-opacity landmark & travel illustrations blended into the gradient. */
+function LandmarkBackdrop() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="absolute inset-0 h-full w-full"
+      viewBox="0 0 1440 900"
+      preserveAspectRatio="xMidYMid slice"
+      fill="none"
+    >
+      <g className="text-lavender" opacity="0.22" fill="currentColor">
+        {/* Palm tree, far left */}
+        <path d="M96 760 C 92 660, 100 590, 118 520 L132 522 C 116 592, 110 662, 114 760 Z" />
+        <path d="M124 516 C 78 470, 34 462, 4 486 C 46 470, 92 486, 122 524 Z" />
+        <path d="M124 512 C 96 452, 44 424, 2 430 C 52 438, 96 470, 120 518 Z" />
+        <path d="M126 512 C 140 452, 186 414, 236 412 C 188 428, 148 466, 132 518 Z" />
+        <path d="M128 516 C 168 480, 226 470, 264 490 C 216 484, 168 494, 134 524 Z" />
+        {/* Statue of Liberty */}
+        <path d="M112 800 L106 690 L118 690 Z" opacity="0.7" />
+        {/* Big Ben, right */}
+        <path d="M1318 800 L1318 470 L1352 440 L1386 470 L1386 800 Z" />
+        <path d="M1352 424 L1358 400 L1352 372 L1346 400 Z" />
+        <circle cx="1352" cy="512" r="20" className="fill-white/60" />
+        {/* Ferris wheel */}
+        <circle cx="1216" cy="600" r="62" stroke="currentColor" strokeWidth="3" fill="none" />
+        <circle cx="1216" cy="600" r="10" />
+        <path d="M1216 538 L1216 662 M1154 600 L1278 600 M1172 556 L1260 644 M1260 556 L1172 644"
+          stroke="currentColor" strokeWidth="2" />
+        {/* Skyline silhouette */}
+        <path d="M0 800 L70 740 L120 800 L190 700 L250 800 L320 660 L380 800 L450 720 L520 800 L600 680 L660 800 L740 730 L810 800 L890 670 L950 800 L1030 720 L1100 800 L1180 690 L1260 800 L1340 730 L1440 800 L1440 900 L0 900 Z"
+          opacity="0.5" />
+      </g>
+
+      {/* Hot air balloon */}
+      <g className="text-coral" opacity="0.28">
+        <path d="M1256 214 C 1256 168, 1290 136, 1326 136 C 1362 136, 1396 168, 1396 214 C 1396 254, 1362 286, 1326 306 C 1290 286, 1256 254, 1256 214 Z" fill="currentColor" />
+        <path d="M1314 312 h24 v22 h-24 z" fill="currentColor" />
+      </g>
+
+      {/* Airplane + dotted flight trail */}
+      <g className="text-sky" opacity="0.5">
+        <path
+          d="M1180 150 C 1080 250, 940 210, 860 300 C 790 380, 700 380, 620 330"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeDasharray="4 14"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path
+          d="M1196 130 l52 14 l26 -20 l16 6 l-14 24 l40 12 l18 -14 l14 6 l-22 26 l-24 30 l-10 -12 l6 -30 l-40 -12 l-18 22 l-16 -6 l8 -32 Z"
+          fill="currentColor"
+          opacity="0.7"
+        />
+      </g>
+    </svg>
+  );
+}
+
 export function HomeHero() {
   const navigate = useNavigate();
-  const [index, setIndex] = useState(0);
-  const [origin, setOrigin] = useState("");
+  const [origin, setOrigin] = useState("Nigeria");
   const [destination, setDestination] = useState("");
   const [need, setNeed] = useState("");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % ROTATING_HEADLINES.length);
-    }, 3600);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const highlight = useMemo(() => ROTATING_HEADLINES[index]!, [index]);
   const isComplete = Boolean(origin && destination && need);
 
   useEffect(() => {
@@ -103,48 +170,20 @@ export function HomeHero() {
 
   return (
     <section className="relative isolate overflow-hidden hero-aurora">
-      {/* Atmosphere: soft clouds, flight routes, skyline silhouettes */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="hero-glow hero-glow-a" />
         <div className="hero-glow hero-glow-b" />
         <div className="hero-glow hero-glow-c" />
-        <svg
-          className="absolute inset-0 h-full w-full opacity-70"
-          viewBox="0 0 1440 900"
-          preserveAspectRatio="xMidYMid slice"
-          fill="none"
-        >
-          <path
-            d="M-40 250 C 300 90, 700 380, 1040 180 S 1420 120, 1500 210"
-            stroke="currentColor"
-            className="text-white/80"
-            strokeWidth="2"
-            strokeDasharray="10 16"
-          />
-          <path
-            d="M-40 470 C 320 620, 760 300, 1120 470 S 1440 560, 1520 500"
-            stroke="currentColor"
-            className="text-white/50"
-            strokeWidth="2"
-            strokeDasharray="10 18"
-          />
-          <path
-            d="M0 780 L60 720 L110 780 L170 690 L220 780 L275 640 L330 780 L390 700 L450 780 L520 660 L580 780 L650 720 L710 780 L780 640 L840 780 L910 700 L980 780 L1050 660 L1110 780 L1180 715 L1250 780 L1320 690 L1380 780 L1440 730 L1440 900 L0 900 Z"
-            className="fill-white/25"
-          />
-        </svg>
+        <LandmarkBackdrop />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
       </div>
 
       <div className="container-page relative pb-20 pt-14 md:pb-28 md:pt-20">
         <div className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-navy/70 backdrop-blur">
-            Amazingfly.ng · Travel made simple
-          </span>
-          <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl">
-            <span className="block">Your fastest way to</span>
-            <span key={highlight} className="hero-rotate mt-2 block text-gradient-brand">
-              {highlight}
+          <h1 className="text-[2.75rem] font-extrabold leading-[1.05] tracking-tight md:text-7xl">
+            <span className="block">Your journey,</span>
+            <span className="mt-1 block">
+              our <span className="text-gradient-brand">expertise.</span>
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-navy/70 md:text-lg">
@@ -163,7 +202,7 @@ export function HomeHero() {
                 <select
                   value={origin}
                   onChange={(event) => setOrigin(event.target.value)}
-                  className={selectClass}
+                  className={`${selectClass} pl-10`}
                   aria-label="I'm travelling from"
                 >
                   <option value="">Select passport country</option>
@@ -173,6 +212,14 @@ export function HomeHero() {
                     </option>
                   ))}
                 </select>
+                <span
+                  className="pointer-events-none absolute left-3 top-1/2 flex h-4 w-6 -translate-y-1/2 overflow-hidden rounded-[3px] ring-1 ring-navy/10"
+                  aria-hidden="true"
+                >
+                  <span className="h-full w-1/3 bg-mint" />
+                  <span className="h-full w-1/3 bg-white" />
+                  <span className="h-full w-1/3 bg-mint" />
+                </span>
                 <MapPin
                   className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky"
                   aria-hidden="true"
@@ -231,16 +278,13 @@ export function HomeHero() {
               onClick={handleStart}
               aria-disabled={!isComplete}
               className={`btn-gradient inline-flex h-[46px] items-center justify-center gap-2 rounded-2xl px-7 text-sm font-bold text-white shadow-card ${
-                isComplete
-                  ? "hover:-translate-y-0.5"
-                  : "cursor-not-allowed opacity-45 saturate-50"
+                isComplete ? "hover:-translate-y-0.5" : "cursor-not-allowed opacity-45 saturate-50"
               }`}
             >
               Get Started
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-
 
           {!isComplete && !validationMessage ? (
             <p className="mt-3 text-center text-xs font-medium text-muted-foreground md:text-left">
@@ -259,7 +303,7 @@ export function HomeHero() {
           ) : null}
         </div>
 
-        {/* Trust */}
+        {/* Trust bar — style only, no fabricated figures */}
         <div className="mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2">
@@ -275,20 +319,20 @@ export function HomeHero() {
                 </span>
               ))}
             </div>
-            <span className="font-semibold text-navy">Trusted by thousands of travellers</span>
+            <span className="font-semibold text-navy">Trusted by travellers across Nigeria</span>
           </div>
           <span className="hidden h-5 w-px bg-navy/15 sm:block" aria-hidden="true" />
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-0.5" aria-hidden="true">
               {[0, 1, 2, 3, 4].map((star) => (
-                <Star key={star} className="h-4 w-4 fill-orange text-orange" />
+                <Star key={star} className="h-4 w-4 fill-mint text-mint" />
               ))}
             </span>
-            <span className="font-semibold text-navy">4.8/5 on Trustpilot</span>
+            <span className="font-semibold text-navy">Rated by real customers</span>
           </div>
         </div>
 
-        {/* Traveller + feature cards */}
+        {/* Traveller photo + feature cards */}
         <div className="relative mt-10 md:mt-4">
           <div className="pointer-events-none flex justify-center md:justify-end">
             <img
@@ -296,16 +340,16 @@ export function HomeHero() {
               alt="Nigerian traveller holding a passport and boarding pass with luggage"
               width={1024}
               height={1280}
-              className="h-[300px] w-auto object-contain drop-shadow-[0_30px_45px_rgba(80,80,140,0.16)] md:h-[420px] md:-mt-10 md:mr-10"
+              className="h-[300px] w-auto object-contain drop-shadow-[0_30px_45px_rgba(80,80,140,0.16)] md:h-[420px] md:-mt-10 md:mr-6"
             />
           </div>
 
-          <div className="relative -mt-10 rounded-[28px] glass-card p-6 md:-mt-24 md:p-8">
+          <div className="relative -mt-10 rounded-[28px] border border-white/70 bg-white/90 p-6 shadow-glass backdrop-blur-xl md:-mt-24 md:p-8">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-navy/10">
               {FEATURES.map((feature) => (
                 <div key={feature.title} className="flex gap-3 lg:px-5 lg:first:pl-0 lg:last:pr-0">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-tint to-peach-tint">
-                    <feature.icon className="h-5 w-5 text-orange" aria-hidden="true" />
+                  <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${feature.tint}`}>
+                    <feature.icon className={`h-5 w-5 ${feature.tone}`} aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
                     <h2 className="text-sm font-bold text-navy">{feature.title}</h2>
