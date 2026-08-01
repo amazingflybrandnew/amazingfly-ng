@@ -175,7 +175,7 @@ function Home() {
         <ol className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
             <li key={step.title}>
-              <span className="grid h-11 w-11 place-items-center rounded-full bg-navy text-sm font-bold text-white">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-sky to-lavender text-sm font-bold text-white shadow-card">
                 {index + 1}
               </span>
               <h3 className="mt-5 text-base font-bold">{step.title}</h3>
@@ -193,24 +193,28 @@ function Home() {
       </section>
 
       {/* Why choose */}
-      <section className="bg-navy text-white">
+      <section className="surface-dusk text-white">
         <div className="container-page section-y">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Why us</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-peach">Why us</p>
             <h2 className="mt-4 text-3xl font-extrabold text-white md:text-4xl">
               Why choose Amazingfly Travels
             </h2>
           </div>
           <ul className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
             {reasons.map((reason) => (
-              <li key={reason.text} className="flex gap-4">
-                <reason.icon className="mt-0.5 h-5 w-5 shrink-0 text-orange" aria-hidden="true" />
-                <span className="text-sm leading-relaxed text-white/80">{reason.text}</span>
+              <li
+                key={reason.text}
+                className="flex gap-4 rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur-sm transition-colors hover:bg-white/10"
+              >
+                <reason.icon className="mt-0.5 h-5 w-5 shrink-0 text-peach" aria-hidden="true" />
+                <span className="text-sm leading-relaxed text-white/85">{reason.text}</span>
               </li>
             ))}
           </ul>
         </div>
       </section>
+
 
       {/* Visa feature */}
       <section className="container-page section-y">
