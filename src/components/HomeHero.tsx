@@ -93,24 +93,24 @@ export function HomeHero() {
         <div className="hero-glow hero-glow-b" />
         <div className="hero-glow hero-glow-c" />
         <svg
-          className="absolute inset-0 h-full w-full opacity-60"
+          className="absolute inset-0 h-full w-full opacity-70"
           viewBox="0 0 1440 900"
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid slice"
           fill="none"
         >
           <path
             d="M-40 250 C 300 90, 700 380, 1040 180 S 1420 120, 1500 210"
             stroke="currentColor"
-            className="text-white/70"
+            className="text-white/80"
             strokeWidth="2"
-            strokeDasharray="8 12"
+            strokeDasharray="10 16"
           />
           <path
             d="M-40 470 C 320 620, 760 300, 1120 470 S 1440 560, 1520 500"
             stroke="currentColor"
             className="text-white/50"
             strokeWidth="2"
-            strokeDasharray="6 14"
+            strokeDasharray="10 18"
           />
           <path
             d="M0 780 L60 720 L110 780 L170 690 L220 780 L275 640 L330 780 L390 700 L450 780 L520 660 L580 780 L650 720 L710 780 L780 640 L840 780 L910 700 L980 780 L1050 660 L1110 780 L1180 715 L1250 780 L1320 690 L1380 780 L1440 730 L1440 900 L0 900 Z"
