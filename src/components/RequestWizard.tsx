@@ -448,13 +448,15 @@ export function RequestWizard({
                     />
                   </Field>
                 </div>
-                <Field label="WhatsApp number">
-                  <Input
-                    type="tel"
-                    value={form.whatsappSameAsPhone ? form.phone : form.whatsapp}
-                    disabled={form.whatsappSameAsPhone}
-                    onChange={(e) => update("whatsapp", e.target.value)}
-                  />
+                <div>
+                  <Field label="WhatsApp number">
+                    <Input
+                      type="tel"
+                      value={form.whatsappSameAsPhone ? form.phone : form.whatsapp}
+                      disabled={form.whatsappSameAsPhone}
+                      onChange={(e) => update("whatsapp", e.target.value)}
+                    />
+                  </Field>
                   <label className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
                     <Checkbox
                       checked={form.whatsappSameAsPhone}
@@ -462,7 +464,8 @@ export function RequestWizard({
                     />
                     Same as my phone number
                   </label>
-                </Field>
+                </div>
+
                 <div className="grid gap-6 md:grid-cols-2">
                   <Field label="Country of residence" required error={errors["countryOfResidence"]}>
                     <CountrySelect
