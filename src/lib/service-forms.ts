@@ -683,7 +683,14 @@ export const HERO_SLUG_TO_CATEGORY: Record<string, string> = {
 
 /** Builds the full ordered section list for a category (questions + contact). */
 export function buildSections(category: ServiceCategory): Section[] {
-  return [...category.sections, CONTACT_SECTION];
+  const seen = new Set(
+    category.sections.flatMap((section) => section.questions.map((q) => q.id)),
+  );
+  const contact: Section = {
+    ...CONTACT_SECTION,
+    questions: CONTACT_SECTION.questions.filter((q) => !seen.has(q.id)),
+  };
+  return [...category.sections, contact];
 }
 
 export const isCoreField = (id: string) =>
