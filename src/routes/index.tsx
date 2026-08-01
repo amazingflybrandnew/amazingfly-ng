@@ -11,8 +11,8 @@ import {
   Sparkles,
   UserCheck,
 } from "lucide-react";
-import heroImage from "@/assets/hero-traveller.jpg";
 import { Button } from "@/components/ui/button";
+import { HomeHero } from "@/components/HomeHero";
 import { Disclaimer } from "@/components/PageParts";
 import { services, getService } from "@/data/services";
 
@@ -98,41 +98,9 @@ function Home() {
 
   return (
     <>
-      {/* Hero */}
-      <section className="border-b border-border bg-navy-tint">
-        <div className="container-page grid gap-12 py-16 md:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Amazingfly.ng</p>
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.1] md:text-6xl">
-              Travel Documents, Visas and Bookings Made Easier
-            </h1>
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              Amazingfly Travels helps Nigerian travellers access professional visa assistance, travel
-              documentation support, flight and hotel services, travel insurance and other essential
-              travel services through Amazingfly.ng.
-            </p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link to="/request">Start a Request</Link>
-              </Button>
-              <Button asChild size="lg" variant="secondary">
-                <Link to="/services">Explore Services</Link>
-              </Button>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-lift">
-              <img
-                src={heroImage}
-                alt="Nigerian traveller holding a passport and boarding pass in an airport departure hall"
-                width={1200}
-                height={1408}
-                className="h-[320px] w-full object-cover object-top md:h-[460px]"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Interactive hero */}
+      <HomeHero />
+
 
       {/* Trust highlights */}
       <section className="container-page section-y">
