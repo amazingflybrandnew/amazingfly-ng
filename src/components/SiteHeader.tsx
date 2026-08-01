@@ -123,8 +123,12 @@ export function SiteHeader() {
             EN
           </button>
           <Button asChild size="lg" variant="secondary">
-            <Link to="/request">Log in</Link>
+            <Link to="/auth">Log in</Link>
           </Button>
+          <Button asChild size="lg">
+            <Link to="/dashboard">My Account</Link>
+          </Button>
+
         </div>
 
         <button
