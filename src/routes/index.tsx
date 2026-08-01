@@ -11,8 +11,8 @@ import {
   Sparkles,
   UserCheck,
 } from "lucide-react";
-import heroImage from "@/assets/hero-traveller.jpg";
 import { Button } from "@/components/ui/button";
+import { HomeHero } from "@/components/HomeHero";
 import { Disclaimer } from "@/components/PageParts";
 import { services, getService } from "@/data/services";
 
