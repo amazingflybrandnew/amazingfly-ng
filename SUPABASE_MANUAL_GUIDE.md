@@ -19,8 +19,9 @@ Everything below happens in the **Table Editor** of your Lovable Cloud backend
    the customer's name, email, phone, WhatsApp, destination, travel date and the
    details they wrote.
 4. **Change `request_status`.** Click the `request_status` cell and type one of:
-   `new`, `contacted`, `awaiting_information`, `quotation_sent`, `processing`,
-   `completed`, `cancelled`. Press Enter/Save.
+   `received`, `contacted`, `awaiting_information`, `quotation_sent`,
+   `processing`, `completed`, `cancelled`. Press Enter/Save. Never type free
+   text or test wording here — see section D.
 5. **Change `payment_status`.** Click the `payment_status` cell and type one of:
    `unpaid`, `pending`, `paid`, `failed`, `refunded`. Press Enter/Save.
 6. **Add `agreed_fee`.** Click the `agreed_fee` cell and type the agreed amount
