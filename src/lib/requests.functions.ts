@@ -26,7 +26,7 @@ const requestInput = z.object({
   request_details: z.string().trim().min(1).max(4000),
   preferred_contact: z.enum(["whatsapp", "phone", "email"]),
   consent_to_contact: z.literal(true),
-});
+}).strict();
 
 export const getActiveServices = createServerFn({ method: "GET" }).handler(
   async (): Promise<ServiceOption[]> => {
