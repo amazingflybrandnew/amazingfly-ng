@@ -234,11 +234,11 @@ function Home() {
               </Button>
             </div>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-8 shadow-card">
+          <div className="rounded-3xl border border-white/70 bg-white/80 p-8 shadow-lift backdrop-blur-sm">
             <ul className="space-y-4">
               {visaHighlights.map((item) => (
                 <li key={item} className="flex gap-3 text-sm leading-relaxed text-muted-foreground">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-mint" aria-hidden="true" />
                   <span>{item}</span>
                 </li>
               ))}
@@ -254,7 +254,7 @@ function Home() {
       </section>
 
       {/* Other travel services */}
-      <section className="bg-navy-tint">
+      <section className="surface-mint">
         <div className="container-page section-y">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-extrabold md:text-4xl">Other travel services</h2>
@@ -274,7 +274,7 @@ function Home() {
             ].map((item) => (
               <li
                 key={item}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4 text-sm font-medium"
+                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
               >
                 <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
                 {item}
@@ -286,7 +286,7 @@ function Home() {
 
       {/* Final CTA */}
       <section className="container-page section-y">
-        <div className="rounded-3xl bg-navy px-8 py-14 text-center md:px-16 md:py-20">
+        <div className="surface-dusk rounded-[2rem] px-8 py-14 text-center md:px-16 md:py-20">
           <h2 className="text-3xl font-extrabold text-white md:text-4xl">
             Start Your Travel Request Today
           </h2>
@@ -294,11 +294,12 @@ function Home() {
             Choose the service you need and let the Amazingfly Travels team guide you through the next
             steps on Amazingfly.ng.
           </p>
-          <Button asChild size="lg" className="mt-9">
+          <Button asChild size="lg" className="btn-gradient mt-9 border-0 text-white hover:-translate-y-0.5">
             <Link to="/request">Start a Request</Link>
           </Button>
         </div>
       </section>
+
     </>
   );
 }
