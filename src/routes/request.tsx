@@ -44,7 +44,7 @@ function RequestPage() {
       <PageHero
         eyebrow="Travel requests"
         title="Start a Travel Request"
-        description="Five short steps. Share your travel details, upload your documents securely, and our specialists take it from there."
+        description="Choose your service and we will only ask what matters for it — then upload your documents securely and our specialists take it from there."
       />
       <section className="container-page section-y">
         <RequestWizard initialService={service} initialFrom={from} initialTo={to} />
