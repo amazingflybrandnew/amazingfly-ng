@@ -137,3 +137,15 @@ Email notifications: message composition lives in `src/lib/notifications.server.
 (customer receipt, admin alert, status update). Delivery is logged until an
 Amazingfly.ng sender domain is verified; wiring the sender is a one-line change
 in `deliver()`.
+
+## Stage 3.1 — Dynamic service-specific request system
+
+Run `supabase/manual/stage3-dynamic.sql` in the Supabase SQL Editor (after `stage3.sql`).
+
+It adds:
+- `service_categories`, `service_questions`, `service_documents` (flexible form definition tables, public read-only, RLS on)
+- `service_requests.service_category` (text) and `service_requests.answers` (jsonb) so every service-specific answer is stored dynamically
+- Seeds the 7 categories used by the website (visa, flight, hotel, documents, insurance, airport_transfer, other)
+
+Until this SQL is run, submissions still succeed — the server falls back to
+inserting without the new columns and folds all answers into `request_details`.

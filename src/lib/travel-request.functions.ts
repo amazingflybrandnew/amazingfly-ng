@@ -14,6 +14,12 @@ const dateish = z
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .nullable();
 
+const answerSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  question: z.string().trim().min(1).max(200),
+  answer: z.string().trim().max(4000),
+});
+
 /** Customer-supplied fields only. Workflow columns (request_status,
  * payment_status, agreed_fee, staff_notes) are never accepted from the site. */
 const submissionSchema = z
@@ -21,13 +27,15 @@ const submissionSchema = z
     request_reference: z.string().regex(/^AF-\d{8}-[A-Z0-9]{6}$/),
     service_type: z.string().trim().min(1).max(60),
     service_slug: z.string().trim().min(1).max(80),
-    origin_country: z.string().trim().min(1).max(120),
-    destination_country: z.string().trim().min(1).max(120),
+    service_category: z.string().trim().min(1).max(60),
+    origin_country: z.string().trim().max(120),
+    destination_country: z.string().trim().max(120),
     travel_purpose: z.string().trim().max(120).nullable(),
     travel_date: dateish,
     return_date: dateish,
     traveller_count: z.number().int().min(1).max(30),
     request_details: z.string().trim().max(4000),
+    answers: z.array(answerSchema).max(60),
     full_name: z.string().trim().min(1).max(160),
     email: z.string().trim().email().max(200),
     phone: z.string().trim().min(1).max(40),
@@ -132,35 +140,66 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       };
     }
 
-    const { data: request, error: requestError } = await supabase
+    // Every answer is also folded into request_details so nothing is lost even
+    // if the dynamic columns have not been added to the database yet.
+    const answerText = data.answers
+      .filter((a) => a.answer)
+      .map((a) => `${a.question}: ${a.answer}`)
+      .join("\n");
+    const details = [
+      data.request_details || "Submitted through the dynamic request form.",
+      answerText,
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 8000);
+
+    const baseRow = {
+      request_reference: data.request_reference,
+      service_id: service.id,
+      customer_id: customer?.id ?? null,
+      service_type: data.service_type,
+      origin_country: data.origin_country || null,
+      destination_country: data.destination_country || null,
+      destination: data.destination_country || data.service_type,
+      travel_purpose: data.travel_purpose,
+      travel_date: data.travel_date,
+      return_date: data.return_date,
+      traveller_count: data.traveller_count,
+      full_name: data.full_name,
+      email: data.email,
+      phone: data.phone,
+      whatsapp: data.whatsapp,
+      passport_number: data.passport_number,
+      passport_country: data.passport_country,
+      date_of_birth: data.date_of_birth,
+      passport_issue_date: data.passport_issue_date,
+      passport_expiry_date: data.passport_expiry_date,
+      request_details: details,
+      preferred_contact: data.preferred_contact,
+      consent_to_contact: true,
+    };
+
+    const dynamicRow = {
+      ...baseRow,
+      service_category: data.service_category,
+      answers: data.answers,
+    };
+
+    let { data: request, error: requestError } = await supabase
       .from("service_requests")
-      .insert({
-        request_reference: data.request_reference,
-        service_id: service.id,
-        customer_id: customer?.id ?? null,
-        service_type: data.service_type,
-        origin_country: data.origin_country,
-        destination_country: data.destination_country,
-        destination: data.destination_country,
-        travel_purpose: data.travel_purpose,
-        travel_date: data.travel_date,
-        return_date: data.return_date,
-        traveller_count: data.traveller_count,
-        full_name: data.full_name,
-        email: data.email,
-        phone: data.phone,
-        whatsapp: data.whatsapp,
-        passport_number: data.passport_number,
-        passport_country: data.passport_country,
-        date_of_birth: data.date_of_birth,
-        passport_issue_date: data.passport_issue_date,
-        passport_expiry_date: data.passport_expiry_date,
-        request_details: data.request_details || "Submitted through the multi-step request form.",
-        preferred_contact: data.preferred_contact,
-        consent_to_contact: true,
-      })
+      .insert(dynamicRow)
       .select("id")
       .maybeSingle();
+
+    // 42703 = column does not exist (dynamic columns not migrated yet).
+    if (requestError?.code === "42703" || requestError?.code === "PGRST204") {
+      ({ data: request, error: requestError } = await supabase
+        .from("service_requests")
+        .insert(baseRow)
+        .select("id")
+        .maybeSingle());
+    }
 
     if (requestError || !request) {
       return {
@@ -169,6 +208,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
         message: requestError?.message ?? "Could not save the request.",
       };
     }
+
 
     if (data.documents.length) {
       const { error: docError } = await supabase.from("uploaded_documents").insert(
