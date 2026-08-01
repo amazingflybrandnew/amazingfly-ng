@@ -14,6 +14,12 @@ const dateish = z
   .regex(/^\d{4}-\d{2}-\d{2}$/)
   .nullable();
 
+const answerSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  question: z.string().trim().min(1).max(200),
+  answer: z.string().trim().max(4000),
+});
+
 /** Customer-supplied fields only. Workflow columns (request_status,
  * payment_status, agreed_fee, staff_notes) are never accepted from the site. */
 const submissionSchema = z
@@ -21,13 +27,15 @@ const submissionSchema = z
     request_reference: z.string().regex(/^AF-\d{8}-[A-Z0-9]{6}$/),
     service_type: z.string().trim().min(1).max(60),
     service_slug: z.string().trim().min(1).max(80),
-    origin_country: z.string().trim().min(1).max(120),
-    destination_country: z.string().trim().min(1).max(120),
+    service_category: z.string().trim().min(1).max(60),
+    origin_country: z.string().trim().max(120),
+    destination_country: z.string().trim().max(120),
     travel_purpose: z.string().trim().max(120).nullable(),
     travel_date: dateish,
     return_date: dateish,
     traveller_count: z.number().int().min(1).max(30),
     request_details: z.string().trim().max(4000),
+    answers: z.array(answerSchema).max(60),
     full_name: z.string().trim().min(1).max(160),
     email: z.string().trim().email().max(200),
     phone: z.string().trim().min(1).max(40),
