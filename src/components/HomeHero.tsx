@@ -229,14 +229,18 @@ export function HomeHero() {
             <button
               type="button"
               onClick={handleStart}
-              disabled={!isComplete}
               aria-disabled={!isComplete}
-              className="btn-gradient inline-flex h-[46px] items-center justify-center gap-2 rounded-2xl px-7 text-sm font-bold text-white shadow-card hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0"
+              className={`btn-gradient inline-flex h-[46px] items-center justify-center gap-2 rounded-2xl px-7 text-sm font-bold text-white shadow-card ${
+                isComplete
+                  ? "hover:-translate-y-0.5"
+                  : "cursor-not-allowed opacity-45 saturate-50"
+              }`}
             >
               Get Started
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
+
 
           {!isComplete && !validationMessage ? (
             <p className="mt-3 text-center text-xs font-medium text-muted-foreground md:text-left">
