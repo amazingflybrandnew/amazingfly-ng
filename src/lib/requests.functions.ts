@@ -10,6 +10,10 @@ export type ServiceOption = {
   display_order: number;
 };
 
+// Customer-supplied fields only. `.strict()` rejects any extra key, so
+// workflow columns (request_status, payment_status, agreed_fee, staff_notes)
+// can never be written from the website — they stay under staff control and
+// keep their database defaults.
 const requestInput = z.object({
   request_reference: z.string().regex(/^AF-\d{8}-[A-Z0-9]{6}$/),
   service_id: z.string().uuid(),
