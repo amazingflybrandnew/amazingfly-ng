@@ -480,9 +480,12 @@ export function RequestWizard({
                     />
                   </Field>
                 </div>
-                <Field label="Preferred contact method" required>
+                <div>
+                  <span className="text-sm font-semibold text-navy">
+                    Preferred contact method<span className="ml-1 text-coral">*</span>
+                  </span>
                   <RadioGroup
-                    className="flex flex-wrap gap-4"
+                    className="mt-2 flex flex-wrap gap-4"
                     value={form.preferredContact}
                     onValueChange={(value) => update("preferredContact", value)}
                   >
@@ -493,7 +496,8 @@ export function RequestWizard({
                       </label>
                     ))}
                   </RadioGroup>
-                </Field>
+                </div>
+
               </>
             ) : null}
 
