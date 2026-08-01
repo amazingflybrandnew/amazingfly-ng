@@ -106,9 +106,14 @@ function Home() {
       <section className="container-page section-y">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {trustPoints.map((point) => (
-            <div key={point.title} className="rounded-2xl border border-border bg-card p-7 shadow-card">
-              <point.icon className="h-6 w-6 text-orange" aria-hidden="true" />
-              <h2 className="mt-4 text-base font-bold">{point.title}</h2>
+            <div
+              key={point.title}
+              className="hover-lift rounded-3xl border border-border/70 bg-card p-7 shadow-card"
+            >
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-sky-tint to-lavender-tint">
+                <point.icon className="h-5 w-5 text-orange" aria-hidden="true" />
+              </span>
+              <h2 className="mt-5 text-base font-bold">{point.title}</h2>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{point.description}</p>
             </div>
           ))}
@@ -116,7 +121,7 @@ function Home() {
       </section>
 
       {/* Services */}
-      <section className="bg-navy-tint">
+      <section className="surface-soft">
         <div className="container-page section-y">
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Our services</p>
@@ -130,9 +135,9 @@ function Home() {
               return (
                 <article
                   key={service.slug}
-                  className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-card"
+                  className="hover-lift flex flex-col rounded-3xl border border-white/70 bg-white/80 p-7 shadow-card backdrop-blur-sm"
                 >
-                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-orange-tint">
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-peach-tint to-coral-tint">
                     <Icon className="h-6 w-6 text-orange" aria-hidden="true" />
                   </span>
                   <h3 className="mt-5 text-lg font-bold">{service.name}</h3>
@@ -140,7 +145,7 @@ function Home() {
                     {service.shortDescription}
                   </p>
                   <div className="mt-6 flex flex-wrap gap-2">
-                    <Button asChild size="sm" variant="secondary">
+                    <Button asChild size="sm" variant="ghost" className="text-navy hover:text-orange">
                       <Link to="/services/$slug" params={{ slug: service.slug }}>
                         Learn More
                       </Link>
@@ -159,6 +164,7 @@ function Home() {
           </div>
         </div>
       </section>
+
 
       {/* How it works */}
       <section className="container-page section-y">
