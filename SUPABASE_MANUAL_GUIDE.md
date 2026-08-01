@@ -77,27 +77,17 @@ status always comes from the database default — placeholder or test text such
 as "Connection Check" can only get there by being typed in by hand in the
 Table Editor.
 
-Right now the `service_requests` table in your project has **no
-`request_status` column**. To add it with a default and a rule that blocks
-invalid text, open **SQL Editor** in Supabase and run:
+The valid statuses are set by **Stage 3** (see Section E — run
+`supabase/manual/stage3.sql`):
 
-```sql
-alter table public.service_requests
-  add column if not exists request_status text not null default 'received';
+`new_request`, `under_review`, `documents_required`, `processing`,
+`approved`, `completed`, `cancelled`
 
-alter table public.service_requests
-  drop constraint if exists service_requests_request_status_check;
+Do **not** run the older Stage-2 status SQL (`received`, `contacted`, …). Your
+rows already use the Stage-3 values, so that constraint fails with
+`23514 ... is violated by some row`. Stage 3's script is the only one to run,
+and it is safe to re-run.
 
-alter table public.service_requests
-  add constraint service_requests_request_status_check
-  check (request_status in (
-    'received', 'contacted', 'awaiting_information',
-    'quotation_sent', 'processing', 'completed', 'cancelled'
-  ));
-```
-
-After that, any attempt to save free text like `Connection Check` into
-`request_status` is rejected by the database.
 
 ---
 
