@@ -123,8 +123,12 @@ export function SiteHeader() {
             EN
           </button>
           <Button asChild size="lg" variant="secondary">
-            <Link to="/request">Log in</Link>
+            <Link to="/auth">Log in</Link>
           </Button>
+          <Button asChild size="lg">
+            <Link to="/dashboard">My Account</Link>
+          </Button>
+
         </div>
 
         <button
@@ -193,6 +197,21 @@ export function SiteHeader() {
             >
               Contact
             </Link>
+            <Link
+              to="/dashboard"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm font-semibold text-navy hover:bg-navy-tint"
+            >
+              My Account
+            </Link>
+            <Link
+              to="/auth"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm font-semibold text-navy hover:bg-navy-tint"
+            >
+              Log in
+            </Link>
+
 
             <Button asChild size="lg" className="mt-3">
               <Link to="/request" onClick={() => setMobileOpen(false)}>
