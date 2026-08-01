@@ -12,14 +12,19 @@ export function PageHero({
   children?: ReactNode;
 }) {
   return (
-    <section className="border-b border-border bg-navy-tint">
-      <div className="container-page py-16 md:py-20">
+    <section className="relative isolate overflow-hidden border-b border-white/60 hero-aurora">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="hero-glow hero-glow-a" />
+        <div className="hero-glow hero-glow-b" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-background" />
+      </div>
+      <div className="container-page relative py-16 md:py-20">
         {eyebrow ? (
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">{eyebrow}</p>
         ) : null}
         <h1 className="mt-4 max-w-3xl text-3xl font-extrabold leading-tight md:text-5xl">{title}</h1>
         {description ? (
-          <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-navy/70 md:text-lg">
             {description}
           </p>
         ) : null}
@@ -28,6 +33,7 @@ export function PageHero({
     </section>
   );
 }
+
 
 export function Prose({ children }: { children: ReactNode }) {
   return (
