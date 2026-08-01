@@ -99,7 +99,7 @@ export const Route = createFileRoute("/request")({
 });
 
 function RequestPage() {
-  const { service: serviceSlug } = Route.useSearch();
+  const { service: serviceSlug, from: originCountry, to: destinationParam } = Route.useSearch();
 
   const fetchServices = useServerFn(getActiveServices);
   const sendRequest = useServerFn(submitServiceRequest);
@@ -118,7 +118,19 @@ function RequestPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [reference, setReference] = useState<string | null>(null);
 
-  // Preselect the service coming from a service page link.
+  // Prefill destination and travel context coming from the homepage search.
+  useEffect(() => {
+    setForm((prev) => {
+      const next = { ...prev };
+      if (destinationParam && !prev.destination) next.destination = destinationParam;
+      if (!prev.details && (originCountry || destinationParam)) {
+        next.details = `Travelling from ${originCountry ?? "—"} to ${destinationParam ?? "—"}. `;
+      }
+      return next;
+    });
+  }, [originCountry, destinationParam]);
+
+  // Preselect the service coming from a service page link or the hero search.
   useEffect(() => {
     if (!options.length) return;
     setForm((prev) => {
@@ -127,6 +139,7 @@ function RequestPage() {
       return match ? { ...prev, serviceId: match.id } : prev;
     });
   }, [options, serviceSlug]);
+
 
   const selected = options.find((o) => o.id === form.serviceId);
   const travelFieldsProminent = selected ? TRAVEL_SLUGS.includes(selected.slug) : false;
