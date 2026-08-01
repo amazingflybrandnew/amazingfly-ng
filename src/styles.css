@@ -124,3 +124,83 @@
     padding-block: 6rem;
   }
 }
+
+/* --- Premium blended hero atmosphere --- */
+
+@utility hero-aurora {
+  background:
+    radial-gradient(120% 90% at 12% 8%, oklch(0.93 0.06 250 / 0.95), transparent 60%),
+    radial-gradient(100% 80% at 85% 5%, oklch(0.9 0.08 320 / 0.9), transparent 62%),
+    radial-gradient(110% 90% at 95% 60%, oklch(0.93 0.07 45 / 0.95), transparent 60%),
+    radial-gradient(120% 100% at 20% 90%, oklch(0.94 0.06 200 / 0.9), transparent 65%),
+    linear-gradient(160deg, oklch(0.97 0.03 230), oklch(0.97 0.035 320) 45%, oklch(0.98 0.04 60));
+}
+
+@utility hero-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.6;
+}
+
+@utility hero-glow-a {
+  inset-block-start: -8rem;
+  inset-inline-start: -6rem;
+  width: 32rem;
+  height: 32rem;
+  background: oklch(0.86 0.11 300 / 0.55);
+}
+
+@utility hero-glow-b {
+  inset-block-start: 20%;
+  inset-inline-end: -8rem;
+  width: 34rem;
+  height: 34rem;
+  background: oklch(0.88 0.12 55 / 0.55);
+}
+
+@utility hero-glow-c {
+  inset-block-end: -10rem;
+  inset-inline-start: 30%;
+  width: 30rem;
+  height: 30rem;
+  background: oklch(0.9 0.09 205 / 0.55);
+}
+
+@utility text-gradient-brand {
+  background: linear-gradient(
+    100deg,
+    oklch(0.55 0.19 295),
+    oklch(0.62 0.2 340) 45%,
+    oklch(0.7 0.18 45)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility btn-gradient {
+  background: linear-gradient(
+    100deg,
+    oklch(0.55 0.19 295),
+    oklch(0.63 0.2 350) 50%,
+    oklch(0.7 0.185 46)
+  );
+}
+
+@utility hero-rotate {
+  animation: hero-rotate-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-rotate-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6em);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
