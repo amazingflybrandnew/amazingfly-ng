@@ -238,14 +238,10 @@ export function HomeHero() {
             </button>
           </div>
 
-          {!isComplete ? (
-            <button
-              type="button"
-              onClick={() => setValidationMessage(missingMessage())}
-              className="mt-3 block w-full cursor-default text-left text-xs font-medium text-muted-foreground md:hidden"
-            >
+          {!isComplete && !validationMessage ? (
+            <p className="mt-3 text-center text-xs font-medium text-muted-foreground md:text-left">
               Select all three options to continue.
-            </button>
+            </p>
           ) : null}
 
           {validationMessage ? (
