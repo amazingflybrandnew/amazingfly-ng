@@ -29,3 +29,29 @@ export function createExternalSupabase(): SupabaseClient {
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
   });
 }
+
+// Server-only admin client (service role) - bypasses RLS. Never expose to the browser.
+export function createExternalSupabaseAdmin(): SupabaseClient {
+  const url = process.env["EXTERNAL_SUPABASE_URL"];
+  const key = process.env["EXTERNAL_SUPABASE_SERVICE_ROLE_KEY"];
+
+  if (!url || !key) {
+    throw new Error("Missing EXTERNAL_SUPABASE_URL or EXTERNAL_SUPABASE_SERVICE_ROLE_KEY.");
+  }
+
+  return createClient(url, key, {
+    global: {
+      fetch: (input, init) => {
+        const headers = new Headers(init?.headers);
+        if (isOpaqueKey(key)) {
+          if (headers.get("Authorization") === `Bearer ${key}`) headers.delete("Authorization");
+        } else {
+          headers.set("Authorization", `Bearer ${key}`);
+        }
+        headers.set("apikey", key);
+        return fetch(input, { ...init, headers });
+      },
+    },
+    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+  });
+}
