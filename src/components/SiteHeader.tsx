@@ -197,6 +197,21 @@ export function SiteHeader() {
             >
               Contact
             </Link>
+            <Link
+              to="/dashboard"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm font-semibold text-navy hover:bg-navy-tint"
+            >
+              My Account
+            </Link>
+            <Link
+              to="/auth"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm font-semibold text-navy hover:bg-navy-tint"
+            >
+              Log in
+            </Link>
+
 
             <Button asChild size="lg" className="mt-3">
               <Link to="/request" onClick={() => setMobileOpen(false)}>
