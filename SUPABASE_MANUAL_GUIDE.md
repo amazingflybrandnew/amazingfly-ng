@@ -111,3 +111,39 @@ After that, any attempt to save free text like `Connection Check` into
   request page shows a "contact support" message instead of the form.
 - Never share passwords, API keys or private credentials — they are not needed
   for any step in this guide.
+
+---
+
+## Section E — Stage 3: Travel Request System
+
+Stage 3 adds the multi-step request journey, secure document upload, customer
+records and request tracking. Lovable cannot run DDL against the external
+project (`etfvjtyrsmcsawsdxqgq`), so **run `supabase/manual/stage3.sql` once in
+the Supabase SQL Editor**. It is idempotent and safe to re-run.
+
+What it does:
+
+1. Creates `public.customers` (one row per customer email).
+2. Adds travel/passport/workflow columns to `public.service_requests`
+   (`customer_id`, `service_type`, `origin_country`, `destination_country`,
+   `travel_purpose`, `return_date`, `traveller_count`, passport fields,
+   `assigned_staff`).
+3. Normalises `request_status` to the workflow values
+   `new_request`, `under_review`, `documents_required`, `processing`,
+   `approved`, `completed`, `cancelled` (default `new_request`, enforced by a
+   check constraint so free text such as "Connection Check" is rejected).
+4. Creates `public.uploaded_documents` linked to `service_requests`.
+
+Storage: the private bucket **`request-documents`** already exists. The browser
+never holds Supabase credentials — the server issues a short-lived signed
+upload URL per file, so no `storage.objects` policies for `anon` are required.
+
+Security model: `customers` and `uploaded_documents` have RLS enabled with **no
+anon policies**. Only the server (service role) reads/writes them. The website
+still cannot set `request_status`, `payment_status`, `agreed_fee` or
+`staff_notes` — those stay staff-controlled for the admin dashboard stage.
+
+Email notifications: message composition lives in `src/lib/notifications.server.ts`
+(customer receipt, admin alert, status update). Delivery is logged until an
+Amazingfly.ng sender domain is verified; wiring the sender is a one-line change
+in `deliver()`.
