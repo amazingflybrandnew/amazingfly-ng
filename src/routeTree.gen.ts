@@ -18,6 +18,7 @@ import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
 import { Route as RequestRouteImport } from './routes/request'
 import { Route as StartRequestRouteImport } from './routes/start-request'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as TrackRouteImport } from './routes/track'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
 
@@ -66,6 +67,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrackRoute = TrackRouteImport.update({
+  id: '/track',
+  path: '/track',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ServicesIndexRoute = ServicesIndexRouteImport.update({
   id: '/services/',
   path: '/services/',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/request': typeof RequestRoute
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
+  '/track': typeof TrackRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/services/': typeof ServicesIndexRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/request': typeof RequestRoute
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
+  '/track': typeof TrackRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/services': typeof ServicesIndexRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/request': typeof RequestRoute
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
+  '/track': typeof TrackRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/services/': typeof ServicesIndexRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/start-request'
     | '/terms'
+    | '/track'
     | '/services/$slug'
     | '/services/'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/start-request'
     | '/terms'
+    | '/track'
     | '/services/$slug'
     | '/services'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/start-request'
     | '/terms'
+    | '/track'
     | '/services/$slug'
     | '/services/'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   RequestRoute: typeof RequestRoute
   StartRequestRoute: typeof StartRequestRoute
   TermsRoute: typeof TermsRoute
+  TrackRoute: typeof TrackRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
   ServicesIndexRoute: typeof ServicesIndexRoute
 }
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/track': {
+      id: '/track'
+      path: '/track'
+      fullPath: '/track'
+      preLoaderRoute: typeof TrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/services/': {
       id: '/services/'
       path: '/services'
@@ -265,6 +285,7 @@ const rootRouteChildren: RootRouteChildren = {
   RequestRoute: RequestRoute,
   StartRequestRoute: StartRequestRoute,
   TermsRoute: TermsRoute,
+  TrackRoute: TrackRoute,
   ServicesSlugRoute: ServicesSlugRoute,
   ServicesIndexRoute: ServicesIndexRoute,
 }

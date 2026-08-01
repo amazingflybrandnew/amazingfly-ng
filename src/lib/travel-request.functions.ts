@@ -1,0 +1,240 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
+const documentSchema = z.object({
+  document_type: z.string().trim().min(1).max(60),
+  file_url: z.string().trim().min(1).max(500),
+  file_name: z.string().trim().min(1).max(260),
+  file_size: z.number().int().nonnegative().max(20 * 1024 * 1024),
+});
+
+const dateish = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .nullable();
+
+/** Customer-supplied fields only. Workflow columns (request_status,
+ * payment_status, agreed_fee, staff_notes) are never accepted from the site. */
+const submissionSchema = z
+  .object({
+    request_reference: z.string().regex(/^AF-\d{8}-[A-Z0-9]{6}$/),
+    service_type: z.string().trim().min(1).max(60),
+    service_slug: z.string().trim().min(1).max(80),
+    origin_country: z.string().trim().min(1).max(120),
+    destination_country: z.string().trim().min(1).max(120),
+    travel_purpose: z.string().trim().max(120).nullable(),
+    travel_date: dateish,
+    return_date: dateish,
+    traveller_count: z.number().int().min(1).max(30),
+    request_details: z.string().trim().max(4000),
+    full_name: z.string().trim().min(1).max(160),
+    email: z.string().trim().email().max(200),
+    phone: z.string().trim().min(1).max(40),
+    whatsapp: z.string().trim().max(40).nullable(),
+    country_of_residence: z.string().trim().max(120).nullable(),
+    nationality: z.string().trim().max(120).nullable(),
+    preferred_contact: z.enum(["whatsapp", "phone", "email"]),
+    passport_number: z.string().trim().max(40).nullable(),
+    passport_country: z.string().trim().max(120).nullable(),
+    date_of_birth: dateish,
+    passport_issue_date: dateish,
+    passport_expiry_date: dateish,
+    documents: z.array(documentSchema).max(20),
+    consent_to_contact: z.literal(true),
+  })
+  .strict();
+
+export type TravelRequestSubmission = z.infer<typeof submissionSchema>;
+
+export type SubmitResult =
+  | { ok: true; reference: string }
+  | { ok: false; code?: string; message: string };
+
+const uploadInput = z.object({
+  request_reference: z.string().regex(/^AF-\d{8}-[A-Z0-9]{6}$/),
+  document_type: z.string().trim().min(1).max(60),
+  file_name: z.string().trim().min(1).max(260),
+  file_size: z.number().int().positive().max(10 * 1024 * 1024),
+});
+
+const BUCKET = "request-documents";
+
+function safeName(name: string) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
+}
+
+/** Returns a short-lived signed upload URL so the browser can upload directly
+ * into the private documents bucket without any credentials. */
+export const createDocumentUploadUrl = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => uploadInput.parse(data))
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      { ok: true; path: string; uploadUrl: string } | { ok: false; message: string }
+    > => {
+      const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
+      const supabase = createExternalSupabaseAdmin();
+      const path = `${data.request_reference}/${data.document_type}/${Date.now()}-${safeName(
+        data.file_name,
+      )}`;
+      const { data: signed, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUploadUrl(path);
+      if (error || !signed) {
+        return { ok: false, message: error?.message ?? "Could not prepare the upload." };
+      }
+      const base = process.env["EXTERNAL_SUPABASE_URL"]!;
+      const uploadUrl = signed.signedUrl.startsWith("http")
+        ? signed.signedUrl
+        : `${base}/storage/v1${signed.signedUrl}`;
+      return { ok: true, path, uploadUrl };
+    },
+  );
+
+export const submitTravelRequest = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => submissionSchema.parse(data))
+  .handler(async ({ data }): Promise<SubmitResult> => {
+    const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
+    const supabase = createExternalSupabaseAdmin();
+
+    const { data: service, error: serviceError } = await supabase
+      .from("services")
+      .select("id")
+      .eq("slug", data.service_slug)
+      .maybeSingle();
+    if (serviceError || !service) {
+      return { ok: false, message: "That service is not available right now." };
+    }
+
+    // Customer record (one per email, refreshed with the latest details).
+    const { data: customer, error: customerError } = await supabase
+      .from("customers")
+      .upsert(
+        {
+          full_name: data.full_name,
+          email: data.email.toLowerCase(),
+          phone: data.phone,
+          whatsapp: data.whatsapp,
+          nationality: data.nationality,
+          country_of_residence: data.country_of_residence,
+        },
+        { onConflict: "email" },
+      )
+      .select("id")
+      .maybeSingle();
+    if (customerError) {
+      return {
+        ok: false,
+        ...(customerError.code ? { code: customerError.code } : {}),
+        message: customerError.message,
+      };
+    }
+
+    const { data: request, error: requestError } = await supabase
+      .from("service_requests")
+      .insert({
+        request_reference: data.request_reference,
+        service_id: service.id,
+        customer_id: customer?.id ?? null,
+        service_type: data.service_type,
+        origin_country: data.origin_country,
+        destination_country: data.destination_country,
+        destination: data.destination_country,
+        travel_purpose: data.travel_purpose,
+        travel_date: data.travel_date,
+        return_date: data.return_date,
+        traveller_count: data.traveller_count,
+        full_name: data.full_name,
+        email: data.email,
+        phone: data.phone,
+        whatsapp: data.whatsapp,
+        passport_number: data.passport_number,
+        passport_country: data.passport_country,
+        date_of_birth: data.date_of_birth,
+        passport_issue_date: data.passport_issue_date,
+        passport_expiry_date: data.passport_expiry_date,
+        request_details: data.request_details || "Submitted through the multi-step request form.",
+        preferred_contact: data.preferred_contact,
+        consent_to_contact: true,
+      })
+      .select("id")
+      .maybeSingle();
+
+    if (requestError || !request) {
+      return {
+        ok: false,
+        ...(requestError?.code ? { code: requestError.code } : {}),
+        message: requestError?.message ?? "Could not save the request.",
+      };
+    }
+
+    if (data.documents.length) {
+      const { error: docError } = await supabase.from("uploaded_documents").insert(
+        data.documents.map((doc) => ({
+          request_id: request.id,
+          document_type: doc.document_type,
+          file_url: doc.file_url,
+          file_name: doc.file_name,
+          file_size: doc.file_size,
+        })),
+      );
+      if (docError) console.error("[uploaded_documents]", docError.message);
+    }
+
+    const { notifyRequestReceived } = await import("./notifications.server");
+    await notifyRequestReceived({
+      reference: data.request_reference,
+      fullName: data.full_name,
+      email: data.email,
+      serviceLabel: data.service_type,
+      originCountry: data.origin_country,
+      destinationCountry: data.destination_country,
+      travelDate: data.travel_date,
+      documentCount: data.documents.length,
+    });
+
+    return { ok: true, reference: data.request_reference };
+  });
+
+const trackInput = z.object({
+  reference: z.string().trim().min(6).max(30),
+  email: z.string().trim().email().max(200),
+});
+
+export type TrackResult =
+  | {
+      found: true;
+      reference: string;
+      status: string;
+      service_type: string | null;
+      destination: string | null;
+      created_at: string;
+    }
+  | { found: false };
+
+/** Reference + email lookup. Returns status only - never personal data. */
+export const trackTravelRequest = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => trackInput.parse(data))
+  .handler(async ({ data }): Promise<TrackResult> => {
+    const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
+    const supabase = createExternalSupabaseAdmin();
+    const { data: row, error } = await supabase
+      .from("service_requests")
+      .select("request_reference, request_status, service_type, destination_country, destination, created_at, email")
+      .eq("request_reference", data.reference.trim().toUpperCase())
+      .maybeSingle();
+
+    if (error || !row) return { found: false };
+    if (String(row["email"]).toLowerCase() !== data.email.toLowerCase()) return { found: false };
+
+    return {
+      found: true,
+      reference: row["request_reference"],
+      status: row["request_status"] ?? "new_request",
+      service_type: row["service_type"] ?? null,
+      destination: row["destination_country"] ?? row["destination"] ?? null,
+      created_at: row["created_at"],
+    };
+  });
