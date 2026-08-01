@@ -68,6 +68,38 @@ Everything below happens in the **Table Editor** of your Lovable Cloud backend
 
 ---
 
+## D. Keeping `request_status` clean
+
+The website never writes `request_status` (or `payment_status`, `agreed_fee`,
+`staff_notes`). New requests only carry the customer's own details, so the
+status always comes from the database default — placeholder or test text such
+as "Connection Check" can only get there by being typed in by hand in the
+Table Editor.
+
+Right now the `service_requests` table in your project has **no
+`request_status` column**. To add it with a default and a rule that blocks
+invalid text, open **SQL Editor** in Supabase and run:
+
+```sql
+alter table public.service_requests
+  add column if not exists request_status text not null default 'received';
+
+alter table public.service_requests
+  drop constraint if exists service_requests_request_status_check;
+
+alter table public.service_requests
+  add constraint service_requests_request_status_check
+  check (request_status in (
+    'received', 'contacted', 'awaiting_information',
+    'quotation_sent', 'processing', 'completed', 'cancelled'
+  ));
+```
+
+After that, any attempt to save free text like `Connection Check` into
+`request_status` is rejected by the database.
+
+---
+
 ## Notes
 
 - Only one settings record is allowed (`id = 1`).
