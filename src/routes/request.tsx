@@ -10,23 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 import { generateRequestReference } from "@/lib/request-reference";
-
-// The generated Database types do not yet include the Stage 2 tables, so this
-// route talks to them through an untyped view of the same client.
-const db = supabase as unknown as {
-  from: (table: string) => any;
-};
-
-type ServiceOption = {
-  id: string;
-  name: string;
-  slug: string;
-  cta_label: string;
-  price_label: string | null;
-  display_order: number;
-};
+import {
+  getActiveServices,
+  submitServiceRequest,
+  type ServiceOption,
+} from "@/lib/requests.functions";
 
 const TRAVEL_SLUGS = ["visa-assistance", "flights", "hotels", "travel-insurance"];
 
@@ -104,17 +94,12 @@ export const Route = createFileRoute("/request")({
 function RequestPage() {
   const { service: serviceSlug } = Route.useSearch();
 
+  const fetchServices = useServerFn(getActiveServices);
+  const sendRequest = useServerFn(submitServiceRequest);
+
   const servicesQuery = useQuery({
     queryKey: ["active-services"],
-    queryFn: async (): Promise<ServiceOption[]> => {
-      const { data, error } = await db
-        .from("services")
-        .select("id, name, slug, cta_label, price_label, display_order")
-        .eq("active", true)
-        .order("display_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ServiceOption[];
-    },
+    queryFn: () => fetchServices(),
     retry: 1,
   });
 
@@ -157,20 +142,22 @@ function RequestPage() {
   }
 
   async function insertRequest(requestReference: string) {
-    return db.from("service_requests").insert({
-      request_reference: requestReference,
-      service_id: form.serviceId,
-      full_name: form.fullName.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      whatsapp: form.whatsappSameAsPhone
+    return sendRequest({
+      data: {
+        request_reference: requestReference,
+        service_id: form.serviceId,
+        full_name: form.fullName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        whatsapp: form.whatsappSameAsPhone
         ? form.phone.trim()
         : form.whatsapp.trim() || null,
-      destination: form.destination.trim() || null,
-      travel_date: form.travelDate || null,
-      request_details: form.details.trim(),
-      preferred_contact: form.preferredContact,
-      consent_to_contact: form.consent,
+        destination: form.destination.trim() || null,
+        travel_date: form.travelDate || null,
+        request_details: form.details.trim(),
+        preferred_contact: form.preferredContact as "whatsapp" | "phone" | "email",
+        consent_to_contact: true as const,
+      },
     });
   }
 
@@ -183,15 +170,15 @@ function RequestPage() {
     setSubmitting(true);
     try {
       let requestReference = generateRequestReference();
-      let { error } = await insertRequest(requestReference);
+      let result = await insertRequest(requestReference);
 
       // Retry once if the generated reference already exists.
-      if (error && error.code === "23505") {
+      if (!result.ok && result.code === "23505") {
         requestReference = generateRequestReference();
-        ({ error } = await insertRequest(requestReference));
+        result = await insertRequest(requestReference);
       }
 
-      if (error) {
+      if (!result.ok) {
         setSubmitError(
           "We could not submit your request at the moment. Please try again, or contact Amazingfly Travels directly.",
         );
