@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DisclaimerRouteImport } from './routes/disclaimer'
+import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as MyRequestsRouteImport } from './routes/my-requests'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
@@ -54,6 +55,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const DisclaimerRoute = DisclaimerRouteImport.update({
   id: '/disclaimer',
   path: '/disclaimer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyRequestsRoute = MyRequestsRouteImport.update({
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/documents': typeof DocumentsRoute
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/documents': typeof DocumentsRoute
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/documents': typeof DocumentsRoute
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/refund-policy': typeof RefundPolicyRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/disclaimer'
+    | '/documents'
     | '/my-requests'
     | '/privacy-policy'
     | '/refund-policy'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/disclaimer'
+    | '/documents'
     | '/my-requests'
     | '/privacy-policy'
     | '/refund-policy'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/dashboard'
     | '/disclaimer'
+    | '/documents'
     | '/my-requests'
     | '/privacy-policy'
     | '/refund-policy'
@@ -226,6 +238,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRoute
   DisclaimerRoute: typeof DisclaimerRoute
+  DocumentsRoute: typeof DocumentsRoute
   MyRequestsRoute: typeof MyRequestsRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   RefundPolicyRoute: typeof RefundPolicyRoute
@@ -280,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/disclaimer'
       fullPath: '/disclaimer'
       preLoaderRoute: typeof DisclaimerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-requests': {
@@ -362,6 +382,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   DashboardRoute: DashboardRoute,
   DisclaimerRoute: DisclaimerRoute,
+  DocumentsRoute: DocumentsRoute,
   MyRequestsRoute: MyRequestsRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   RefundPolicyRoute: RefundPolicyRoute,
