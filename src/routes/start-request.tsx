@@ -15,7 +15,11 @@ export const Route = createFileRoute("/start-request")({
   beforeLoad: ({ search }) => {
     throw redirect({
       to: "/request",
-      search: search.service ? { service: search.service } : {},
+      search: {
+        ...(search.service ? { service: search.service } : {}),
+        ...(search.from ? { from: search.from } : {}),
+        ...(search.to ? { to: search.to } : {}),
+      },
     });
   },
 });

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Briefcase, Headphones, MapPin, ShieldCheck, Star, Zap } from "lucide-react";
+import { AlertCircle, ArrowRight, Briefcase, Headphones, MapPin, ShieldCheck, Star, Zap } from "lucide-react";
 
 import travellerImage from "@/assets/hero-traveller-cutout.png";
 
 const ROTATING_HEADLINES = [
-  { lead: "Your fastest way to", highlight: "get your travel visa" },
-  { lead: "Your easiest way to", highlight: "start your journey" },
-  { lead: "Expert support for", highlight: "your global adventures" },
-  { lead: "Travel documents", highlight: "made simple" },
+  "get your travel visa",
+  "book your next flight",
+  "plan your perfect trip",
+  "secure your travel documents",
 ];
 
 const ORIGINS = [
@@ -23,13 +23,13 @@ const ORIGINS = [
 ];
 
 const DESTINATIONS = [
-  { label: "United Kingdom", value: "United Kingdom" },
-  { label: "USA", value: "USA" },
-  { label: "Canada", value: "Canada" },
-  { label: "Schengen Countries", value: "Schengen Countries" },
-  { label: "Dubai", value: "Dubai" },
-  { label: "Australia", value: "Australia" },
-  { label: "Other destinations", value: "Other destinations" },
+  "United Kingdom",
+  "USA",
+  "Canada",
+  "Schengen Countries",
+  "Dubai",
+  "Australia",
+  "Other destinations",
 ];
 
 const NEEDS = [
@@ -47,7 +47,7 @@ const FEATURES = [
 ];
 
 const selectClass =
-  "w-full appearance-none rounded-2xl border border-white/70 bg-white/80 px-4 py-3 pr-9 text-sm font-semibold text-navy shadow-[0_1px_2px_rgba(20,30,80,0.05)] outline-none transition focus:border-orange/60 focus:ring-2 focus:ring-orange/30";
+  "w-full appearance-none rounded-2xl border border-white/70 bg-white/85 px-4 py-3 pr-10 text-sm font-semibold text-navy shadow-[0_1px_2px_rgba(60,60,110,0.05)] outline-none transition duration-300 hover:border-sky/50 focus:border-sky/70 focus:ring-4 focus:ring-sky/20";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -60,9 +60,10 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 export function HomeHero() {
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
-  const [origin, setOrigin] = useState("Nigeria");
+  const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [need, setNeed] = useState("");
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -71,16 +72,31 @@ export function HomeHero() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const headline = useMemo(() => ROTATING_HEADLINES[index]!, [index]);
+  const highlight = useMemo(() => ROTATING_HEADLINES[index]!, [index]);
+  const isComplete = Boolean(origin && destination && need);
+
+  useEffect(() => {
+    if (isComplete) setValidationMessage(null);
+  }, [isComplete]);
+
+  const missingMessage = () => {
+    if (!origin) return "Please select the country you are travelling from before continuing.";
+    if (!destination) return "Please select your destination before continuing.";
+    return "Please select the service you need before continuing.";
+  };
 
   const handleStart = () => {
+    if (!isComplete) {
+      setValidationMessage(missingMessage());
+      return;
+    }
     const selected = NEEDS.find((item) => item.label === need);
     navigate({
-      to: "/start-request",
+      to: "/request",
       search: {
         ...(selected ? { service: selected.slug } : {}),
-        ...(origin ? { from: origin } : {}),
-        ...(destination ? { to: destination } : {}),
+        from: origin,
+        to: destination,
       },
     });
   };
@@ -122,10 +138,13 @@ export function HomeHero() {
 
       <div className="container-page relative pb-20 pt-14 md:pb-28 md:pt-20">
         <div className="mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl">
-            <span className="block">{headline.lead}</span>
-            <span key={headline.highlight} className="hero-rotate mt-2 block text-gradient-brand">
-              {headline.highlight}
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-navy/70 backdrop-blur">
+            Amazingfly.ng · Travel made simple
+          </span>
+          <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl">
+            <span className="block">Your fastest way to</span>
+            <span key={highlight} className="hero-rotate mt-2 block text-gradient-brand">
+              {highlight}
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-navy/70 md:text-lg">
@@ -135,11 +154,11 @@ export function HomeHero() {
           </p>
         </div>
 
-        {/* Interactive search */}
-        <div className="mx-auto mt-10 max-w-5xl rounded-[28px] border border-white/60 bg-white/70 p-4 shadow-lift backdrop-blur-xl md:p-5">
+        {/* Interactive search — all three fields required */}
+        <div className="mx-auto mt-10 max-w-5xl rounded-[28px] glass-card p-4 md:p-5">
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
             <label className="block text-left">
-              <FieldLabel>I'm travelling from</FieldLabel>
+              <FieldLabel>I&apos;m travelling from</FieldLabel>
               <div className="relative">
                 <select
                   value={origin}
@@ -147,6 +166,7 @@ export function HomeHero() {
                   className={selectClass}
                   aria-label="I'm travelling from"
                 >
+                  <option value="">Select passport country</option>
                   {ORIGINS.map((country) => (
                     <option key={country} value={country}>
                       {country}
@@ -154,7 +174,7 @@ export function HomeHero() {
                   ))}
                 </select>
                 <MapPin
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange"
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky"
                   aria-hidden="true"
                 />
               </div>
@@ -171,13 +191,13 @@ export function HomeHero() {
                 >
                   <option value="">Select destination</option>
                   {DESTINATIONS.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
+                    <option key={item} value={item}>
+                      {item}
                     </option>
                   ))}
                 </select>
                 <MapPin
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange"
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lavender"
                   aria-hidden="true"
                 />
               </div>
@@ -209,12 +229,34 @@ export function HomeHero() {
             <button
               type="button"
               onClick={handleStart}
-              className="btn-gradient inline-flex h-[46px] items-center justify-center gap-2 rounded-2xl px-7 text-sm font-bold text-white shadow-card transition-transform hover:-translate-y-0.5"
+              aria-disabled={!isComplete}
+              className={`btn-gradient inline-flex h-[46px] items-center justify-center gap-2 rounded-2xl px-7 text-sm font-bold text-white shadow-card ${
+                isComplete
+                  ? "hover:-translate-y-0.5"
+                  : "cursor-not-allowed opacity-45 saturate-50"
+              }`}
             >
               Get Started
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
+
+
+          {!isComplete && !validationMessage ? (
+            <p className="mt-3 text-center text-xs font-medium text-muted-foreground md:text-left">
+              Select all three options to continue.
+            </p>
+          ) : null}
+
+          {validationMessage ? (
+            <p
+              role="status"
+              className="fade-slide-in mt-3 flex items-center gap-2 rounded-2xl border border-coral/30 bg-coral-tint px-4 py-2.5 text-sm font-medium text-navy"
+            >
+              <AlertCircle className="h-4 w-4 shrink-0 text-coral" aria-hidden="true" />
+              {validationMessage}
+            </p>
+          ) : null}
         </div>
 
         {/* Trust */}
@@ -225,7 +267,7 @@ export function HomeHero() {
                 <span
                   key={initial}
                   className={`grid h-8 w-8 place-items-center rounded-full border-2 border-white text-[11px] font-bold text-white ${
-                    position % 2 === 0 ? "bg-navy" : "bg-orange"
+                    position % 2 === 0 ? "bg-navy-soft" : "bg-orange"
                   }`}
                   aria-hidden="true"
                 >
@@ -254,15 +296,15 @@ export function HomeHero() {
               alt="Nigerian traveller holding a passport and boarding pass with luggage"
               width={1024}
               height={1280}
-              className="h-[300px] w-auto object-contain drop-shadow-[0_30px_45px_rgba(30,40,90,0.18)] md:h-[420px] md:-mt-10 md:mr-10"
+              className="h-[300px] w-auto object-contain drop-shadow-[0_30px_45px_rgba(80,80,140,0.16)] md:h-[420px] md:-mt-10 md:mr-10"
             />
           </div>
 
-          <div className="relative -mt-10 rounded-[28px] border border-white/60 bg-white/70 p-6 shadow-lift backdrop-blur-xl md:-mt-24 md:p-8">
+          <div className="relative -mt-10 rounded-[28px] glass-card p-6 md:-mt-24 md:p-8">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-navy/10">
               {FEATURES.map((feature) => (
                 <div key={feature.title} className="flex gap-3 lg:px-5 lg:first:pl-0 lg:last:pr-0">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-tint">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-tint to-peach-tint">
                     <feature.icon className="h-5 w-5 text-orange" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">

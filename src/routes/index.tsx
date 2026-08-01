@@ -106,9 +106,14 @@ function Home() {
       <section className="container-page section-y">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {trustPoints.map((point) => (
-            <div key={point.title} className="rounded-2xl border border-border bg-card p-7 shadow-card">
-              <point.icon className="h-6 w-6 text-orange" aria-hidden="true" />
-              <h2 className="mt-4 text-base font-bold">{point.title}</h2>
+            <div
+              key={point.title}
+              className="hover-lift rounded-3xl border border-border/70 bg-card p-7 shadow-card"
+            >
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-sky-tint to-lavender-tint">
+                <point.icon className="h-5 w-5 text-orange" aria-hidden="true" />
+              </span>
+              <h2 className="mt-5 text-base font-bold">{point.title}</h2>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{point.description}</p>
             </div>
           ))}
@@ -116,7 +121,7 @@ function Home() {
       </section>
 
       {/* Services */}
-      <section className="bg-navy-tint">
+      <section className="surface-soft">
         <div className="container-page section-y">
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Our services</p>
@@ -130,9 +135,9 @@ function Home() {
               return (
                 <article
                   key={service.slug}
-                  className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-card"
+                  className="hover-lift flex flex-col rounded-3xl border border-white/70 bg-white/80 p-7 shadow-card backdrop-blur-sm"
                 >
-                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-orange-tint">
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-peach-tint to-coral-tint">
                     <Icon className="h-6 w-6 text-orange" aria-hidden="true" />
                   </span>
                   <h3 className="mt-5 text-lg font-bold">{service.name}</h3>
@@ -140,7 +145,7 @@ function Home() {
                     {service.shortDescription}
                   </p>
                   <div className="mt-6 flex flex-wrap gap-2">
-                    <Button asChild size="sm" variant="secondary">
+                    <Button asChild size="sm" variant="ghost" className="text-navy hover:text-orange">
                       <Link to="/services/$slug" params={{ slug: service.slug }}>
                         Learn More
                       </Link>
@@ -160,6 +165,7 @@ function Home() {
         </div>
       </section>
 
+
       {/* How it works */}
       <section className="container-page section-y">
         <div className="max-w-2xl">
@@ -169,7 +175,7 @@ function Home() {
         <ol className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((step, index) => (
             <li key={step.title}>
-              <span className="grid h-11 w-11 place-items-center rounded-full bg-navy text-sm font-bold text-white">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-sky to-lavender text-sm font-bold text-white shadow-card">
                 {index + 1}
               </span>
               <h3 className="mt-5 text-base font-bold">{step.title}</h3>
@@ -187,24 +193,28 @@ function Home() {
       </section>
 
       {/* Why choose */}
-      <section className="bg-navy text-white">
+      <section className="surface-dusk text-white">
         <div className="container-page section-y">
           <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Why us</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-peach">Why us</p>
             <h2 className="mt-4 text-3xl font-extrabold text-white md:text-4xl">
               Why choose Amazingfly Travels
             </h2>
           </div>
           <ul className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
             {reasons.map((reason) => (
-              <li key={reason.text} className="flex gap-4">
-                <reason.icon className="mt-0.5 h-5 w-5 shrink-0 text-orange" aria-hidden="true" />
-                <span className="text-sm leading-relaxed text-white/80">{reason.text}</span>
+              <li
+                key={reason.text}
+                className="flex gap-4 rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur-sm transition-colors hover:bg-white/10"
+              >
+                <reason.icon className="mt-0.5 h-5 w-5 shrink-0 text-peach" aria-hidden="true" />
+                <span className="text-sm leading-relaxed text-white/85">{reason.text}</span>
               </li>
             ))}
           </ul>
         </div>
       </section>
+
 
       {/* Visa feature */}
       <section className="container-page section-y">
@@ -224,11 +234,11 @@ function Home() {
               </Button>
             </div>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-8 shadow-card">
+          <div className="rounded-3xl border border-white/70 bg-white/80 p-8 shadow-lift backdrop-blur-sm">
             <ul className="space-y-4">
               {visaHighlights.map((item) => (
                 <li key={item} className="flex gap-3 text-sm leading-relaxed text-muted-foreground">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-mint" aria-hidden="true" />
                   <span>{item}</span>
                 </li>
               ))}
@@ -244,7 +254,7 @@ function Home() {
       </section>
 
       {/* Other travel services */}
-      <section className="bg-navy-tint">
+      <section className="surface-mint">
         <div className="container-page section-y">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-extrabold md:text-4xl">Other travel services</h2>
@@ -264,7 +274,7 @@ function Home() {
             ].map((item) => (
               <li
                 key={item}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4 text-sm font-medium"
+                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
               >
                 <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
                 {item}
@@ -276,7 +286,7 @@ function Home() {
 
       {/* Final CTA */}
       <section className="container-page section-y">
-        <div className="rounded-3xl bg-navy px-8 py-14 text-center md:px-16 md:py-20">
+        <div className="surface-dusk rounded-[2rem] px-8 py-14 text-center md:px-16 md:py-20">
           <h2 className="text-3xl font-extrabold text-white md:text-4xl">
             Start Your Travel Request Today
           </h2>
@@ -284,11 +294,12 @@ function Home() {
             Choose the service you need and let the Amazingfly Travels team guide you through the next
             steps on Amazingfly.ng.
           </p>
-          <Button asChild size="lg" className="mt-9">
+          <Button asChild size="lg" className="btn-gradient mt-9 border-0 text-white hover:-translate-y-0.5">
             <Link to="/request">Start a Request</Link>
           </Button>
         </div>
       </section>
+
     </>
   );
 }
