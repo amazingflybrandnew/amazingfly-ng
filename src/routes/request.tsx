@@ -54,7 +54,11 @@ const EMPTY_FORM: FormState = {
   consent: false,
 };
 
-type RequestSearch = { service?: string | undefined };
+type RequestSearch = {
+  service?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+};
 
 type FormErrors = {
   serviceId?: string;
@@ -67,8 +71,11 @@ type FormErrors = {
 };
 
 export const Route = createFileRoute("/request")({
-  validateSearch: (search: Record<string, unknown>): RequestSearch =>
-    typeof search["service"] === "string" ? { service: search["service"] } : {},
+  validateSearch: (search: Record<string, unknown>): RequestSearch => ({
+    ...(typeof search["service"] === "string" ? { service: search["service"] } : {}),
+    ...(typeof search["from"] === "string" ? { from: search["from"] } : {}),
+    ...(typeof search["to"] === "string" ? { to: search["to"] } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Start a Request | Amazingfly.ng" },
