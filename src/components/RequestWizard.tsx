@@ -745,15 +745,18 @@ function Field({
 }) {
   return (
     <div>
-      <Label className="text-sm font-semibold text-navy">
-        {label}
-        {required ? <span className="ml-1 text-coral">*</span> : null}
-      </Label>
-      <div className="mt-2">{children}</div>
+      <label className="block">
+        <span className="text-sm font-semibold text-navy">
+          {label}
+          {required ? <span className="ml-1 text-coral">*</span> : null}
+        </span>
+        <div className="mt-2">{children}</div>
+      </label>
       {error ? <p className="mt-2 text-sm font-medium text-destructive">{error}</p> : null}
     </div>
   );
 }
+
 
 function UploadTile({
   documentType,
