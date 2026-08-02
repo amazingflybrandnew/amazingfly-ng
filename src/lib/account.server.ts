@@ -33,6 +33,10 @@ async function admin() {
 
 type RawRequest = Record<string, unknown>;
 
+function num(value: unknown): number | null {
+  return value === null || value === undefined ? null : Number(value);
+}
+
 function shape(row: RawRequest, documentCount: number): AccountRequest {
   const get = (key: string) => (row[key] === undefined ? null : (row[key] as string | null));
   return {
@@ -57,6 +61,21 @@ function shape(row: RawRequest, documentCount: number): AccountRequest {
         ? null
         : Number(row["agreed_fee"]),
     document_count: documentCount,
+    airline: get("airline"),
+    airline_logo_url: get("airline_logo_url"),
+    flight_number: get("flight_number"),
+    flight_origin: get("flight_origin"),
+    flight_destination: get("flight_destination"),
+    flight_departure_at: get("flight_departure_at"),
+    flight_arrival_at: get("flight_arrival_at"),
+    flight_duration: get("flight_duration"),
+    flight_stops: num(row["flight_stops"]),
+    cabin_class: get("cabin_class"),
+    passenger_count: num(row["passenger_count"]),
+    flight_price: num(row["flight_price"]),
+    flight_currency: get("flight_currency"),
+    flight_offer_id: get("flight_offer_id"),
+    booking_status: get("booking_status"),
   };
 }
 
@@ -68,7 +87,7 @@ async function fetchOwnedRequests(user: SessionUser): Promise<RawRequest[]> {
   // Preferred path: user_id column (added by the Stage 4 migration).
   const withUserId = await supabase
     .from("service_requests")
-    .select(`${REQUEST_COLUMNS}, service_category, user_id`)
+    .select("*")
     .or(`user_id.eq.${user.id},email.ilike.${email}`)
     .order("created_at", { ascending: false });
 
