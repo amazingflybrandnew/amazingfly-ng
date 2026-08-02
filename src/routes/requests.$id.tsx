@@ -142,9 +142,18 @@ function RequestDetailPage() {
           </section>
 
           <section className="glass-card rounded-3xl p-6 md:p-8">
+            <h2 className="mb-2 text-xl font-extrabold text-navy">Documents required</h2>
+            <p className="mb-5 text-sm text-muted-foreground">
+              Documents our specialists have asked you to provide for this request.
+            </p>
+            <DocumentRequestList items={data.documentRequests} />
+          </section>
+
+          <section className="glass-card rounded-3xl p-6 md:p-8">
             <h2 className="mb-5 text-xl font-extrabold text-navy">Documents</h2>
             <DocumentList documents={data.documents} requestId={data.request.id} />
           </section>
+
         </div>
       )}
     </AccountShell>
