@@ -372,3 +372,72 @@ export async function markRead(user: SessionUser, id: string | null): Promise<{ 
   const { error } = await query;
   return { ok: !error };
 }
+
+// ------------------------------------------------------- customer messages
+
+export type ConversationMessage = {
+  id: string;
+  sender: string;
+  author: string;
+  body: string;
+  created_at: string;
+};
+
+/** Messages exchanged with Amazingfly staff on a request the customer owns. */
+export async function loadRequestConversation(
+  user: SessionUser,
+  requestId: string,
+): Promise<ConversationMessage[]> {
+  const row = await ownedRequestRow(user, requestId);
+  if (!row) return [];
+
+  const supabase = await admin();
+  const { data, error } = await supabase
+    .from("customer_messages")
+    .select("id, sender, author_name, body, created_at")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: true });
+  if (error) return [];
+
+  await supabase
+    .from("customer_messages")
+    .update({ read_by_customer: true })
+    .eq("request_id", requestId)
+    .eq("sender", "admin");
+
+  return (data ?? []).map((entry) => {
+    const message = entry as Record<string, unknown>;
+    const sender = String(message["sender"] ?? "customer");
+    return {
+      id: String(message["id"]),
+      sender,
+      author:
+        String(message["author_name"] ?? "") ||
+        (sender === "admin" ? "Amazingfly Travels" : "You"),
+      body: String(message["body"] ?? ""),
+      created_at: String(message["created_at"] ?? ""),
+    };
+  });
+}
+
+export async function sendCustomerReply(
+  user: SessionUser,
+  requestId: string,
+  body: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const row = await ownedRequestRow(user, requestId);
+  if (!row) return { ok: false, message: "Request not found." };
+
+  const supabase = await admin();
+  const { error } = await supabase.from("customer_messages").insert({
+    request_id: requestId,
+    user_id: user.id,
+    email: user.email,
+    sender: "customer",
+    author_name: String(row["full_name"] ?? user.email),
+    body,
+    read_by_customer: true,
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}

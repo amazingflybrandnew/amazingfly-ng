@@ -186,3 +186,34 @@ export const markNotificationsRead = createServerFn({ method: "POST" })
     const { user } = await requireUser();
     return markRead(user, data.id);
   });
+
+export type ConversationMessage = {
+  id: string;
+  sender: string;
+  author: string;
+  body: string;
+  created_at: string;
+};
+
+export const getRequestConversation = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).strict().parse(data))
+  .handler(async ({ data }): Promise<ConversationMessage[]> => {
+    const { requireUser } = await import("./auth.server");
+    const { loadRequestConversation } = await import("./account.server");
+    const { user } = await requireUser();
+    return loadRequestConversation(user, data.id);
+  });
+
+export const replyToAmazingfly = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z
+      .object({ id: z.string().uuid(), body: z.string().trim().min(2).max(4000) })
+      .strict()
+      .parse(data),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
+    const { requireUser } = await import("./auth.server");
+    const { sendCustomerReply } = await import("./account.server");
+    const { user } = await requireUser();
+    return sendCustomerReply(user, data.id, data.body);
+  });

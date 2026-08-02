@@ -29,18 +29,28 @@ export type AdminAction =
   | "set_priority"
   | "request_document"
   | "review_document"
-  | "write_note";
+  | "write_note"
+  | "manage_customers"
+  | "message_customer"
+  | "manage_services"
+  | "manage_content";
+
+const ALL_ACTIONS: AdminAction[] = [
+  "view",
+  "update_status",
+  "assign_staff",
+  "set_priority",
+  "request_document",
+  "review_document",
+  "write_note",
+  "manage_customers",
+  "message_customer",
+  "manage_services",
+  "manage_content",
+];
 
 const ROLE_ACTIONS: Record<AdminRole, AdminAction[]> = {
-  super_admin: [
-    "view",
-    "update_status",
-    "assign_staff",
-    "set_priority",
-    "request_document",
-    "review_document",
-    "write_note",
-  ],
+  super_admin: ALL_ACTIONS,
   travel_agent: [
     "view",
     "update_status",
@@ -48,8 +58,17 @@ const ROLE_ACTIONS: Record<AdminRole, AdminAction[]> = {
     "request_document",
     "review_document",
     "write_note",
+    "manage_customers",
+    "message_customer",
+    "manage_services",
   ],
-  support_staff: ["view", "request_document", "write_note"],
+  support_staff: [
+    "view",
+    "request_document",
+    "write_note",
+    "manage_customers",
+    "message_customer",
+  ],
 };
 
 export function can(admin: AdminProfile, action: AdminAction): boolean {
@@ -59,17 +78,30 @@ export function can(admin: AdminProfile, action: AdminAction): boolean {
 }
 
 export function allowedActions(admin: AdminProfile): AdminAction[] {
-  const all: AdminAction[] = [
-    "view",
-    "update_status",
-    "assign_staff",
-    "set_priority",
-    "request_document",
-    "review_document",
-    "write_note",
-  ];
-  return all.filter((action) => can(admin, action));
+  return ALL_ACTIONS.filter((action) => can(admin, action));
 }
+
+/** Writes an entry to the admin audit trail. Never throws. */
+export async function logAdminAction(
+  who: { user: SessionUser; admin: AdminProfile },
+  action: string,
+  entity: { type: string; id?: string | null; detail?: string },
+): Promise<void> {
+  try {
+    const supabase = await admin();
+    await supabase.from("admin_activity_log").insert({
+      admin_id: who.admin.id,
+      admin_name: who.admin.full_name || who.user.email,
+      action,
+      entity_type: entity.type,
+      entity_id: entity.id ?? null,
+      detail: entity.detail ?? null,
+    });
+  } catch (error) {
+    console.error("[admin] audit log failed", error);
+  }
+}
+
 
 async function admin() {
   const { createExternalSupabaseAdmin } = await import("./external-supabase.server");

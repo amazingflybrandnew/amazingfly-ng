@@ -27,6 +27,7 @@ import {
   updateRequestStatus,
 } from "@/lib/admin.functions";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
+import { getRequestMessages, sendAdminMessage } from "@/lib/admin-ops.functions";
 
 export const Route = createFileRoute("/admin/requests/$id")({
   head: () => ({
@@ -49,6 +50,36 @@ export const Route = createFileRoute("/admin/requests/$id")({
   }),
   component: AdminRequestDetailPage,
 });
+
+/** Common follow-up documents staff request, with ready-made instructions. */
+const DOCUMENT_PRESETS: { name: string; description: string }[] = [
+  {
+    name: "Bank statement (6 months)",
+    description:
+      "Official 6-month statement, stamped by your bank, showing your name and account number.",
+  },
+  {
+    name: "Employment letter",
+    description: "Letter from your employer on company letterhead confirming your role and leave.",
+  },
+  {
+    name: "Passport data page",
+    description: "Clear colour scan of the data page, valid for at least 6 more months.",
+  },
+  {
+    name: "Passport photograph",
+    description: "Recent photograph on a plain background, taken within the last 6 months.",
+  },
+  {
+    name: "Travel itinerary",
+    description: "Your intended travel dates, destinations and accommodation details.",
+  },
+  {
+    name: "Invitation letter",
+    description: "Signed invitation from your host, with their contact details and address.",
+  },
+];
+
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -371,6 +402,21 @@ function AdminRequestDetailPage() {
                   if (docName.trim().length > 1) docRequestMutation.mutate();
                 }}
               >
+                <div className="flex flex-wrap gap-2">
+                  {DOCUMENT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setDocName(preset.name);
+                        setDocDescription(preset.description);
+                      }}
+                      className="rounded-full border border-white/70 bg-white/70 px-3 py-1.5 text-xs font-bold text-navy-soft transition-colors hover:bg-white hover:text-navy"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
                 <Input
                   value={docName}
                   onChange={(event) => setDocName(event.target.value)}
@@ -386,6 +432,7 @@ function AdminRequestDetailPage() {
                   className="rounded-2xl border-white/60 bg-white/80"
                   rows={2}
                 />
+
                 <Button
                   type="submit"
                   className="btn-gradient text-white"
@@ -574,8 +621,93 @@ function AdminRequestDetailPage() {
               ) : null}
             </ul>
           </Panel>
+
+          {allow("message_customer") && request.email ? (
+            <RequestMessages requestId={id} email={request.email} />
+          ) : null}
+
         </div>
       </div>
     </AdminShell>
+  );
+}
+
+/** Customer-facing conversation attached to this application. */
+function RequestMessages({ requestId, email }: { requestId: string; email: string }) {
+  const queryClient = useQueryClient();
+  const [body, setBody] = useState("");
+  const fetchMessages = useServerFn(getRequestMessages);
+  const sendFn = useServerFn(sendAdminMessage);
+
+  const messages = useQuery({
+    queryKey: ["admin", "request-messages", requestId],
+    queryFn: () => fetchMessages({ data: { request_id: requestId } }),
+  });
+
+  const send = useMutation({
+    mutationFn: () => sendFn({ data: { email, request_id: requestId, body: body.trim() } }),
+    onSuccess: () => {
+      setBody("");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "request-messages", requestId] });
+    },
+  });
+
+  const list = messages.data ?? [];
+
+  return (
+    <Panel
+      title="Messages to the customer"
+      description="The customer sees these inside their Amazingfly account and gets a notification."
+    >
+      <ul className="space-y-3">
+        {list.length === 0 ? (
+          <li className="text-sm text-muted-foreground">No messages yet.</li>
+        ) : (
+          list.map((message) => (
+            <li
+              key={message.id}
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                message.sender === "admin"
+                  ? "ml-auto bg-navy text-white"
+                  : "border border-white/70 bg-white/80 text-navy"
+              }`}
+            >
+              <p className="whitespace-pre-line">{message.body}</p>
+              <p
+                className={`mt-1.5 text-[11px] ${
+                  message.sender === "admin" ? "text-white/70" : "text-muted-foreground"
+                }`}
+              >
+                {message.author} · {formatDate(message.created_at)}
+              </p>
+            </li>
+          ))
+        )}
+      </ul>
+
+      <form
+        className="mt-5 space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (body.trim().length > 1) send.mutate();
+        }}
+      >
+        <Textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={3}
+          placeholder="Write a message to the customer"
+          aria-label="Message to customer"
+          className="rounded-2xl border-white/60 bg-white/80"
+        />
+        <Button
+          type="submit"
+          className="btn-gradient text-white"
+          disabled={send.isPending || body.trim().length < 2}
+        >
+          {send.isPending ? "Sending…" : "Send message"}
+        </Button>
+      </form>
+    </Panel>
   );
 }

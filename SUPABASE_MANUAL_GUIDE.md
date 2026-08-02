@@ -149,3 +149,14 @@ It adds:
 
 Until this SQL is run, submissions still succeed — the server falls back to
 inserting without the new columns and folds all answers into `request_details`.
+
+## Stage 5 — Admin Part 2 (customers, services, content, messages, activity)
+
+Run `supabase/manual/stage6-admin.sql` in the Supabase SQL editor. It is safe to
+re-run and creates:
+
+- `admin_activity_log` — audit trail of every staff action
+- `customer_messages` — two-way conversation between staff and customers (auto-notifies the customer)
+- `site_content` + `testimonials` — website content managed from `/admin/content`
+- `services.description`, `services.image_url`, `services.category`
+- the public `site-media` storage bucket for website imagery
