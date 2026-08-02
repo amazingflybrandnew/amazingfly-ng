@@ -371,6 +371,21 @@ function AdminRequestDetailPage() {
                   if (docName.trim().length > 1) docRequestMutation.mutate();
                 }}
               >
+                <div className="flex flex-wrap gap-2">
+                  {DOCUMENT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setDocName(preset.name);
+                        setDocDescription(preset.description);
+                      }}
+                      className="rounded-full border border-white/70 bg-white/70 px-3 py-1.5 text-xs font-bold text-navy-soft transition-colors hover:bg-white hover:text-navy"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
                 <Input
                   value={docName}
                   onChange={(event) => setDocName(event.target.value)}
@@ -386,6 +401,7 @@ function AdminRequestDetailPage() {
                   className="rounded-2xl border-white/60 bg-white/80"
                   rows={2}
                 />
+
                 <Button
                   type="submit"
                   className="btn-gradient text-white"
