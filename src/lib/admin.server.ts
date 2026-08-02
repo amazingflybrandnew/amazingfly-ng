@@ -463,7 +463,6 @@ export async function changeRequestStatus(
   const supabase = await admin();
 
   // Log the activity first so the database trigger does not duplicate it.
-  await supabase.from("internal_notes").select("id").limit(0); // no-op keep-alive
   const logged = await supabase.from("request_updates").insert({
     request_id: requestId,
     status,
