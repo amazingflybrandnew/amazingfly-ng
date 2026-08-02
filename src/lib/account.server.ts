@@ -128,7 +128,7 @@ async function fetchNotifications(user: SessionUser): Promise<AccountNotificatio
     .order("created_at", { ascending: false })
     .limit(30);
 
-  let rows = withRequest.data;
+  let rows = (withRequest.data ?? null) as RawRequest[] | null;
   if (withRequest.error) {
     // The request_id column is added by the document-request migration.
     const legacy = await supabase
