@@ -189,6 +189,42 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [detailHotel, setDetailHotel] = useState<HotelResult | null>(null);
   const [selected, setSelected] = useState<HotelResult | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
+
+  const createRequestFn = useServerFn(createHotelRequest);
+  const createRequest = useMutation({
+    mutationFn: ({ hotel, room }: { hotel: HotelResult; room: RoomResult | null }) =>
+      createRequestFn({
+        data: {
+          hotelId: hotel.hotelId,
+          hotelName: hotel.hotelName,
+          hotelImage: hotel.hotelImage ?? null,
+          rating: hotel.rating,
+          location: hotel.location,
+          address: hotel.address,
+          checkInDate: hotel.checkInDate ?? submittedStay?.checkInDate ?? "",
+          checkOutDate: hotel.checkOutDate ?? submittedStay?.checkOutDate ?? "",
+          nights: hotel.nights ?? null,
+          guests:
+            (submittedStay?.guests.adults ?? 1) + (submittedStay?.guests.children ?? 0),
+          rooms: submittedStay?.rooms ?? 1,
+          roomType: room?.roomName ?? null,
+          boardType: room?.boardType ?? null,
+          cancellationPolicy: room
+            ? room.cancellationPolicy.refundable
+              ? `Free cancellation${
+                  room.cancellationPolicy.freeCancellationUntil
+                    ? ` until ${room.cancellationPolicy.freeCancellationUntil}`
+                    : ""
+                }`
+              : "Non-refundable"
+            : null,
+          price: room?.price ?? hotel.price,
+          currency: room?.currency ?? hotel.currency,
+        },
+      }),
+  });
+
 
   const mutation = useMutation({
     mutationFn: (stay: StayInputShape) => search({ data: stay }),
