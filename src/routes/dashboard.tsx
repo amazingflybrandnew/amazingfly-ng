@@ -17,6 +17,7 @@ import { DocumentRequestList } from "@/components/DocumentRequestList";
 import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
 import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
+import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -151,7 +152,7 @@ function DashboardPage() {
           <section className="glass-card rounded-3xl p-6 md:p-8">
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-extrabold text-navy">Active requests</h2>
+              <h2 className="text-xl font-extrabold text-navy">My applications</h2>
               <Link
                 to="/my-requests"
                 className="text-sm font-semibold text-navy underline-offset-4 hover:underline"
@@ -192,20 +193,43 @@ function DashboardPage() {
                             {request.destination_country ?? "Destination"}
                           </p>
                         </div>
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-bold ${statusTone(
-                            request.request_status,
-                          )}`}
-                        >
-                          {STATUS_LABELS[request.request_status] ?? request.request_status}
-                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs font-bold ${statusTone(
+                              request.request_status,
+                            )}`}
+                          >
+                            {STATUS_LABELS[request.request_status] ?? request.request_status}
+                          </span>
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs font-bold ${paymentTone(
+                              request.payment_status,
+                            )}`}
+                          >
+                            {paymentStatusLabel(request.payment_status)}
+                          </span>
+                        </div>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs font-medium text-muted-foreground">
                         <span>Submitted {formatDate(request.created_at)}</span>
                         <span>Reference {request.request_reference}</span>
                         <span>{request.document_count} document(s)</span>
+                        <span>
+                          Amount: {formatMoney(request.agreed_fee, "NGN")}
+                        </span>
                       </div>
                     </Link>
+                    {request.payment_status !== "payment_received" && request.agreed_fee ? (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="btn-gradient mt-3 rounded-2xl text-white"
+                      >
+                        <Link to="/payment/$requestId" params={{ requestId: request.id }}>
+                          Pay {formatMoney(request.agreed_fee, "NGN")}
+                        </Link>
+                      </Button>
+                    ) : null}
                   </li>
                 ))}
               </ul>
