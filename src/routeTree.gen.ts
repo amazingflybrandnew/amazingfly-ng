@@ -31,6 +31,7 @@ import { Route as AdminContentRouteImport } from './routes/admin.content'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
+import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
@@ -151,6 +152,11 @@ const AdminMessagesRoute = AdminMessagesRouteImport.update({
   path: '/admin/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/admin/payments',
+  path: '/admin/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminServicesRoute = AdminServicesRouteImport.update({
   id: '/admin/services',
   path: '/admin/services',
@@ -219,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
@@ -252,6 +259,7 @@ export interface FileRoutesByTo {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
@@ -286,6 +294,7 @@ export interface FileRoutesById {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
+  '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
@@ -321,6 +330,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/messages'
+    | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
@@ -354,6 +364,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/messages'
+    | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
@@ -387,6 +398,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/messages'
+    | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
@@ -421,6 +433,7 @@ export interface RootRouteChildren {
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminDestinationsRoute: typeof AdminDestinationsRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
   AdminTestimonialsRoute: typeof AdminTestimonialsRoute
@@ -589,6 +602,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/admin/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/services': {
       id: '/admin/services'
       path: '/admin/services'
@@ -677,6 +697,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCustomersRoute: AdminCustomersRoute,
   AdminDestinationsRoute: AdminDestinationsRoute,
   AdminMessagesRoute: AdminMessagesRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
   AdminTestimonialsRoute: AdminTestimonialsRoute,
