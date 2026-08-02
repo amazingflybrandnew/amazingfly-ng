@@ -34,8 +34,10 @@ export type FlightResult = {
   departureTime: string; // ISO 8601 datetime
   arrivalTime: string; // ISO 8601 datetime
   duration: string; // human readable, e.g. "2h 30m"
+  durationMinutes: number; // total journey length in minutes, used for sorting
   stops: number;
   cabinClass: CabinClass;
+
   passengers: FlightPassengers;
   price: number;
   currency: string;

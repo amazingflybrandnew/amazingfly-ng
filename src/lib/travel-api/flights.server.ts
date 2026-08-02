@@ -58,17 +58,26 @@ async function duffelFetch<T>(
   return (payload?.data ?? null) as T;
 }
 
+/** Converts an ISO-8601 duration such as "PT7H35M" into total minutes. */
+function durationToMinutes(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  const match = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/.exec(iso);
+  if (!match) return 0;
+  const days = Number(match[1] ?? 0);
+  const hours = Number(match[2] ?? 0);
+  const minutes = Number(match[3] ?? 0);
+  return days * 24 * 60 + hours * 60 + minutes;
+}
+
 /** Converts an ISO-8601 duration such as "PT7H35M" into "7h 35m". */
 function formatDuration(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const match = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/.exec(iso);
-  if (!match) return "—";
-  const days = Number(match[1] ?? 0);
-  const hours = Number(match[2] ?? 0) + days * 24;
-  const minutes = Number(match[3] ?? 0);
-  if (!hours && !minutes) return "—";
+  const total = durationToMinutes(iso);
+  if (!total) return "—";
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
   return [hours ? `${hours}h` : "", minutes ? `${minutes}m` : ""].filter(Boolean).join(" ");
 }
+
 
 type DuffelSegment = {
   origin?: { iata_code?: string };
@@ -121,6 +130,8 @@ function mapOffer(offer: DuffelOffer, request: FlightSearchRequest): FlightResul
     departureTime: first?.departing_at ?? request.departureDate,
     arrivalTime: last?.arriving_at ?? request.departureDate,
     duration: formatDuration(slice?.duration),
+    durationMinutes: durationToMinutes(slice?.duration),
+
     stops: Math.max(0, segments.length - 1),
     cabinClass: (first?.passengers?.[0]?.cabin_class as CabinClass) ?? request.cabinClass,
     passengers: request.passengers,
