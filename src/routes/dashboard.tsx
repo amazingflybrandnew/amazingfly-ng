@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
+import { DocumentRequestList } from "@/components/DocumentRequestList";
+
 import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
 import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
