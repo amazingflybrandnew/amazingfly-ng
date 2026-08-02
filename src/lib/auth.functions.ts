@@ -150,9 +150,12 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
     const { getRequestUrl } = await import("@tanstack/react-start/server");
     const { createExternalSupabase } = await import("./external-supabase.server");
     const supabase = createExternalSupabase();
-    const { error } = await supabase.auth.resetPasswordForEmail(data.email.toLowerCase(), {
-      redirectTo: "https://amazingfly.ng/reset-password",
-    if (error) return { ok: false, message: error.message };
+    const { error } = await supabase.auth.resetPasswordForEmail(
+  data.email.toLowerCase(),
+  {
+    redirectTo: "https://amazingfly.ng/reset-password",
+  },
+);
     return {
       ok: true,
       signedIn: false,
