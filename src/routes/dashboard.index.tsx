@@ -82,6 +82,13 @@ function DashboardPage() {
       (request.service_type ?? "").toLowerCase().includes("flight"),
   );
 
+  const hotelRequests = (data?.requests ?? []).filter(
+    (request) =>
+      Boolean(request.hotel_name) ||
+      (request.service_type ?? "").toLowerCase().includes("hotel"),
+  );
+
+
   const firstName = (session?.user?.full_name || session?.user?.email || "").split(" ")[0];
 
   return (
