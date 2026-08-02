@@ -20,6 +20,22 @@ export type AccountRequest = {
   payment_status: string;
   agreed_fee: number | null;
   document_count: number;
+  /** Flight booking details (present when the request came from flight search). */
+  airline: string | null;
+  airline_logo_url: string | null;
+  flight_number: string | null;
+  flight_origin: string | null;
+  flight_destination: string | null;
+  flight_departure_at: string | null;
+  flight_arrival_at: string | null;
+  flight_duration: string | null;
+  flight_stops: number | null;
+  cabin_class: string | null;
+  passenger_count: number | null;
+  flight_price: number | null;
+  flight_currency: string | null;
+  flight_offer_id: string | null;
+  booking_status: string | null;
 };
 
 export type AccountDocument = {

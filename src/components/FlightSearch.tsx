@@ -27,6 +27,7 @@ import { FlightDetailsModal } from "@/components/FlightDetailsModal";
 import { searchFlightOffers } from "@/lib/travel-api/flights.functions";
 import { CABIN_CLASSES, type CabinClass, type FlightResult } from "@/lib/travel-api/flight.types";
 import { selectFlight, useSelectedFlight } from "@/lib/travel-api/selected-flight";
+import { createFlightRequest } from "@/lib/flight-request.functions";
 
 type SortKey = "recommended" | "price" | "duration" | "stops";
 
@@ -172,6 +173,34 @@ function FlightCard({
 export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const search = useServerFn(searchFlightOffers);
   const selected = useSelectedFlight();
+  const createRequestFn = useServerFn(createFlightRequest);
+
+  const createRequest = useMutation({
+    mutationFn: (flight: FlightResult) =>
+      createRequestFn({
+        data: {
+          offerId: flight.id,
+          airline: flight.airline,
+          airlineLogoUrl: flight.airlineLogoUrl ?? null,
+          flightNumber: flight.flightNumber,
+          origin: flight.origin,
+          destination: flight.destination,
+          departureTime: flight.departureTime,
+          arrivalTime: flight.arrivalTime,
+          duration: flight.duration,
+          stops: flight.stops,
+          cabinClass: flight.cabinClass,
+          passengers: flight.passengers.adults,
+          price: flight.price,
+          currency: flight.currency,
+        },
+      }),
+  });
+
+  const handleSelect = (flight: FlightResult) => {
+    selectFlight(flight);
+    createRequest.mutate(flight);
+  };
 
   const [origin, setOrigin] = useState("LOS");
   const [destination, setDestination] = useState("LHR");
@@ -409,25 +438,60 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
-          <div className="text-sm">
-            <p className="font-bold">
-              Selected: {selected.airline} · {selected.origin} → {selected.destination}
-            </p>
-            <p className="text-muted-foreground">
-              {formatDate(selected.departureTime)} · {selected.duration} ·{" "}
-              {formatPrice(selected.price, selected.currency)}
-            </p>
+        <div className="space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="text-sm">
+              <p className="font-bold">
+                Selected: {selected.airline} · {selected.origin} → {selected.destination}
+              </p>
+              <p className="text-muted-foreground">
+                {formatDate(selected.departureTime)} · {selected.duration} ·{" "}
+                {formatPrice(selected.price, selected.currency)}
+              </p>
+            </div>
+            {createRequest.isPending ? (
+              <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Saving this flight to your account…
+              </span>
+            ) : createRequest.data?.ok ? (
+              <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                <Link to="/dashboard">
+                  View my flight requests
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : createRequest.data && !createRequest.data.ok && createRequest.data.reason === "auth" ? (
+              <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                <Link to="/auth" search={{ redirect: "/flights" }}>
+                  Sign in to save this flight
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                <Link
+                  to="/request"
+                  search={{ service: "flights", from: selected.origin, to: selected.destination }}
+                >
+                  Continue with this flight
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            )}
           </div>
-          <Button asChild size="sm" className="btn-gradient border-0 text-white">
-            <Link
-              to="/request"
-              search={{ service: "flights", from: selected.origin, to: selected.destination }}
-            >
-              Continue with this flight
-              <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-            </Link>
-          </Button>
+
+          {createRequest.data?.ok ? (
+            <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
+              Flight request <strong>{createRequest.data.reference}</strong> created. Status: New
+              Request — our specialists will review it and come back to you.
+            </p>
+          ) : null}
+          {createRequest.data && !createRequest.data.ok ? (
+            <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
+              {createRequest.data.message}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -601,7 +665,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
                   flight={flight}
                   isSelected={selected?.id === flight.id}
                   onOpen={() => setDetailFlight(flight)}
-                  onSelect={() => selectFlight(flight)}
+                  onSelect={() => handleSelect(flight)}
                 />
               ))}
             </div>
@@ -617,7 +681,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         }}
         isSelected={selected?.id === detailFlight?.id}
         onSelect={(flight) => {
-          selectFlight(flight);
+          handleSelect(flight);
           setDetailFlight(null);
         }}
       />

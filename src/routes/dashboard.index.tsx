@@ -74,6 +74,12 @@ function DashboardPage() {
     enabled: Boolean(session?.user),
   });
 
+  const flightRequests = (data?.requests ?? []).filter(
+    (request) =>
+      Boolean(request.airline) ||
+      (request.service_type ?? "").toLowerCase().includes("flight"),
+  );
+
   const firstName = (session?.user?.full_name || session?.user?.email || "").split(" ")[0];
 
   return (
@@ -146,6 +152,59 @@ function DashboardPage() {
                   showReference
                 />
               </div>
+            </section>
+          ) : null}
+
+          {flightRequests.length > 0 ? (
+            <section className="glass-card rounded-3xl p-6 md:p-8">
+              <h2 className="flex items-center gap-2 text-xl font-extrabold text-navy">
+                <Plane className="h-5 w-5" aria-hidden="true" />
+                My flight requests
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Flights you selected from live search. Our team reviews each one before booking.
+              </p>
+              <ul className="mt-5 space-y-3">
+                {flightRequests.slice(0, 5).map((request) => (
+                  <li key={request.id}>
+                    <Link
+                      to="/requests/$id"
+                      params={{ id: request.id }}
+                      className="hover-lift flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/70 bg-white/70 p-5"
+                    >
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-navy-soft">
+                          {request.request_reference}
+                        </p>
+                        <p className="mt-1 text-base font-bold text-navy">
+                          {(request.flight_origin ?? request.origin_country ?? "—") +
+                            " → " +
+                            (request.flight_destination ?? request.destination_country ?? "—")}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {request.airline ?? "Airline to be confirmed"}
+                          {request.flight_number ? ` · ${request.flight_number}` : ""} ·{" "}
+                          {formatDate(request.flight_departure_at ?? request.travel_date)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-extrabold text-navy">
+                          {request.flight_price !== null
+                            ? formatMoney(request.flight_price, request.flight_currency ?? "NGN")
+                            : formatMoney(request.agreed_fee, "NGN")}
+                        </p>
+                        <span
+                          className={`mt-2 inline-block rounded-full border px-3 py-1 text-xs font-bold ${statusTone(
+                            request.request_status,
+                          )}`}
+                        >
+                          {STATUS_LABELS[request.request_status] ?? request.request_status}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
 

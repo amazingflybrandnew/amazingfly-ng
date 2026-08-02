@@ -101,13 +101,14 @@ function AdminRequestsPage() {
       ) : (
         <div className="glass-card mt-6 overflow-hidden rounded-3xl">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
               <thead>
                 <tr className="bg-white/70 text-[11px] uppercase tracking-[0.14em] text-navy-soft">
                   <th className="px-5 py-4 font-bold">Reference</th>
                   <th className="px-5 py-4 font-bold">Customer</th>
                   <th className="px-5 py-4 font-bold">Service</th>
                   <th className="px-5 py-4 font-bold">Route</th>
+                  <th className="px-5 py-4 font-bold">Airline / Price</th>
                   <th className="px-5 py-4 font-bold">Submitted</th>
                   <th className="px-5 py-4 font-bold">Assigned</th>
                   <th className="px-5 py-4 font-bold">Status</th>
@@ -138,6 +139,23 @@ function AdminRequestsPage() {
                     </td>
                     <td className="px-5 py-4 text-navy-soft">
                       {(row.origin_country || "—") + " → " + (row.destination_country || "—")}
+                    </td>
+                    <td className="px-5 py-4 text-navy-soft">
+                      {row.airline ? (
+                        <>
+                          <p className="font-semibold text-navy">
+                            {row.airline}
+                            {row.flight_number ? ` · ${row.flight_number}` : ""}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {row.flight_price !== null
+                              ? `${row.flight_currency ?? ""} ${row.flight_price.toLocaleString()}`
+                              : "—"}
+                          </p>
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="px-5 py-4 text-navy-soft">{formatDate(row.created_at)}</td>
                     <td className="px-5 py-4 text-navy-soft">
