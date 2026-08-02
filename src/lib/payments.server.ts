@@ -380,6 +380,15 @@ export async function verifyPayment(
   if (next !== record.status) {
     await supabase.from("payments").update({ status: next }).eq("id", record.id);
     await setRequestPaymentStatus(requestId, next);
+    if (next === "payment_received") {
+      const { notifyPaymentReceived } = await import("./notifications.server");
+      const { formatMoney } = await import("./payment-status");
+      await notifyPaymentReceived({
+        requestId,
+        amountLabel: formatMoney(record.amount, record.currency),
+        transactionReference: record.transaction_reference,
+      });
+    }
   }
   return { ok: true, status: next };
 }
@@ -489,8 +498,24 @@ export async function adminSetPaymentStatus(
   if (error || !data) {
     return { ok: false, message: error?.message ?? "Payment not found." };
   }
-  const requestId = String((data as Record<string, unknown>)["request_id"] ?? "");
+  const row = data as Record<string, unknown>;
+  const requestId = String(row["request_id"] ?? "");
   if (requestId) await setRequestPaymentStatus(requestId, status);
+  if (requestId && status === "payment_received") {
+    const { notifyPaymentReceived } = await import("./notifications.server");
+    const { formatMoney } = await import("./payment-status");
+    const { data: paid } = await supabase
+      .from("payments")
+      .select("amount, currency")
+      .eq("id", paymentId)
+      .maybeSingle();
+    const amount = paid ? (paid as Record<string, unknown>)["amount"] : null;
+    await notifyPaymentReceived({
+      requestId,
+      amountLabel: formatMoney(amount === null || amount === undefined ? null : Number(amount), CURRENCY),
+      transactionReference: String(row["transaction_reference"] ?? ""),
+    });
+  }
   return { ok: true, request_id: requestId };
 }
 

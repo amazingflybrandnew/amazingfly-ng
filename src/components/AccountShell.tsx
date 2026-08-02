@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { FileText, LayoutDashboard, Loader2, LogOut, Plane, UserRound } from "lucide-react";
+import { Bell, FileText, LayoutDashboard, Loader2, LogOut, Plane, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getSession, signOutCustomer } from "@/lib/auth.functions";
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/my-requests", label: "My Requests", icon: Plane },
   { to: "/documents", label: "Documents", icon: FileText },
+  { to: "/dashboard/notifications", label: "Notifications", icon: Bell },
   { to: "/profile", label: "Profile", icon: UserRound },
 ] as const;
 

@@ -19,7 +19,7 @@ import { getAccountOverview } from "@/lib/account.functions";
 import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/dashboard/")({
   head: () => ({
     meta: [
       { title: "Your Travel Dashboard | Amazingfly.ng" },
@@ -241,6 +241,9 @@ function DashboardPage() {
               <Bell className="h-5 w-5" aria-hidden="true" />
               Updates
             </h2>
+            <Button asChild variant="ghost" size="sm" className="mt-2 h-auto p-0 text-navy-soft">
+              <Link to="/dashboard/notifications">Open notification centre</Link>
+            </Button>
             {data.notifications.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">
                 You are all caught up. We will notify you here whenever a request moves forward or a

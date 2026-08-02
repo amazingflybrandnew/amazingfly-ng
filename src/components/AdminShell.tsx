@@ -3,6 +3,8 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  BarChart3,
+  BellRing,
   ClipboardList,
   FileText,
   Globe2,
@@ -26,6 +28,8 @@ import { signOutCustomer } from "@/lib/auth.functions";
 const NAV = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/requests", label: "Requests", icon: ClipboardList },
+  { to: "/admin/notifications", label: "Notifications", icon: BellRing },
+  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/messages", label: "Messages", icon: MessageSquare },
   { to: "/admin/payments", label: "Payments", icon: Wallet },
