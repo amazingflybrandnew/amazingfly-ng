@@ -4,12 +4,14 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   Bell,
+  BedDouble,
   CheckCircle2,
   FileWarning,
   Loader2,
   Plane,
   Sparkles,
 } from "lucide-react";
+
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { DocumentRequestList } from "@/components/DocumentRequestList";
