@@ -151,8 +151,7 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
     const { createExternalSupabase } = await import("./external-supabase.server");
     const supabase = createExternalSupabase();
     const { error } = await supabase.auth.resetPasswordForEmail(data.email.toLowerCase(), {
-      redirectTo: `${getRequestUrl().origin}/reset-password`,
-    });
+      redirectTo: "https://amazingfly.ng/reset-password",
     if (error) return { ok: false, message: error.message };
     return {
       ok: true,
