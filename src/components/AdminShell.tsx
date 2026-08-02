@@ -12,6 +12,7 @@ import {
   LogOut,
   MessageSquare,
   Package,
+  Quote,
   PanelsTopLeft,
   ShieldCheck,
   Users,
