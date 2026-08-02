@@ -17,6 +17,8 @@ export type AccountRequest = {
   phone: string | null;
   preferred_contact: string | null;
   request_details: string | null;
+  payment_status: string;
+  agreed_fee: number | null;
   document_count: number;
 };
 

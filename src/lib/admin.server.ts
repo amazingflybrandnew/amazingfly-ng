@@ -33,7 +33,8 @@ export type AdminAction =
   | "manage_customers"
   | "message_customer"
   | "manage_services"
-  | "manage_content";
+  | "manage_content"
+  | "manage_payments";
 
 const ALL_ACTIONS: AdminAction[] = [
   "view",
@@ -47,6 +48,7 @@ const ALL_ACTIONS: AdminAction[] = [
   "message_customer",
   "manage_services",
   "manage_content",
+  "manage_payments",
 ];
 
 const ROLE_ACTIONS: Record<AdminRole, AdminAction[]> = {
@@ -61,6 +63,7 @@ const ROLE_ACTIONS: Record<AdminRole, AdminAction[]> = {
     "manage_customers",
     "message_customer",
     "manage_services",
+    "manage_payments",
   ],
   support_staff: [
     "view",
