@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DisclaimerRouteImport } from './routes/disclaimer'
 import { Route as DocumentsRouteImport } from './routes/documents'
+import { Route as FlightsRouteImport } from './routes/flights'
 import { Route as MyRequestsRouteImport } from './routes/my-requests'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -73,6 +74,11 @@ const DisclaimerRoute = DisclaimerRouteImport.update({
 const DocumentsRoute = DocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FlightsRoute = FlightsRouteImport.update({
+  id: '/flights',
+  path: '/flights',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyRequestsRoute = MyRequestsRouteImport.update({
@@ -228,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
   '/documents': typeof DocumentsRoute
+  '/flights': typeof FlightsRoute
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
   '/documents': typeof DocumentsRoute
+  '/flights': typeof FlightsRoute
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
@@ -303,6 +311,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
   '/documents': typeof DocumentsRoute
+  '/flights': typeof FlightsRoute
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
@@ -342,6 +351,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/disclaimer'
     | '/documents'
+    | '/flights'
     | '/my-requests'
     | '/privacy-policy'
     | '/profile'
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/disclaimer'
     | '/documents'
+    | '/flights'
     | '/my-requests'
     | '/privacy-policy'
     | '/profile'
@@ -416,6 +427,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/disclaimer'
     | '/documents'
+    | '/flights'
     | '/my-requests'
     | '/privacy-policy'
     | '/profile'
@@ -454,6 +466,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   DisclaimerRoute: typeof DisclaimerRoute
   DocumentsRoute: typeof DocumentsRoute
+  FlightsRoute: typeof FlightsRoute
   MyRequestsRoute: typeof MyRequestsRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
@@ -527,6 +540,13 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/documents'
       preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flights': {
+      id: '/flights'
+      path: '/flights'
+      fullPath: '/flights'
+      preLoaderRoute: typeof FlightsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-requests': {
@@ -742,6 +762,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   DisclaimerRoute: DisclaimerRoute,
   DocumentsRoute: DocumentsRoute,
+  FlightsRoute: FlightsRoute,
   MyRequestsRoute: MyRequestsRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
