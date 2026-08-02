@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HomeHero } from "@/components/HomeHero";
+import { FlightSearch } from "@/components/FlightSearch";
 import { Disclaimer } from "@/components/PageParts";
 import { services, getService } from "@/data/services";
 
@@ -100,6 +101,25 @@ function Home() {
     <>
       {/* Interactive hero */}
       <HomeHero />
+
+      {/* Direct flight search (separate from the hero request box) */}
+      <section className="surface-soft">
+        <div className="container-page section-y">
+          <div className="max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Flights</p>
+            <h2 className="mt-4 text-3xl font-extrabold md:text-4xl">Find Your Perfect Flight</h2>
+            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+              Already know where you are going? Search routes, fares and cabins directly — or keep
+              using the request box above if you would rather our team handle everything for you.
+            </p>
+          </div>
+          <div className="mt-10">
+            <FlightSearch compact />
+          </div>
+        </div>
+      </section>
+
+
 
 
       {/* Trust highlights */}
