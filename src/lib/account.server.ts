@@ -12,6 +12,7 @@ import type {
   AccountNotification,
   AccountRequest,
   DashboardData,
+  DocumentRequestItem,
   RequestUpdate,
 } from "./account.functions";
 
