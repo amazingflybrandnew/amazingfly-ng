@@ -72,8 +72,21 @@ export const signUpCustomer = createServerFn({ method: "POST" })
         phone: data.phone,
         nationality: data.nationality,
       });
+      const { notifyAccountCreated } = await import("./notifications.server");
+      await notifyAccountCreated({
+        userId: result.user.id,
+        fullName: data.full_name,
+        email: result.user.email ?? data.email,
+      });
       return { ok: true, signedIn: true };
     }
+
+    const { notifyAccountCreated } = await import("./notifications.server");
+    await notifyAccountCreated({
+      userId: result.user?.id ?? null,
+      fullName: data.full_name,
+      email: data.email,
+    });
 
     return {
       ok: true,

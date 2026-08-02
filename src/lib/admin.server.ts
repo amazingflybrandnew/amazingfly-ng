@@ -517,6 +517,9 @@ export async function changeRequestStatus(
     .update({ request_status: status })
     .eq("id", requestId);
   if (error) return { ok: false, message: error.message };
+
+  const { notifyStatusChanged } = await import("./notifications.server");
+  await notifyStatusChanged(requestId, status, message.trim() || undefined);
   return { ok: true };
 }
 
@@ -573,6 +576,14 @@ export async function createDocumentRequest(
     required_status: requiredStatus,
   });
   if (error) return { ok: false, message: error.message };
+
+  const { notifyDocumentRequested } = await import("./notifications.server");
+  await notifyDocumentRequested({
+    requestId,
+    documentName,
+    description,
+    requiredStatus,
+  });
   return { ok: true };
 }
 
