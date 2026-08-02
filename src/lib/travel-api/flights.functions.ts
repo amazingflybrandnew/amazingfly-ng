@@ -22,7 +22,10 @@ export const searchFlightOffers = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<FlightSearchResponse> => {
     const { searchFlights } = await import("./flights.server");
     try {
-      const results = await searchFlights(data);
+      const { returnDate, ...rest } = data;
+      const results = await searchFlights(
+        returnDate ? { ...rest, returnDate } : rest,
+      );
       return { ok: true, results };
     } catch (error) {
       console.error("[Flights] search failed", error);
