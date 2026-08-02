@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { toHotelRequest } from "./hotel-stay";
 import type { HotelResult, HotelSearchResponse, RoomResult } from "./hotel.types";
 
 const stayInput = z
@@ -32,26 +33,12 @@ export type HotelDetailsPayload =
     }
   | { ok: false; error: string };
 
-type StayInput = z.infer<typeof stayInput>;
-
-function toRequest(data: StayInput) {
-  return {
-    destination: data.destination,
-    checkInDate: data.checkInDate,
-    checkOutDate: data.checkOutDate,
-    guests: data.guests,
-    rooms: data.rooms,
-    ...(data.nationality ? { nationality: data.nationality } : {}),
-    ...(data.currency ? { currency: data.currency } : {}),
-  };
-}
-
 export const searchHotelStays = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => stayInput.parse(data))
   .handler(async ({ data }): Promise<HotelSearchResponse> => {
     const { searchHotels } = await import("./hotels.server");
     try {
-      const results = await searchHotels(toRequest(data));
+      const results = await searchHotels(toHotelRequest(data));
       return { ok: true, results };
     } catch (error) {
       console.error("[Hotels] search failed", error);
@@ -68,7 +55,7 @@ export const getHotelStayDetails = createServerFn({ method: "POST" })
     try {
       const [hotel, rooms] = await Promise.all([
         getHotelDetails(data.hotelId),
-        getHotelRooms(data.hotelId, toRequest(data.stay)).catch(() => [] as RoomResult[]),
+        getHotelRooms(data.hotelId, toHotelRequest(data.stay)).catch(() => [] as RoomResult[]),
       ]);
       return { ok: true, hotel, rooms };
     } catch (error) {
