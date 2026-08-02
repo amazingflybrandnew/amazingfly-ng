@@ -27,6 +27,7 @@ import { FlightDetailsModal } from "@/components/FlightDetailsModal";
 import { searchFlightOffers } from "@/lib/travel-api/flights.functions";
 import { CABIN_CLASSES, type CabinClass, type FlightResult } from "@/lib/travel-api/flight.types";
 import { selectFlight, useSelectedFlight } from "@/lib/travel-api/selected-flight";
+import { createFlightRequest } from "@/lib/flight-request.functions";
 
 type SortKey = "recommended" | "price" | "duration" | "stops";
 
@@ -172,6 +173,34 @@ function FlightCard({
 export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const search = useServerFn(searchFlightOffers);
   const selected = useSelectedFlight();
+  const createRequestFn = useServerFn(createFlightRequest);
+
+  const createRequest = useMutation({
+    mutationFn: (flight: FlightResult) =>
+      createRequestFn({
+        data: {
+          offerId: flight.id,
+          airline: flight.airline,
+          airlineLogoUrl: flight.airlineLogoUrl ?? null,
+          flightNumber: flight.flightNumber,
+          origin: flight.origin,
+          destination: flight.destination,
+          departureTime: flight.departureTime,
+          arrivalTime: flight.arrivalTime,
+          duration: flight.duration,
+          stops: flight.stops,
+          cabinClass: flight.cabinClass,
+          passengers: flight.passengers.adults,
+          price: flight.price,
+          currency: flight.currency,
+        },
+      }),
+  });
+
+  const handleSelect = (flight: FlightResult) => {
+    selectFlight(flight);
+    createRequest.mutate(flight);
+  };
 
   const [origin, setOrigin] = useState("LOS");
   const [destination, setDestination] = useState("LHR");
