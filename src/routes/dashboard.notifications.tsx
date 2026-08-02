@@ -35,6 +35,13 @@ export const Route = createFileRoute("/dashboard/notifications")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { filter?: Filter } => {
+    const value = search["filter"];
+    const allowed: Filter[] = ["all", "status", "documents", "payments", "messages"];
+    return typeof value === "string" && allowed.includes(value as Filter)
+      ? { filter: value as Filter }
+      : {};
+  },
   component: NotificationsPage,
 });
 
@@ -89,7 +96,7 @@ function NotificationsPage() {
   const notifications = data?.notifications ?? [];
   const unread = notifications.filter((note) => !note.read_status).length;
 
-  const search = Route.useSearch() as { filter?: Filter };
+  const search = Route.useSearch();
   const active: Filter = search.filter ?? "all";
 
   const visible = notifications.filter(
@@ -181,7 +188,7 @@ function NotificationsPage() {
                         className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${tone.chip}`}
                         aria-hidden="true"
                       >
-                        <Icon className="h-4.5 w-4.5" />
+                        <Icon className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
