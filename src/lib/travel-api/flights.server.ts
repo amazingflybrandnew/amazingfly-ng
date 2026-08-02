@@ -1,77 +1,191 @@
 /**
- * Server-only flight API client.
+ * Server-only Duffel flight API client.
  *
- * This module is intentionally kept out of the client bundle by the `.server.ts`
- * naming convention. API keys must be read inside handler bodies from
- * `process.env` and never exposed to the frontend.
+ * This module is kept out of the client bundle by the `.server.ts` naming
+ * convention. Credentials are read inside function bodies from `process.env`
+ * and are never exposed to the frontend.
  */
 
-import type { FlightResult, FlightSearchRequest } from "./flight.types";
+import type {
+  CabinClass,
+  FlightPassengers,
+  FlightResult,
+  FlightSearchRequest,
+} from "./flight.types";
 
-function assertEnvReady(): {
-  baseUrl: string;
-  apiKey: string;
-  apiSecret: string;
-} {
-  const baseUrl = process.env["FLIGHT_API_BASE_URL"];
-  const apiKey = process.env["FLIGHT_API_KEY"];
-  const apiSecret = process.env["FLIGHT_API_SECRET"];
+type DuffelCredentials = { baseUrl: string; token: string };
 
-  if (!baseUrl || !apiKey || !apiSecret) {
-    const missing = [
-      ...(!baseUrl ? ["FLIGHT_API_BASE_URL"] : []),
-      ...(!apiKey ? ["FLIGHT_API_KEY"] : []),
-      ...(!apiSecret ? ["FLIGHT_API_SECRET"] : []),
-    ];
+function readCredentials(): DuffelCredentials {
+  const baseUrl = process.env["DUFFEL_API_BASE_URL"] || "https://api.duffel.com";
+  const token = process.env["DUFFEL_API_TOKEN"] || process.env["FLIGHT_API_KEY"];
+
+  if (!token) {
     throw new Error(
-      `Flight API credentials are not configured. Missing: ${missing.join(", ")}`
+      "Flight search is not configured yet. Missing DUFFEL_API_TOKEN.",
     );
   }
-
-  return { baseUrl, apiKey, apiSecret };
+  return { baseUrl: baseUrl.replace(/\/$/, ""), token };
 }
 
-/**
- * Search for available flights matching the request criteria.
- *
- * TODO: replace the stub with the actual provider request once credentials are
- * added and the endpoint contract is finalised.
- */
+async function duffelFetch<T>(
+  path: string,
+  init: { method: "GET" | "POST"; body?: unknown },
+): Promise<T> {
+  const { baseUrl, token } = readCredentials();
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: init.method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Duffel-Version": "v2",
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "Accept-Encoding": "gzip",
+    },
+    ...(init.body ? { body: JSON.stringify({ data: init.body }) } : {}),
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | { data?: T; errors?: { title?: string; message?: string }[] }
+    | null;
+
+  if (!response.ok) {
+    const first = payload?.errors?.[0];
+    throw new Error(
+      first?.message || first?.title || `Duffel request failed (${response.status}).`,
+    );
+  }
+  return (payload?.data ?? null) as T;
+}
+
+/** Converts an ISO-8601 duration such as "PT7H35M" into "7h 35m". */
+function formatDuration(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const match = /P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/.exec(iso);
+  if (!match) return "—";
+  const days = Number(match[1] ?? 0);
+  const hours = Number(match[2] ?? 0) + days * 24;
+  const minutes = Number(match[3] ?? 0);
+  if (!hours && !minutes) return "—";
+  return [hours ? `${hours}h` : "", minutes ? `${minutes}m` : ""].filter(Boolean).join(" ");
+}
+
+type DuffelSegment = {
+  origin?: { iata_code?: string };
+  destination?: { iata_code?: string };
+  departing_at?: string;
+  arriving_at?: string;
+  marketing_carrier?: { name?: string; iata_code?: string; logo_symbol_url?: string };
+  marketing_carrier_flight_number?: string;
+  passengers?: { cabin_class?: string }[];
+};
+
+type DuffelSlice = {
+  duration?: string;
+  origin?: { iata_code?: string };
+  destination?: { iata_code?: string };
+  segments?: DuffelSegment[];
+};
+
+type DuffelOffer = {
+  id: string;
+  total_amount?: string;
+  total_currency?: string;
+  owner?: { name?: string; iata_code?: string; logo_symbol_url?: string };
+  slices?: DuffelSlice[];
+};
+
+function buildPassengerPayload(passengers: FlightPassengers) {
+  const list: { type?: string; age?: number }[] = [];
+  for (let i = 0; i < Math.max(1, passengers.adults); i += 1) list.push({ type: "adult" });
+  for (let i = 0; i < (passengers.children ?? 0); i += 1) list.push({ age: 10 });
+  for (let i = 0; i < (passengers.infants ?? 0); i += 1) list.push({ age: 1 });
+  return list;
+}
+
+function mapOffer(offer: DuffelOffer, request: FlightSearchRequest): FlightResult {
+  const slice = offer.slices?.[0];
+  const segments = slice?.segments ?? [];
+  const first = segments[0];
+  const last = segments[segments.length - 1];
+  const carrier = first?.marketing_carrier ?? offer.owner;
+
+  return {
+    id: offer.id,
+    airline: carrier?.name ?? offer.owner?.name ?? "Airline",
+    airlineLogoUrl: carrier?.logo_symbol_url ?? offer.owner?.logo_symbol_url ?? null,
+    flightNumber: `${carrier?.iata_code ?? ""}${first?.marketing_carrier_flight_number ?? ""}`.trim(),
+    origin: slice?.origin?.iata_code ?? first?.origin?.iata_code ?? request.origin,
+    destination:
+      slice?.destination?.iata_code ?? last?.destination?.iata_code ?? request.destination,
+    departureTime: first?.departing_at ?? request.departureDate,
+    arrivalTime: last?.arriving_at ?? request.departureDate,
+    duration: formatDuration(slice?.duration),
+    stops: Math.max(0, segments.length - 1),
+    cabinClass: (first?.passengers?.[0]?.cabin_class as CabinClass) ?? request.cabinClass,
+    passengers: request.passengers,
+    price: Number(offer.total_amount ?? 0),
+    currency: offer.total_currency ?? "NGN",
+  };
+}
+
+/** Search Duffel for flight offers matching the request criteria. */
 export async function searchFlights(
-  request: FlightSearchRequest
+  request: FlightSearchRequest,
 ): Promise<FlightResult[]> {
-  // Credentials are read here so they never ship to the browser.
-  const { baseUrl, apiKey, apiSecret } = assertEnvReady();
+  const slices = [
+    {
+      origin: request.origin.toUpperCase(),
+      destination: request.destination.toUpperCase(),
+      departure_date: request.departureDate,
+    },
+    ...(request.returnDate
+      ? [
+          {
+            origin: request.destination.toUpperCase(),
+            destination: request.origin.toUpperCase(),
+            departure_date: request.returnDate,
+          },
+        ]
+      : []),
+  ];
 
-  console.log("[Flight API] searchFlights called", {
-    request,
-    baseUrl,
-    apiKeyPresent: !!apiKey,
-    apiSecretPresent: !!apiSecret,
-  });
+  const data = await duffelFetch<{ offers?: DuffelOffer[] }>(
+    "/air/offer_requests?return_offers=true&supplier_timeout=20000",
+    {
+      method: "POST",
+      body: {
+        slices,
+        passengers: buildPassengerPayload(request.passengers),
+        cabin_class: request.cabinClass,
+      },
+    },
+  );
 
-  // Placeholder: real implementation will POST /search to the provider.
-  return [];
+  const offers = data?.offers ?? [];
+  return offers
+    .map((offer) => mapOffer(offer, request))
+    .sort((a, b) => a.price - b.price)
+    .slice(0, 30);
 }
 
-/**
- * Fetch detailed information for a single flight offer.
- *
- * TODO: replace the stub with the actual provider request once credentials are
- * added and the endpoint contract is finalised.
- */
+/** Fetch the full offer record for a single Duffel offer id. */
 export async function getFlightDetails(
-  flightId: string
+  flightId: string,
 ): Promise<FlightResult | null> {
-  const { baseUrl, apiKey, apiSecret } = assertEnvReady();
+  const offer = await duffelFetch<DuffelOffer | null>(
+    `/air/offers/${encodeURIComponent(flightId)}?return_available_services=false`,
+    { method: "GET" },
+  );
+  if (!offer) return null;
 
-  console.log("[Flight API] getFlightDetails called", {
-    flightId,
-    baseUrl,
-    apiKeyPresent: !!apiKey,
-    apiSecretPresent: !!apiSecret,
-  });
-
-  // Placeholder: real implementation will GET /details/{flightId}.
-  return null;
+  const slice = offer.slices?.[0];
+  const fallback: FlightSearchRequest = {
+    origin: slice?.origin?.iata_code ?? "",
+    destination: slice?.destination?.iata_code ?? "",
+    departureDate: slice?.segments?.[0]?.departing_at ?? "",
+    passengers: { adults: 1 },
+    cabinClass: "economy",
+  };
+  return mapOffer(offer, fallback);
 }
