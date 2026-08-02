@@ -19,7 +19,7 @@ import { getAccountOverview } from "@/lib/account.functions";
 import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/dashboard/")({
   head: () => ({
     meta: [
       { title: "Your Travel Dashboard | Amazingfly.ng" },
