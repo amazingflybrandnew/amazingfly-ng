@@ -2,6 +2,13 @@
 
 export type CabinClass = "economy" | "premium_economy" | "business" | "first";
 
+export const CABIN_CLASSES: { value: CabinClass; label: string }[] = [
+  { value: "economy", label: "Economy" },
+  { value: "premium_economy", label: "Premium Economy" },
+  { value: "business", label: "Business" },
+  { value: "first", label: "First" },
+];
+
 export type FlightPassengers = {
   adults: number;
   children?: number;
@@ -20,11 +27,20 @@ export type FlightSearchRequest = {
 export type FlightResult = {
   id: string; // unique offer/segment id for detail lookups
   airline: string;
+  airlineLogoUrl?: string | null;
   flightNumber: string;
+  origin: string; // IATA code
+  destination: string; // IATA code
   departureTime: string; // ISO 8601 datetime
   arrivalTime: string; // ISO 8601 datetime
   duration: string; // human readable, e.g. "2h 30m"
   stops: number;
+  cabinClass: CabinClass;
+  passengers: FlightPassengers;
   price: number;
   currency: string;
 };
+
+export type FlightSearchResponse =
+  | { ok: true; results: FlightResult[] }
+  | { ok: false; error: string };
