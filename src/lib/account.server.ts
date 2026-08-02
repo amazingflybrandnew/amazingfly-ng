@@ -121,19 +121,33 @@ async function fetchDocuments(
 
 async function fetchNotifications(user: SessionUser): Promise<AccountNotification[]> {
   const supabase = await admin();
-  const { data, error } = await supabase
+  const withRequest = await supabase
     .from("notifications")
-    .select("id, title, message, read_status, created_at")
+    .select("id, title, message, read_status, created_at, request_id")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(30);
-  if (error) return [];
-  return (data ?? []).map((row) => ({
+
+  let rows = withRequest.data;
+  if (withRequest.error) {
+    // The request_id column is added by the document-request migration.
+    const legacy = await supabase
+      .from("notifications")
+      .select("id, title, message, read_status, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (legacy.error) return [];
+    rows = legacy.data;
+  }
+
+  return (rows ?? []).map((row) => ({
     id: String(row["id"]),
     title: String(row["title"] ?? ""),
     message: String(row["message"] ?? ""),
     read_status: Boolean(row["read_status"]),
     created_at: String(row["created_at"] ?? ""),
+    request_id: (row["request_id"] as string | null | undefined) ?? null,
   }));
 }
 
@@ -144,8 +158,10 @@ export async function loadAccountData(user: SessionUser): Promise<DashboardData>
     rows.map((row) => [String(row["id"]), String(row["request_reference"] ?? "")]),
   );
 
-  const [documents, notifications] = await Promise.all([
+  const { fetchDocumentRequests } = await import("./document-requests.server");
+  const [documents, documentRequests, notifications] = await Promise.all([
     fetchDocuments(ids, referenceById),
+    fetchDocumentRequests(ids, referenceById),
     fetchNotifications(user),
   ]);
 
@@ -156,20 +172,27 @@ export async function loadAccountData(user: SessionUser): Promise<DashboardData>
 
   const requests = rows.map((row) => shape(row, countByRequest.get(String(row["id"])) ?? 0));
   const closed = ["completed", "cancelled"];
+  const outstanding = documentRequests.filter(
+    (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
+  ).length;
 
   return {
     requests,
     documents,
+    documentRequests,
     notifications,
     totals: {
       total: requests.length,
       active: requests.filter((r) => !closed.includes(r.request_status)).length,
       completed: requests.filter((r) => r.request_status === "completed").length,
-      documentsRequired: requests.filter((r) => r.request_status === "documents_required").length,
+      documentsRequired:
+        outstanding ||
+        requests.filter((r) => r.request_status === "documents_required").length,
       unreadNotifications: notifications.filter((n) => !n.read_status).length,
     },
   };
 }
+
 
 async function ownedRequestRow(user: SessionUser, requestId: string): Promise<RawRequest | null> {
   const rows = await fetchOwnedRequests(user);
