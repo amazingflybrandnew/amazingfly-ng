@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { HomeHero } from "@/components/HomeHero";
 import { FlightSearch } from "@/components/FlightSearch";
+import { HotelSearch } from "@/components/HotelSearch";
+
 import { Disclaimer } from "@/components/PageParts";
 import { services, getService } from "@/data/services";
 
