@@ -307,11 +307,20 @@ export async function saveOwnedDocument(
 
 async function ownedDocument(user: SessionUser, documentId: string) {
   const supabase = await admin();
-  const { data } = await supabase
+  const primary = await supabase
     .from("uploaded_documents")
     .select("id, request_id, file_url, document_request_id")
     .eq("id", documentId)
     .maybeSingle();
+  let data = primary.data as Record<string, unknown> | null;
+  if (primary.error) {
+    const legacy = await supabase
+      .from("uploaded_documents")
+      .select("id, request_id, file_url")
+      .eq("id", documentId)
+      .maybeSingle();
+    data = (legacy.data as Record<string, unknown> | null) ?? null;
+  }
   if (!data) return null;
   const row = await ownedRequestRow(user, String(data["request_id"]));
   if (!row) return null;
