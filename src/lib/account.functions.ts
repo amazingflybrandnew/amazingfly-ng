@@ -67,6 +67,7 @@ export type RequestUpdate = {
 export type DashboardData = {
   requests: AccountRequest[];
   documents: AccountDocument[];
+  documentRequests: DocumentRequestItem[];
   notifications: AccountNotification[];
   totals: {
     total: number;
@@ -76,6 +77,7 @@ export type DashboardData = {
     unreadNotifications: number;
   };
 };
+
 
 export const getAccountOverview = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData> => {
