@@ -13,7 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
-import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DisclaimerRouteImport } from './routes/disclaimer'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as MyRequestsRouteImport } from './routes/my-requests'
@@ -35,6 +34,7 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as PaymentRequestIdRouteImport } from './routes/payment.$requestId'
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
@@ -60,11 +60,6 @@ const AuthRoute = AuthRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DisclaimerRoute = DisclaimerRouteImport.update({
@@ -172,6 +167,11 @@ const AdminTestimonialsRoute = AdminTestimonialsRouteImport.update({
   path: '/admin/testimonials',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentRequestIdRoute = PaymentRequestIdRouteImport.update({
   id: '/payment/$requestId',
   path: '/payment/$requestId',
@@ -208,7 +208,6 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
-  '/dashboard': typeof DashboardRoute
   '/disclaimer': typeof DisclaimerRoute
   '/documents': typeof DocumentsRoute
   '/my-requests': typeof MyRequestsRoute
@@ -233,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/services/': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
@@ -242,7 +242,6 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
-  '/dashboard': typeof DashboardRoute
   '/disclaimer': typeof DisclaimerRoute
   '/documents': typeof DocumentsRoute
   '/my-requests': typeof MyRequestsRoute
@@ -267,6 +266,7 @@ export interface FileRoutesByTo {
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin': typeof AdminIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/services': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests': typeof AdminRequestsIndexRoute
@@ -277,7 +277,6 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
-  '/dashboard': typeof DashboardRoute
   '/disclaimer': typeof DisclaimerRoute
   '/documents': typeof DocumentsRoute
   '/my-requests': typeof MyRequestsRoute
@@ -302,6 +301,7 @@ export interface FileRoutesById {
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/services/': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
@@ -313,7 +313,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/contact'
-    | '/dashboard'
     | '/disclaimer'
     | '/documents'
     | '/my-requests'
@@ -338,6 +337,7 @@ export interface FileRouteTypes {
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
+    | '/dashboard/'
     | '/services/'
     | '/admin/requests/$id'
     | '/admin/requests/'
@@ -347,7 +347,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/contact'
-    | '/dashboard'
     | '/disclaimer'
     | '/documents'
     | '/my-requests'
@@ -372,6 +371,7 @@ export interface FileRouteTypes {
     | '/requests/$id'
     | '/services/$slug'
     | '/admin'
+    | '/dashboard'
     | '/services'
     | '/admin/requests/$id'
     | '/admin/requests'
@@ -381,7 +381,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/contact'
-    | '/dashboard'
     | '/disclaimer'
     | '/documents'
     | '/my-requests'
@@ -406,6 +405,7 @@ export interface FileRouteTypes {
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
+    | '/dashboard/'
     | '/services/'
     | '/admin/requests/$id'
     | '/admin/requests/'
@@ -416,7 +416,6 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
-  DashboardRoute: typeof DashboardRoute
   DisclaimerRoute: typeof DisclaimerRoute
   DocumentsRoute: typeof DocumentsRoute
   MyRequestsRoute: typeof MyRequestsRoute
@@ -441,6 +440,7 @@ export interface RootRouteChildren {
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
   ServicesIndexRoute: typeof ServicesIndexRoute
   AdminRequestsIdRoute: typeof AdminRequestsIdRoute
   AdminRequestsIndexRoute: typeof AdminRequestsIndexRoute
@@ -474,13 +474,6 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/disclaimer': {
@@ -630,6 +623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTestimonialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payment/$requestId': {
       id: '/payment/$requestId'
       path: '/payment/$requestId'
@@ -680,7 +680,6 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
-  DashboardRoute: DashboardRoute,
   DisclaimerRoute: DisclaimerRoute,
   DocumentsRoute: DocumentsRoute,
   MyRequestsRoute: MyRequestsRoute,
@@ -705,6 +704,7 @@ const rootRouteChildren: RootRouteChildren = {
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,
   AdminIndexRoute: AdminIndexRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
   ServicesIndexRoute: ServicesIndexRoute,
   AdminRequestsIdRoute: AdminRequestsIdRoute,
   AdminRequestsIndexRoute: AdminRequestsIndexRoute,
