@@ -665,7 +665,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
                   flight={flight}
                   isSelected={selected?.id === flight.id}
                   onOpen={() => setDetailFlight(flight)}
-                  onSelect={() => selectFlight(flight)}
+                  onSelect={() => handleSelect(flight)}
                 />
               ))}
             </div>
@@ -681,7 +681,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         }}
         isSelected={selected?.id === detailFlight?.id}
         onSelect={(flight) => {
-          selectFlight(flight);
+          handleSelect(flight);
           setDetailFlight(null);
         }}
       />
