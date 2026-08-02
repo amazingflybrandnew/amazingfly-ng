@@ -168,16 +168,25 @@ export const completePasswordReset = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     z
       .object({
-        access_token: z.string().min(10).max(4000),
-        password: z.string().min(8).max(72),
-      })
+  access_token: z.string().min(10).max(4000),
+  refresh_token: z.string().min(10).max(4000),
+  password: z.string().min(8).max(72),
+})
       .strict()
       .parse(data),
   )
   .handler(async ({ data }): Promise<AuthResult> => {
     const { createUserClient } = await import("./auth.server");
     const client = createUserClient(data.access_token);
-    const { error } = await client.auth.updateUser({ password: data.password });
+
+await client.auth.setSession({
+  access_token: data.access_token,
+  refresh_token: data.refresh_token,
+});
+
+const { error } = await client.auth.updateUser({
+  password: data.password,
+});
     if (error) return { ok: false, message: error.message };
     return { ok: true, signedIn: false, message: "Password updated. You can sign in now." };
   });
