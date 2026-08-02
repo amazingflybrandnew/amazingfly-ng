@@ -620,6 +620,11 @@ function AdminRequestDetailPage() {
               ) : null}
             </ul>
           </Panel>
+
+          {allow("message_customer") && request.email ? (
+            <RequestMessages requestId={id} email={request.email} />
+          ) : null}
+
         </div>
       </div>
     </AdminShell>
