@@ -30,13 +30,32 @@ export type AccountDocument = {
   uploaded_at: string;
 };
 
+export type DocumentRequestItem = {
+  id: string;
+  request_id: string;
+  request_reference: string;
+  document_name: string;
+  description: string | null;
+  /** "required" | "optional" */
+  required_status: string;
+  /** "pending" | "uploaded" | "approved" | "rejected" */
+  uploaded_status: string;
+  created_at: string;
+  document_id: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  uploaded_at: string | null;
+};
+
 export type AccountNotification = {
   id: string;
   title: string;
   message: string;
   read_status: boolean;
   created_at: string;
+  request_id: string | null;
 };
+
 
 export type RequestUpdate = {
   id: string;
