@@ -5,6 +5,8 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { DocumentList } from "@/components/DocumentList";
+import { DocumentRequestList } from "@/components/DocumentRequestList";
+
 import { RequestTimeline } from "@/components/RequestTimeline";
 import { getRequestDetail } from "@/lib/account.functions";
 import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
