@@ -290,10 +290,13 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     setMaxPrice(null);
   };
 
-  const handleSelect = (hotel: HotelResult) => {
+  const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
     setSelected(hotel);
+    setSelectedRoom(room ?? hotel.rooms[0] ?? null);
     setDetailHotel(null);
+    if (submittedStay) createRequest.mutate({ hotel, room: room ?? hotel.rooms[0] ?? null });
   };
+
 
   return (
     <div className="space-y-8">
