@@ -97,7 +97,6 @@ function FlightCard({ flight }: { flight: FlightResult }) {
                 service: "flights",
                 from: flight.origin,
                 to: flight.destination,
-                date: flight.departureTime.slice(0, 10),
               }}
             >
               Select Flight
