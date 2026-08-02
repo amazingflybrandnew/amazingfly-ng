@@ -190,7 +190,14 @@ export type AdminRequestRow = {
   flight_number: string | null;
   flight_price: number | null;
   flight_currency: string | null;
+  hotel_name: string | null;
+  hotel_location: string | null;
+  hotel_check_in: string | null;
+  hotel_check_out: string | null;
+  hotel_price: number | null;
+  hotel_currency: string | null;
 };
+
 
 function str(row: Record<string, unknown>, key: string, fallback = ""): string {
   const value = row[key];
