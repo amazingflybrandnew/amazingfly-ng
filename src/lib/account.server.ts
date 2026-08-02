@@ -268,19 +268,39 @@ export async function saveOwnedDocument(
     file_url: string;
     file_name: string;
     file_size: number;
+    document_request_id?: string | null | undefined;
   },
 ): Promise<{ ok: boolean; message?: string }> {
   const row = await ownedRequestRow(user, input.request_id);
   if (!row) return { ok: false, message: "Request not found." };
 
   const supabase = await admin();
-  const { error } = await supabase.from("uploaded_documents").insert({
+  const base = {
     request_id: input.request_id,
     document_type: input.document_type,
     file_url: input.file_url,
     file_name: input.file_name,
     file_size: input.file_size,
-  });
+  };
+
+  if (input.document_request_id) {
+    const { documentRequestOwnerRequestId, setDocumentRequestStatus } = await import(
+      "./document-requests.server"
+    );
+    const owner = await documentRequestOwnerRequestId(input.document_request_id);
+    if (owner !== input.request_id) {
+      return { ok: false, message: "That document request does not belong to this request." };
+    }
+    const linked = await supabase
+      .from("uploaded_documents")
+      .insert({ ...base, document_request_id: input.document_request_id });
+    if (!linked.error) {
+      await setDocumentRequestStatus(input.document_request_id, true);
+      return { ok: true };
+    }
+  }
+
+  const { error } = await supabase.from("uploaded_documents").insert(base);
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }
@@ -289,7 +309,7 @@ async function ownedDocument(user: SessionUser, documentId: string) {
   const supabase = await admin();
   const { data } = await supabase
     .from("uploaded_documents")
-    .select("id, request_id, file_url")
+    .select("id, request_id, file_url, document_request_id")
     .eq("id", documentId)
     .maybeSingle();
   if (!data) return null;
@@ -309,6 +329,15 @@ export async function removeOwnedDocument(
   await supabase.storage.from(BUCKET).remove([String(doc["file_url"])]);
   const { error } = await supabase.from("uploaded_documents").delete().eq("id", documentId);
   if (error) return { ok: false, message: error.message };
+
+  const linkedRequest = (doc as Record<string, unknown>)["document_request_id"] as
+    | string
+    | null
+    | undefined;
+  if (linkedRequest) {
+    const { setDocumentRequestStatus } = await import("./document-requests.server");
+    await setDocumentRequestStatus(linkedRequest, false);
+  }
   return { ok: true };
 }
 
