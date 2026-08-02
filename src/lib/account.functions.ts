@@ -30,13 +30,32 @@ export type AccountDocument = {
   uploaded_at: string;
 };
 
+export type DocumentRequestItem = {
+  id: string;
+  request_id: string;
+  request_reference: string;
+  document_name: string;
+  description: string | null;
+  /** "required" | "optional" */
+  required_status: string;
+  /** "pending" | "uploaded" | "approved" | "rejected" */
+  uploaded_status: string;
+  created_at: string;
+  document_id: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  uploaded_at: string | null;
+};
+
 export type AccountNotification = {
   id: string;
   title: string;
   message: string;
   read_status: boolean;
   created_at: string;
+  request_id: string | null;
 };
+
 
 export type RequestUpdate = {
   id: string;
@@ -48,6 +67,7 @@ export type RequestUpdate = {
 export type DashboardData = {
   requests: AccountRequest[];
   documents: AccountDocument[];
+  documentRequests: DocumentRequestItem[];
   notifications: AccountNotification[];
   totals: {
     total: number;
@@ -57,6 +77,7 @@ export type DashboardData = {
     unreadNotifications: number;
   };
 };
+
 
 export const getAccountOverview = createServerFn({ method: "GET" }).handler(
   async (): Promise<DashboardData> => {
@@ -75,6 +96,7 @@ export const getRequestDetail = createServerFn({ method: "POST" })
     }): Promise<{
       request: AccountRequest;
       documents: AccountDocument[];
+      documentRequests: DocumentRequestItem[];
       updates: RequestUpdate[];
     } | null> => {
       const { requireUser } = await import("./auth.server");
@@ -89,7 +111,7 @@ export const createAccountUploadUrl = createServerFn({ method: "POST" })
     z
       .object({
         request_id: z.string().uuid(),
-        document_type: z.string().trim().min(1).max(60),
+        document_type: z.string().trim().min(1).max(120),
         file_name: z.string().trim().min(1).max(260),
         file_size: z.number().int().positive().max(10 * 1024 * 1024),
       })
@@ -112,10 +134,11 @@ export const recordAccountDocument = createServerFn({ method: "POST" })
     z
       .object({
         request_id: z.string().uuid(),
-        document_type: z.string().trim().min(1).max(60),
+        document_type: z.string().trim().min(1).max(120),
         file_url: z.string().trim().min(1).max(500),
         file_name: z.string().trim().min(1).max(260),
         file_size: z.number().int().nonnegative().max(10 * 1024 * 1024),
+        document_request_id: z.string().uuid().nullish(),
       })
       .strict()
       .parse(data),
@@ -126,6 +149,7 @@ export const recordAccountDocument = createServerFn({ method: "POST" })
     const { user } = await requireUser();
     return saveOwnedDocument(user, data);
   });
+
 
 export const deleteAccountDocument = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>

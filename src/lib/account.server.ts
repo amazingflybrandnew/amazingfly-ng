@@ -12,6 +12,7 @@ import type {
   AccountNotification,
   AccountRequest,
   DashboardData,
+  DocumentRequestItem,
   RequestUpdate,
 } from "./account.functions";
 
@@ -121,19 +122,33 @@ async function fetchDocuments(
 
 async function fetchNotifications(user: SessionUser): Promise<AccountNotification[]> {
   const supabase = await admin();
-  const { data, error } = await supabase
+  const withRequest = await supabase
     .from("notifications")
-    .select("id, title, message, read_status, created_at")
+    .select("id, title, message, read_status, created_at, request_id")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(30);
-  if (error) return [];
-  return (data ?? []).map((row) => ({
+
+  let rows = (withRequest.data ?? null) as RawRequest[] | null;
+  if (withRequest.error) {
+    // The request_id column is added by the document-request migration.
+    const legacy = await supabase
+      .from("notifications")
+      .select("id, title, message, read_status, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (legacy.error) return [];
+    rows = legacy.data;
+  }
+
+  return (rows ?? []).map((row) => ({
     id: String(row["id"]),
     title: String(row["title"] ?? ""),
     message: String(row["message"] ?? ""),
     read_status: Boolean(row["read_status"]),
     created_at: String(row["created_at"] ?? ""),
+    request_id: (row["request_id"] as string | null | undefined) ?? null,
   }));
 }
 
@@ -144,8 +159,10 @@ export async function loadAccountData(user: SessionUser): Promise<DashboardData>
     rows.map((row) => [String(row["id"]), String(row["request_reference"] ?? "")]),
   );
 
-  const [documents, notifications] = await Promise.all([
+  const { fetchDocumentRequests } = await import("./document-requests.server");
+  const [documents, documentRequests, notifications] = await Promise.all([
     fetchDocuments(ids, referenceById),
+    fetchDocumentRequests(ids, referenceById),
     fetchNotifications(user),
   ]);
 
@@ -156,20 +173,27 @@ export async function loadAccountData(user: SessionUser): Promise<DashboardData>
 
   const requests = rows.map((row) => shape(row, countByRequest.get(String(row["id"])) ?? 0));
   const closed = ["completed", "cancelled"];
+  const outstanding = documentRequests.filter(
+    (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
+  ).length;
 
   return {
     requests,
     documents,
+    documentRequests,
     notifications,
     totals: {
       total: requests.length,
       active: requests.filter((r) => !closed.includes(r.request_status)).length,
       completed: requests.filter((r) => r.request_status === "completed").length,
-      documentsRequired: requests.filter((r) => r.request_status === "documents_required").length,
+      documentsRequired:
+        outstanding ||
+        requests.filter((r) => r.request_status === "documents_required").length,
       unreadNotifications: notifications.filter((n) => !n.read_status).length,
     },
   };
 }
+
 
 async function ownedRequestRow(user: SessionUser, requestId: string): Promise<RawRequest | null> {
   const rows = await fetchOwnedRequests(user);
@@ -182,13 +206,19 @@ export async function loadRequestDetail(
 ): Promise<{
   request: AccountRequest;
   documents: AccountDocument[];
+  documentRequests: DocumentRequestItem[];
   updates: RequestUpdate[];
 } | null> {
   const row = await ownedRequestRow(user, requestId);
   if (!row) return null;
 
   const reference = String(row["request_reference"] ?? "");
-  const documents = await fetchDocuments([requestId], new Map([[requestId, reference]]));
+  const referenceById = new Map([[requestId, reference]]);
+  const { fetchDocumentRequests } = await import("./document-requests.server");
+  const [documents, documentRequests] = await Promise.all([
+    fetchDocuments([requestId], referenceById),
+    fetchDocumentRequests([requestId], referenceById),
+  ]);
 
   const supabase = await admin();
   const { data: updateRows } = await supabase
@@ -204,8 +234,9 @@ export async function loadRequestDetail(
     created_at: String(u["created_at"] ?? ""),
   }));
 
-  return { request: shape(row, documents.length), documents, updates };
+  return { request: shape(row, documents.length), documents, documentRequests, updates };
 }
+
 
 export async function signUploadForOwnedRequest(
   user: SessionUser,
@@ -237,30 +268,59 @@ export async function saveOwnedDocument(
     file_url: string;
     file_name: string;
     file_size: number;
+    document_request_id?: string | null | undefined;
   },
 ): Promise<{ ok: boolean; message?: string }> {
   const row = await ownedRequestRow(user, input.request_id);
   if (!row) return { ok: false, message: "Request not found." };
 
   const supabase = await admin();
-  const { error } = await supabase.from("uploaded_documents").insert({
+  const base = {
     request_id: input.request_id,
     document_type: input.document_type,
     file_url: input.file_url,
     file_name: input.file_name,
     file_size: input.file_size,
-  });
+  };
+
+  if (input.document_request_id) {
+    const { documentRequestOwnerRequestId, setDocumentRequestStatus } = await import(
+      "./document-requests.server"
+    );
+    const owner = await documentRequestOwnerRequestId(input.document_request_id);
+    if (owner !== input.request_id) {
+      return { ok: false, message: "That document request does not belong to this request." };
+    }
+    const linked = await supabase
+      .from("uploaded_documents")
+      .insert({ ...base, document_request_id: input.document_request_id });
+    if (!linked.error) {
+      await setDocumentRequestStatus(input.document_request_id, true);
+      return { ok: true };
+    }
+  }
+
+  const { error } = await supabase.from("uploaded_documents").insert(base);
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }
 
 async function ownedDocument(user: SessionUser, documentId: string) {
   const supabase = await admin();
-  const { data } = await supabase
+  const primary = await supabase
     .from("uploaded_documents")
-    .select("id, request_id, file_url")
+    .select("id, request_id, file_url, document_request_id")
     .eq("id", documentId)
     .maybeSingle();
+  let data = primary.data as Record<string, unknown> | null;
+  if (primary.error) {
+    const legacy = await supabase
+      .from("uploaded_documents")
+      .select("id, request_id, file_url")
+      .eq("id", documentId)
+      .maybeSingle();
+    data = (legacy.data as Record<string, unknown> | null) ?? null;
+  }
   if (!data) return null;
   const row = await ownedRequestRow(user, String(data["request_id"]));
   if (!row) return null;
@@ -278,6 +338,15 @@ export async function removeOwnedDocument(
   await supabase.storage.from(BUCKET).remove([String(doc["file_url"])]);
   const { error } = await supabase.from("uploaded_documents").delete().eq("id", documentId);
   if (error) return { ok: false, message: error.message };
+
+  const linkedRequest = (doc as Record<string, unknown>)["document_request_id"] as
+    | string
+    | null
+    | undefined;
+  if (linkedRequest) {
+    const { setDocumentRequestStatus } = await import("./document-requests.server");
+    await setDocumentRequestStatus(linkedRequest, false);
+  }
   return { ok: true };
 }
 
