@@ -96,6 +96,7 @@ export const getRequestDetail = createServerFn({ method: "POST" })
     }): Promise<{
       request: AccountRequest;
       documents: AccountDocument[];
+      documentRequests: DocumentRequestItem[];
       updates: RequestUpdate[];
     } | null> => {
       const { requireUser } = await import("./auth.server");
@@ -110,7 +111,7 @@ export const createAccountUploadUrl = createServerFn({ method: "POST" })
     z
       .object({
         request_id: z.string().uuid(),
-        document_type: z.string().trim().min(1).max(60),
+        document_type: z.string().trim().min(1).max(120),
         file_name: z.string().trim().min(1).max(260),
         file_size: z.number().int().positive().max(10 * 1024 * 1024),
       })
@@ -133,10 +134,11 @@ export const recordAccountDocument = createServerFn({ method: "POST" })
     z
       .object({
         request_id: z.string().uuid(),
-        document_type: z.string().trim().min(1).max(60),
+        document_type: z.string().trim().min(1).max(120),
         file_url: z.string().trim().min(1).max(500),
         file_name: z.string().trim().min(1).max(260),
         file_size: z.number().int().nonnegative().max(10 * 1024 * 1024),
+        document_request_id: z.string().uuid().nullish(),
       })
       .strict()
       .parse(data),
@@ -147,6 +149,7 @@ export const recordAccountDocument = createServerFn({ method: "POST" })
     const { user } = await requireUser();
     return saveOwnedDocument(user, data);
   });
+
 
 export const deleteAccountDocument = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
