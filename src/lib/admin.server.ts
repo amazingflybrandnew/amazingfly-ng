@@ -327,6 +327,8 @@ export async function loadAdminRequests(filters: {
         row.service_type,
         row.destination_country,
         row.airline ?? "",
+        row.hotel_name ?? "",
+
       ]
         .join(" ")
         .toLowerCase()
