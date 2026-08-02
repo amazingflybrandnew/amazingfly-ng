@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ClipboardList,
+  FileText,
+  Globe2,
   History,
   LayoutDashboard,
   Loader2,
