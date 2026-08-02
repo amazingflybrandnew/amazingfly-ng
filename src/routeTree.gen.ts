@@ -34,6 +34,7 @@ import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
+import { Route as PaymentRequestIdRouteImport } from './routes/payment.$requestId'
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
@@ -165,6 +166,11 @@ const AdminTestimonialsRoute = AdminTestimonialsRouteImport.update({
   path: '/admin/testimonials',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentRequestIdRoute = PaymentRequestIdRouteImport.update({
+  id: '/payment/$requestId',
+  path: '/payment/$requestId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RequestsIdRoute = RequestsIdRouteImport.update({
   id: '/requests/$id',
   path: '/requests/$id',
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -248,6 +255,7 @@ export interface FileRoutesByTo {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin': typeof AdminIndexRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -315,6 +324,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
@@ -347,6 +357,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin'
@@ -379,6 +390,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
@@ -412,6 +424,7 @@ export interface RootRouteChildren {
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
   AdminTestimonialsRoute: typeof AdminTestimonialsRoute
+  PaymentRequestIdRoute: typeof PaymentRequestIdRoute
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -597,6 +610,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTestimonialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment/$requestId': {
+      id: '/payment/$requestId'
+      path: '/payment/$requestId'
+      fullPath: '/payment/$requestId'
+      preLoaderRoute: typeof PaymentRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/requests/$id': {
       id: '/requests/$id'
       path: '/requests/$id'
@@ -660,6 +680,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
   AdminTestimonialsRoute: AdminTestimonialsRoute,
+  PaymentRequestIdRoute: PaymentRequestIdRoute,
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,
   AdminIndexRoute: AdminIndexRoute,
