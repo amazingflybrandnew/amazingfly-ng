@@ -72,9 +72,17 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
-    const { requireAdmin, changeRequestStatus } = await import("./admin.server");
+    const { requireAdmin, changeRequestStatus, logAdminAction } = await import("./admin.server");
     const who = await requireAdmin("update_status");
-    return changeRequestStatus(who, data.request_id, data.status, data.message);
+    const result = await changeRequestStatus(who, data.request_id, data.status, data.message);
+    if (result.ok) {
+      await logAdminAction(who, `Changed status to ${data.status}`, {
+        type: "request",
+        id: data.request_id,
+        detail: data.message,
+      });
+    }
+    return result;
   });
 
 export const assignRequestStaff = createServerFn({ method: "POST" })
@@ -85,9 +93,16 @@ export const assignRequestStaff = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
-    const { requireAdmin, assignStaff } = await import("./admin.server");
-    await requireAdmin("assign_staff");
-    return assignStaff(data.request_id, data.staff_id);
+    const { requireAdmin, assignStaff, logAdminAction } = await import("./admin.server");
+    const who = await requireAdmin("assign_staff");
+    const result = await assignStaff(data.request_id, data.staff_id);
+    if (result.ok) {
+      await logAdminAction(who, data.staff_id ? "Assigned a staff member" : "Unassigned the request", {
+        type: "request",
+        id: data.request_id,
+      });
+    }
+    return result;
   });
 
 export const setRequestPriority = createServerFn({ method: "POST" })
@@ -101,9 +116,16 @@ export const setRequestPriority = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
-    const { requireAdmin, setPriority } = await import("./admin.server");
-    await requireAdmin("set_priority");
-    return setPriority(data.request_id, data.priority);
+    const { requireAdmin, setPriority, logAdminAction } = await import("./admin.server");
+    const who = await requireAdmin("set_priority");
+    const result = await setPriority(data.request_id, data.priority);
+    if (result.ok) {
+      await logAdminAction(who, `Set priority to ${data.priority}`, {
+        type: "request",
+        id: data.request_id,
+      });
+    }
+    return result;
   });
 
 export const addRequestNote = createServerFn({ method: "POST" })
@@ -114,9 +136,13 @@ export const addRequestNote = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
-    const { requireAdmin, addInternalNote } = await import("./admin.server");
+    const { requireAdmin, addInternalNote, logAdminAction } = await import("./admin.server");
     const who = await requireAdmin("write_note");
-    return addInternalNote(who, data.request_id, data.note);
+    const result = await addInternalNote(who, data.request_id, data.note);
+    if (result.ok) {
+      await logAdminAction(who, "Added an internal note", { type: "request", id: data.request_id });
+    }
+    return result;
   });
 
 export const requestDocumentFromCustomer = createServerFn({ method: "POST" })
@@ -132,14 +158,22 @@ export const requestDocumentFromCustomer = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
-    const { requireAdmin, createDocumentRequest } = await import("./admin.server");
-    await requireAdmin("request_document");
-    return createDocumentRequest(
+    const { requireAdmin, createDocumentRequest, logAdminAction } = await import("./admin.server");
+    const who = await requireAdmin("request_document");
+    const result = await createDocumentRequest(
       data.request_id,
       data.document_name,
       data.description,
       data.required_status,
     );
+    if (result.ok) {
+      await logAdminAction(who, "Requested a document", {
+        type: "request",
+        id: data.request_id,
+        detail: data.document_name,
+      });
+    }
+    return result;
   });
 
 export const reviewUploadedDocument = createServerFn({ method: "POST" })
@@ -154,9 +188,17 @@ export const reviewUploadedDocument = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
-    const { requireAdmin, reviewDocument } = await import("./admin.server");
-    await requireAdmin("review_document");
-    return reviewDocument(data.document_id, data.review_status, data.review_note);
+    const { requireAdmin, reviewDocument, logAdminAction } = await import("./admin.server");
+    const who = await requireAdmin("review_document");
+    const result = await reviewDocument(data.document_id, data.review_status, data.review_note);
+    if (result.ok) {
+      await logAdminAction(who, `Marked a document ${data.review_status}`, {
+        type: "document",
+        id: data.document_id,
+        detail: data.review_note,
+      });
+    }
+    return result;
   });
 
 export const getAdminDocumentUrl = createServerFn({ method: "POST" })
