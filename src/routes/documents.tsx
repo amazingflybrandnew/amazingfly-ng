@@ -5,6 +5,8 @@ import { Loader2 } from "lucide-react";
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { DocumentList } from "@/components/DocumentList";
+import { DocumentRequestList } from "@/components/DocumentRequestList";
+
 import { getAccountOverview } from "@/lib/account.functions";
 
 export const Route = createFileRoute("/documents")({
