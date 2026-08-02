@@ -130,6 +130,8 @@ function mapOffer(offer: DuffelOffer, request: FlightSearchRequest): FlightResul
     departureTime: first?.departing_at ?? request.departureDate,
     arrivalTime: last?.arriving_at ?? request.departureDate,
     duration: formatDuration(slice?.duration),
+    durationMinutes: durationToMinutes(slice?.duration),
+
     stops: Math.max(0, segments.length - 1),
     cabinClass: (first?.passengers?.[0]?.cabin_class as CabinClass) ?? request.cabinClass,
     passengers: request.passengers,
