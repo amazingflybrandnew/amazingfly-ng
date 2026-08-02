@@ -30,6 +30,7 @@ import { Route as AdminContentRouteImport } from './routes/admin.content'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
+import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
@@ -148,6 +149,11 @@ const AdminMessagesRoute = AdminMessagesRouteImport.update({
   path: '/admin/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/admin/notifications',
+  path: '/admin/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
   id: '/admin/payments',
   path: '/admin/payments',
@@ -230,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByTo {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -301,6 +309,7 @@ export interface FileRoutesById {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -338,6 +347,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/messages'
+    | '/admin/notifications'
     | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
@@ -373,6 +383,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/messages'
+    | '/admin/notifications'
     | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
@@ -408,6 +419,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/messages'
+    | '/admin/notifications'
     | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
@@ -444,6 +456,7 @@ export interface RootRouteChildren {
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminDestinationsRoute: typeof AdminDestinationsRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
@@ -608,6 +621,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/admin/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/payments': {
       id: '/admin/payments'
       path: '/admin/payments'
@@ -716,6 +736,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCustomersRoute: AdminCustomersRoute,
   AdminDestinationsRoute: AdminDestinationsRoute,
   AdminMessagesRoute: AdminMessagesRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
