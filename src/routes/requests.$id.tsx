@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
@@ -8,7 +9,13 @@ import { DocumentList } from "@/components/DocumentList";
 import { DocumentRequestList } from "@/components/DocumentRequestList";
 
 import { RequestTimeline } from "@/components/RequestTimeline";
-import { getRequestDetail } from "@/lib/account.functions";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  getRequestConversation,
+  getRequestDetail,
+  replyToAmazingfly,
+} from "@/lib/account.functions";
 import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 
 export const Route = createFileRoute("/requests/$id")({
@@ -163,5 +170,87 @@ function RequestDetailPage() {
         </div>
       )}
     </AccountShell>
+  );
+}
+
+/** Two-way conversation between the customer and Amazingfly Travels staff. */
+function RequestConversation({ requestId }: { requestId: string }) {
+  const queryClient = useQueryClient();
+  const [body, setBody] = useState("");
+  const fetchConversation = useServerFn(getRequestConversation);
+  const replyFn = useServerFn(replyToAmazingfly);
+
+  const conversation = useQuery({
+    queryKey: ["account", "conversation", requestId],
+    queryFn: () => fetchConversation({ data: { id: requestId } }),
+  });
+
+  const reply = useMutation({
+    mutationFn: () => replyFn({ data: { id: requestId, body: body.trim() } }),
+    onSuccess: () => {
+      setBody("");
+      void queryClient.invalidateQueries({ queryKey: ["account", "conversation", requestId] });
+    },
+  });
+
+  const messages = conversation.data ?? [];
+
+  return (
+    <section className="glass-card rounded-3xl p-6 md:p-8">
+      <h2 className="mb-2 text-xl font-extrabold text-navy">Messages</h2>
+      <p className="mb-5 text-sm text-muted-foreground">
+        Talk directly to the Amazingfly Travels specialist handling this request.
+      </p>
+
+      <ul className="space-y-3">
+        {messages.length === 0 ? (
+          <li className="text-sm text-muted-foreground">No messages yet.</li>
+        ) : (
+          messages.map((message) => (
+            <li
+              key={message.id}
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                message.sender === "customer"
+                  ? "ml-auto bg-navy text-white"
+                  : "border border-white/70 bg-white/80 text-navy"
+              }`}
+            >
+              <p className="whitespace-pre-line">{message.body}</p>
+              <p
+                className={`mt-1.5 text-[11px] ${
+                  message.sender === "customer" ? "text-white/70" : "text-muted-foreground"
+                }`}
+              >
+                {message.author} · {formatDate(message.created_at)}
+              </p>
+            </li>
+          ))
+        )}
+      </ul>
+
+      <form
+        className="mt-5 space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (body.trim().length > 1) reply.mutate();
+        }}
+      >
+        <Textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={3}
+          placeholder="Write a message to our team"
+          aria-label="Message to Amazingfly Travels"
+          className="rounded-2xl border-white/60 bg-white/80"
+        />
+        <Button
+          type="submit"
+          className="btn-gradient text-white"
+          disabled={reply.isPending || body.trim().length < 2}
+        >
+          {reply.isPending ? "Sending…" : "Send message"}
+        </Button>
+      </form>
+    </section>
   );
 }
