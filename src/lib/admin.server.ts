@@ -186,6 +186,10 @@ export type AdminRequestRow = {
   priority: string;
   assigned_staff_id: string | null;
   assigned_staff_name: string | null;
+  airline: string | null;
+  flight_number: string | null;
+  flight_price: number | null;
+  flight_currency: string | null;
 };
 
 function str(row: Record<string, unknown>, key: string, fallback = ""): string {
@@ -240,6 +244,13 @@ function shapeRequestRow(
     priority: str(row, "priority", "normal"),
     assigned_staff_id: assigned,
     assigned_staff_name: assigned ? (staff.get(assigned) ?? null) : null,
+    airline: row["airline"] ? String(row["airline"]) : null,
+    flight_number: row["flight_number"] ? String(row["flight_number"]) : null,
+    flight_price:
+      row["flight_price"] === null || row["flight_price"] === undefined
+        ? null
+        : Number(row["flight_price"]),
+    flight_currency: row["flight_currency"] ? String(row["flight_currency"]) : null,
   };
 }
 
@@ -298,6 +309,7 @@ export async function loadAdminRequests(filters: {
         row.email,
         row.service_type,
         row.destination_country,
+        row.airline ?? "",
       ]
         .join(" ")
         .toLowerCase()
