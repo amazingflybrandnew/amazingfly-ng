@@ -2,7 +2,18 @@ import type { ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ClipboardList, LayoutDashboard, Loader2, LogOut, ShieldCheck } from "lucide-react";
+import {
+  ClipboardList,
+  History,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  MessageSquare,
+  Package,
+  PanelsTopLeft,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getAdminSession } from "@/lib/admin.functions";
@@ -11,7 +22,13 @@ import { signOutCustomer } from "@/lib/auth.functions";
 const NAV = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/requests", label: "Requests", icon: ClipboardList },
+  { to: "/admin/customers", label: "Customers", icon: Users },
+  { to: "/admin/messages", label: "Messages", icon: MessageSquare },
+  { to: "/admin/services", label: "Services", icon: Package },
+  { to: "/admin/content", label: "Website content", icon: PanelsTopLeft },
+  { to: "/admin/activity", label: "Activity", icon: History },
 ] as const;
+
 
 export const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",

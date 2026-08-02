@@ -26,6 +26,11 @@ import { Route as StartRequestRouteImport } from './routes/start-request'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TrackRouteImport } from './routes/track'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminActivityRouteImport } from './routes/admin.activity'
+import { Route as AdminContentRouteImport } from './routes/admin.content'
+import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
+import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
+import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
@@ -117,6 +122,31 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminActivityRoute = AdminActivityRouteImport.update({
+  id: '/admin/activity',
+  path: '/admin/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminContentRoute = AdminContentRouteImport.update({
+  id: '/admin/content',
+  path: '/admin/content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCustomersRoute = AdminCustomersRouteImport.update({
+  id: '/admin/customers',
+  path: '/admin/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminMessagesRoute = AdminMessagesRouteImport.update({
+  id: '/admin/messages',
+  path: '/admin/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminServicesRoute = AdminServicesRouteImport.update({
+  id: '/admin/services',
+  path: '/admin/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RequestsIdRoute = RequestsIdRouteImport.update({
   id: '/requests/$id',
   path: '/requests/$id',
@@ -160,6 +190,11 @@ export interface FileRoutesByFullPath {
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/content': typeof AdminContentRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/messages': typeof AdminMessagesRoute
+  '/admin/services': typeof AdminServicesRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -184,6 +219,11 @@ export interface FileRoutesByTo {
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/content': typeof AdminContentRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/messages': typeof AdminMessagesRoute
+  '/admin/services': typeof AdminServicesRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin': typeof AdminIndexRoute
@@ -209,6 +249,11 @@ export interface FileRoutesById {
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
+  '/admin/activity': typeof AdminActivityRoute
+  '/admin/content': typeof AdminContentRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/messages': typeof AdminMessagesRoute
+  '/admin/services': typeof AdminServicesRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -235,6 +280,11 @@ export interface FileRouteTypes {
     | '/start-request'
     | '/terms'
     | '/track'
+    | '/admin/activity'
+    | '/admin/content'
+    | '/admin/customers'
+    | '/admin/messages'
+    | '/admin/services'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
@@ -259,6 +309,11 @@ export interface FileRouteTypes {
     | '/start-request'
     | '/terms'
     | '/track'
+    | '/admin/activity'
+    | '/admin/content'
+    | '/admin/customers'
+    | '/admin/messages'
+    | '/admin/services'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin'
@@ -283,6 +338,11 @@ export interface FileRouteTypes {
     | '/start-request'
     | '/terms'
     | '/track'
+    | '/admin/activity'
+    | '/admin/content'
+    | '/admin/customers'
+    | '/admin/messages'
+    | '/admin/services'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
@@ -308,6 +368,11 @@ export interface RootRouteChildren {
   StartRequestRoute: typeof StartRequestRoute
   TermsRoute: typeof TermsRoute
   TrackRoute: typeof TrackRoute
+  AdminActivityRoute: typeof AdminActivityRoute
+  AdminContentRoute: typeof AdminContentRoute
+  AdminCustomersRoute: typeof AdminCustomersRoute
+  AdminMessagesRoute: typeof AdminMessagesRoute
+  AdminServicesRoute: typeof AdminServicesRoute
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -437,6 +502,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/activity': {
+      id: '/admin/activity'
+      path: '/admin/activity'
+      fullPath: '/admin/activity'
+      preLoaderRoute: typeof AdminActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/content': {
+      id: '/admin/content'
+      path: '/admin/content'
+      fullPath: '/admin/content'
+      preLoaderRoute: typeof AdminContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/customers': {
+      id: '/admin/customers'
+      path: '/admin/customers'
+      fullPath: '/admin/customers'
+      preLoaderRoute: typeof AdminCustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/messages': {
+      id: '/admin/messages'
+      path: '/admin/messages'
+      fullPath: '/admin/messages'
+      preLoaderRoute: typeof AdminMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/services': {
+      id: '/admin/services'
+      path: '/admin/services'
+      fullPath: '/admin/services'
+      preLoaderRoute: typeof AdminServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/requests/$id': {
       id: '/requests/$id'
       path: '/requests/$id'
@@ -492,6 +592,11 @@ const rootRouteChildren: RootRouteChildren = {
   StartRequestRoute: StartRequestRoute,
   TermsRoute: TermsRoute,
   TrackRoute: TrackRoute,
+  AdminActivityRoute: AdminActivityRoute,
+  AdminContentRoute: AdminContentRoute,
+  AdminCustomersRoute: AdminCustomersRoute,
+  AdminMessagesRoute: AdminMessagesRoute,
+  AdminServicesRoute: AdminServicesRoute,
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,
   AdminIndexRoute: AdminIndexRoute,
