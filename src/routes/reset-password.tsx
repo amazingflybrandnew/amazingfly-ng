@@ -29,7 +29,8 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const [token, setToken] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
+const [refreshToken, setRefreshToken] = useState<string | null>(null);
+const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const complete = useServerFn(completePasswordReset);
@@ -37,12 +38,25 @@ function ResetPasswordPage() {
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const accessToken = hash.get("access_token");
-    if (accessToken) setToken(accessToken);
-    else setError("This reset link is invalid or has expired. Request a new one.");
+const refresh = hash.get("refresh_token");
+
+if (accessToken && refresh) {
+  setToken(accessToken);
+  setRefreshToken(refresh);
+} else {
+  setError("This reset link is invalid or has expired. Request a new one.");
+}
   }, []);
 
   const mutation = useMutation({
-    mutationFn: () => complete({ data: { access_token: token!, password } }),
+    mutationFn: () =>
+  complete({
+    data: {
+      access_token: token!,
+      refresh_token: refreshToken!,
+      password,
+    },
+  }),
     onSuccess: (result) => {
       if (!result.ok) {
         setError(result.message);
