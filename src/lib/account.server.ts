@@ -205,13 +205,19 @@ export async function loadRequestDetail(
 ): Promise<{
   request: AccountRequest;
   documents: AccountDocument[];
+  documentRequests: DocumentRequestItem[];
   updates: RequestUpdate[];
 } | null> {
   const row = await ownedRequestRow(user, requestId);
   if (!row) return null;
 
   const reference = String(row["request_reference"] ?? "");
-  const documents = await fetchDocuments([requestId], new Map([[requestId, reference]]));
+  const referenceById = new Map([[requestId, reference]]);
+  const { fetchDocumentRequests } = await import("./document-requests.server");
+  const [documents, documentRequests] = await Promise.all([
+    fetchDocuments([requestId], referenceById),
+    fetchDocumentRequests([requestId], referenceById),
+  ]);
 
   const supabase = await admin();
   const { data: updateRows } = await supabase
@@ -227,8 +233,9 @@ export async function loadRequestDetail(
     created_at: String(u["created_at"] ?? ""),
   }));
 
-  return { request: shape(row, documents.length), documents, updates };
+  return { request: shape(row, documents.length), documents, documentRequests, updates };
 }
+
 
 export async function signUploadForOwnedRequest(
   user: SessionUser,
