@@ -29,6 +29,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminActivityRouteImport } from './routes/admin.activity'
 import { Route as AdminContentRouteImport } from './routes/admin.content'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
+import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
@@ -137,6 +138,11 @@ const AdminCustomersRoute = AdminCustomersRouteImport.update({
   path: '/admin/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDestinationsRoute = AdminDestinationsRouteImport.update({
+  id: '/admin/destinations',
+  path: '/admin/destinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminMessagesRoute = AdminMessagesRouteImport.update({
   id: '/admin/messages',
   path: '/admin/messages',
@@ -193,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/services': typeof AdminServicesRoute
   '/requests/$id': typeof RequestsIdRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/services': typeof AdminServicesRoute
   '/requests/$id': typeof RequestsIdRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/services': typeof AdminServicesRoute
   '/requests/$id': typeof RequestsIdRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/content'
     | '/admin/customers'
+    | '/admin/destinations'
     | '/admin/messages'
     | '/admin/services'
     | '/requests/$id'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/content'
     | '/admin/customers'
+    | '/admin/destinations'
     | '/admin/messages'
     | '/admin/services'
     | '/requests/$id'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/content'
     | '/admin/customers'
+    | '/admin/destinations'
     | '/admin/messages'
     | '/admin/services'
     | '/requests/$id'
@@ -371,6 +383,7 @@ export interface RootRouteChildren {
   AdminActivityRoute: typeof AdminActivityRoute
   AdminContentRoute: typeof AdminContentRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
+  AdminDestinationsRoute: typeof AdminDestinationsRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
   AdminServicesRoute: typeof AdminServicesRoute
   RequestsIdRoute: typeof RequestsIdRoute
@@ -523,6 +536,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/destinations': {
+      id: '/admin/destinations'
+      path: '/admin/destinations'
+      fullPath: '/admin/destinations'
+      preLoaderRoute: typeof AdminDestinationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/messages': {
       id: '/admin/messages'
       path: '/admin/messages'
@@ -595,6 +615,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminActivityRoute: AdminActivityRoute,
   AdminContentRoute: AdminContentRoute,
   AdminCustomersRoute: AdminCustomersRoute,
+  AdminDestinationsRoute: AdminDestinationsRoute,
   AdminMessagesRoute: AdminMessagesRoute,
   AdminServicesRoute: AdminServicesRoute,
   RequestsIdRoute: RequestsIdRoute,
