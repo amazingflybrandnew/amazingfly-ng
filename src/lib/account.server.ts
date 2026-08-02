@@ -76,6 +76,23 @@ function shape(row: RawRequest, documentCount: number): AccountRequest {
     flight_currency: get("flight_currency"),
     flight_offer_id: get("flight_offer_id"),
     booking_status: get("booking_status"),
+    hotel_provider_id: get("hotel_provider_id"),
+    hotel_name: get("hotel_name"),
+    hotel_image_url: get("hotel_image_url"),
+    hotel_rating: num(row["hotel_rating"]),
+    hotel_location: get("hotel_location"),
+    hotel_address: get("hotel_address"),
+    hotel_check_in: get("hotel_check_in"),
+    hotel_check_out: get("hotel_check_out"),
+    hotel_nights: num(row["hotel_nights"]),
+    hotel_guests: num(row["hotel_guests"]),
+    hotel_rooms: num(row["hotel_rooms"]),
+    hotel_room_type: get("hotel_room_type"),
+    hotel_board_type: get("hotel_board_type"),
+    hotel_cancellation_policy: get("hotel_cancellation_policy"),
+    hotel_price: num(row["hotel_price"]),
+    hotel_currency: get("hotel_currency"),
+
   };
 }
 

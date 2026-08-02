@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { getHotelStayDetails } from "@/lib/travel-api/hotels.functions";
-import type { HotelResult } from "@/lib/travel-api/hotel.types";
+import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
 
 function formatPrice(amount: number, currency: string) {
@@ -35,7 +35,7 @@ export function HotelDetailsModal({
   hotel: HotelResult | null;
   stay: StayInputShape | null;
   onClose: () => void;
-  onSelect: (hotel: HotelResult) => void;
+  onSelect: (hotel: HotelResult, room?: RoomResult) => void;
 }) {
   const fetchDetails = useServerFn(getHotelStayDetails);
   const [hotelId, setHotelId] = useState<string | null>(null);
@@ -165,9 +165,18 @@ export function HotelDetailsModal({
                       )}
                     </p>
                   </div>
-                  <p className="text-base font-extrabold">
-                    {formatPrice(room.price, room.currency)}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-base font-extrabold">
+                      {formatPrice(room.price, room.currency)}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => onSelect(hotel, room)}
+                    >
+                      Select room
+                    </Button>
+                  </div>
                 </li>
               ))
             )}

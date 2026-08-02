@@ -36,7 +36,25 @@ export type AccountRequest = {
   flight_currency: string | null;
   flight_offer_id: string | null;
   booking_status: string | null;
+  /** Hotel booking details (present when the request came from hotel search). */
+  hotel_provider_id: string | null;
+  hotel_name: string | null;
+  hotel_image_url: string | null;
+  hotel_rating: number | null;
+  hotel_location: string | null;
+  hotel_address: string | null;
+  hotel_check_in: string | null;
+  hotel_check_out: string | null;
+  hotel_nights: number | null;
+  hotel_guests: number | null;
+  hotel_rooms: number | null;
+  hotel_room_type: string | null;
+  hotel_board_type: string | null;
+  hotel_cancellation_policy: string | null;
+  hotel_price: number | null;
+  hotel_currency: string | null;
 };
+
 
 export type AccountDocument = {
   id: string;

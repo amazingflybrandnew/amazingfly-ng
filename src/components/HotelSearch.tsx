@@ -29,7 +29,9 @@ import {
 import { HotelDetailsModal } from "@/components/HotelDetailsModal";
 import { searchHotelStays } from "@/lib/travel-api/hotels.functions";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
-import type { HotelResult } from "@/lib/travel-api/hotel.types";
+import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
+import { createHotelRequest } from "@/lib/hotel-request.functions";
+
 
 type SortKey = "recommended" | "price" | "rating";
 
@@ -189,6 +191,42 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [detailHotel, setDetailHotel] = useState<HotelResult | null>(null);
   const [selected, setSelected] = useState<HotelResult | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
+
+  const createRequestFn = useServerFn(createHotelRequest);
+  const createRequest = useMutation({
+    mutationFn: ({ hotel, room }: { hotel: HotelResult; room: RoomResult | null }) =>
+      createRequestFn({
+        data: {
+          hotelId: hotel.hotelId,
+          hotelName: hotel.hotelName,
+          hotelImage: hotel.hotelImage ?? null,
+          rating: hotel.rating,
+          location: hotel.location,
+          address: hotel.address,
+          checkInDate: hotel.checkInDate ?? submittedStay?.checkInDate ?? "",
+          checkOutDate: hotel.checkOutDate ?? submittedStay?.checkOutDate ?? "",
+          nights: hotel.nights ?? null,
+          guests:
+            (submittedStay?.guests.adults ?? 1) + (submittedStay?.guests.children ?? 0),
+          rooms: submittedStay?.rooms ?? 1,
+          roomType: room?.roomName ?? null,
+          boardType: room?.boardType ?? null,
+          cancellationPolicy: room
+            ? room.cancellationPolicy.refundable
+              ? `Free cancellation${
+                  room.cancellationPolicy.freeCancellationUntil
+                    ? ` until ${room.cancellationPolicy.freeCancellationUntil}`
+                    : ""
+                }`
+              : "Non-refundable"
+            : null,
+          price: room?.price ?? hotel.price,
+          currency: room?.currency ?? hotel.currency,
+        },
+      }),
+  });
+
 
   const mutation = useMutation({
     mutationFn: (stay: StayInputShape) => search({ data: stay }),
@@ -290,10 +328,13 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     setMaxPrice(null);
   };
 
-  const handleSelect = (hotel: HotelResult) => {
+  const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
     setSelected(hotel);
+    setSelectedRoom(room ?? hotel.rooms[0] ?? null);
     setDetailHotel(null);
+    if (submittedStay) createRequest.mutate({ hotel, room: room ?? hotel.rooms[0] ?? null });
   };
+
 
   return (
     <div className="space-y-8">
@@ -431,24 +472,64 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
-          <div className="text-sm">
-            <p className="font-bold">
-              Selected stay: {selected.hotelName} · {selected.location}
-            </p>
-            <p className="text-muted-foreground">
-              {submittedStay?.checkInDate} → {submittedStay?.checkOutDate} ·{" "}
-              {formatPrice(selected.price, selected.currency)}
-            </p>
+        <div className="space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="text-sm">
+              <p className="font-bold">
+                Selected stay: {selected.hotelName} · {selected.location}
+              </p>
+              <p className="text-muted-foreground">
+                {submittedStay?.checkInDate} → {submittedStay?.checkOutDate}
+                {selectedRoom ? ` · ${selectedRoom.roomName}` : ""} ·{" "}
+                {formatPrice(
+                  selectedRoom?.price ?? selected.price,
+                  selectedRoom?.currency ?? selected.currency,
+                )}
+              </p>
+            </div>
+            {createRequest.isPending ? (
+              <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Saving this stay to your account…
+              </span>
+            ) : createRequest.data?.ok ? (
+              <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                <Link to="/dashboard">
+                  View my hotel requests
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : createRequest.data && !createRequest.data.ok && createRequest.data.reason === "auth" ? (
+              <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                <Link to="/auth" search={{ redirect: "/hotels" }}>
+                  Sign in to save this stay
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                <Link to="/request" search={{ service: "hotels", to: selected.location }}>
+                  Continue with this hotel
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            )}
           </div>
-          <Button asChild size="sm" className="btn-gradient border-0 text-white">
-            <Link to="/request" search={{ service: "hotels", to: selected.location }}>
-              Continue with this hotel
-              <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-            </Link>
-          </Button>
+
+          {createRequest.data?.ok ? (
+            <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
+              Hotel request <strong>{createRequest.data.reference}</strong> created. Status: New
+              Request — our specialists will confirm availability and come back to you.
+            </p>
+          ) : null}
+          {createRequest.data && !createRequest.data.ok ? (
+            <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
+              {createRequest.data.message}
+            </p>
+          ) : null}
         </div>
       ) : null}
+
 
       {mutation.isPending ? (
         <div className="grid gap-4">

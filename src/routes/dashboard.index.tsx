@@ -4,12 +4,14 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   Bell,
+  BedDouble,
   CheckCircle2,
   FileWarning,
   Loader2,
   Plane,
   Sparkles,
 } from "lucide-react";
+
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { DocumentRequestList } from "@/components/DocumentRequestList";
@@ -79,6 +81,13 @@ function DashboardPage() {
       Boolean(request.airline) ||
       (request.service_type ?? "").toLowerCase().includes("flight"),
   );
+
+  const hotelRequests = (data?.requests ?? []).filter(
+    (request) =>
+      Boolean(request.hotel_name) ||
+      (request.service_type ?? "").toLowerCase().includes("hotel"),
+  );
+
 
   const firstName = (session?.user?.full_name || session?.user?.email || "").split(" ")[0];
 
@@ -208,7 +217,60 @@ function DashboardPage() {
             </section>
           ) : null}
 
+          {hotelRequests.length > 0 ? (
+            <section className="glass-card rounded-3xl p-6 md:p-8">
+              <h2 className="flex items-center gap-2 text-xl font-extrabold text-navy">
+                <BedDouble className="h-5 w-5" aria-hidden="true" />
+                My hotel requests
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Stays you selected from live search. Our team confirms availability before booking.
+              </p>
+              <ul className="mt-5 space-y-3">
+                {hotelRequests.slice(0, 5).map((request) => (
+                  <li key={request.id}>
+                    <Link
+                      to="/requests/$id"
+                      params={{ id: request.id }}
+                      className="hover-lift flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/70 bg-white/70 p-5"
+                    >
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-navy-soft">
+                          {request.request_reference}
+                        </p>
+                        <p className="mt-1 text-base font-bold text-navy">
+                          {request.hotel_name ?? "Hotel to be confirmed"}
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {request.hotel_location ?? request.destination_country ?? "—"} ·{" "}
+                          {formatDate(request.hotel_check_in ?? request.travel_date)}
+                          {" – "}
+                          {formatDate(request.hotel_check_out ?? request.return_date)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-extrabold text-navy">
+                          {request.hotel_price !== null
+                            ? formatMoney(request.hotel_price, request.hotel_currency ?? "NGN")
+                            : formatMoney(request.agreed_fee, "NGN")}
+                        </p>
+                        <span
+                          className={`mt-2 inline-block rounded-full border px-3 py-1 text-xs font-bold ${statusTone(
+                            request.request_status,
+                          )}`}
+                        >
+                          {STATUS_LABELS[request.request_status] ?? request.request_status}
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <section className="glass-card rounded-3xl p-6 md:p-8">
+
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-extrabold text-navy">My applications</h2>

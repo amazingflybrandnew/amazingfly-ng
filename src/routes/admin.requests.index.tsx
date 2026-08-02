@@ -108,7 +108,7 @@ function AdminRequestsPage() {
                   <th className="px-5 py-4 font-bold">Customer</th>
                   <th className="px-5 py-4 font-bold">Service</th>
                   <th className="px-5 py-4 font-bold">Route</th>
-                  <th className="px-5 py-4 font-bold">Airline / Price</th>
+                  <th className="px-5 py-4 font-bold">Airline / Hotel / Price</th>
                   <th className="px-5 py-4 font-bold">Submitted</th>
                   <th className="px-5 py-4 font-bold">Assigned</th>
                   <th className="px-5 py-4 font-bold">Status</th>
@@ -153,10 +153,23 @@ function AdminRequestsPage() {
                               : "—"}
                           </p>
                         </>
+                      ) : row.hotel_name ? (
+                        <>
+                          <p className="font-semibold text-navy">{row.hotel_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {row.hotel_check_in && row.hotel_check_out
+                              ? `${formatDate(row.hotel_check_in)} – ${formatDate(row.hotel_check_out)} · `
+                              : ""}
+                            {row.hotel_price !== null
+                              ? `${row.hotel_currency ?? ""} ${row.hotel_price.toLocaleString()}`
+                              : "—"}
+                          </p>
+                        </>
                       ) : (
                         "—"
                       )}
                     </td>
+
                     <td className="px-5 py-4 text-navy-soft">{formatDate(row.created_at)}</td>
                     <td className="px-5 py-4 text-navy-soft">
                       {row.assigned_staff_name ?? "Unassigned"}
