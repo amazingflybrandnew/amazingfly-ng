@@ -29,8 +29,11 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminActivityRouteImport } from './routes/admin.activity'
 import { Route as AdminContentRouteImport } from './routes/admin.content'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
+import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
+import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
+import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
@@ -137,6 +140,11 @@ const AdminCustomersRoute = AdminCustomersRouteImport.update({
   path: '/admin/customers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDestinationsRoute = AdminDestinationsRouteImport.update({
+  id: '/admin/destinations',
+  path: '/admin/destinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminMessagesRoute = AdminMessagesRouteImport.update({
   id: '/admin/messages',
   path: '/admin/messages',
@@ -145,6 +153,16 @@ const AdminMessagesRoute = AdminMessagesRouteImport.update({
 const AdminServicesRoute = AdminServicesRouteImport.update({
   id: '/admin/services',
   path: '/admin/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminServicesContentRoute = AdminServicesContentRouteImport.update({
+  id: '/admin/services-content',
+  path: '/admin/services-content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTestimonialsRoute = AdminTestimonialsRouteImport.update({
+  id: '/admin/testimonials',
+  path: '/admin/testimonials',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestsIdRoute = RequestsIdRouteImport.update({
@@ -193,8 +211,11 @@ export interface FileRoutesByFullPath {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/services': typeof AdminServicesRoute
+  '/admin/services-content': typeof AdminServicesContentRoute
+  '/admin/testimonials': typeof AdminTestimonialsRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -222,8 +243,11 @@ export interface FileRoutesByTo {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/services': typeof AdminServicesRoute
+  '/admin/services-content': typeof AdminServicesContentRoute
+  '/admin/testimonials': typeof AdminTestimonialsRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin': typeof AdminIndexRoute
@@ -252,8 +276,11 @@ export interface FileRoutesById {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
+  '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/services': typeof AdminServicesRoute
+  '/admin/services-content': typeof AdminServicesContentRoute
+  '/admin/testimonials': typeof AdminTestimonialsRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
   '/admin/': typeof AdminIndexRoute
@@ -283,8 +310,11 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/content'
     | '/admin/customers'
+    | '/admin/destinations'
     | '/admin/messages'
     | '/admin/services'
+    | '/admin/services-content'
+    | '/admin/testimonials'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
@@ -312,8 +342,11 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/content'
     | '/admin/customers'
+    | '/admin/destinations'
     | '/admin/messages'
     | '/admin/services'
+    | '/admin/services-content'
+    | '/admin/testimonials'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin'
@@ -341,8 +374,11 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/content'
     | '/admin/customers'
+    | '/admin/destinations'
     | '/admin/messages'
     | '/admin/services'
+    | '/admin/services-content'
+    | '/admin/testimonials'
     | '/requests/$id'
     | '/services/$slug'
     | '/admin/'
@@ -371,8 +407,11 @@ export interface RootRouteChildren {
   AdminActivityRoute: typeof AdminActivityRoute
   AdminContentRoute: typeof AdminContentRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
+  AdminDestinationsRoute: typeof AdminDestinationsRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
   AdminServicesRoute: typeof AdminServicesRoute
+  AdminServicesContentRoute: typeof AdminServicesContentRoute
+  AdminTestimonialsRoute: typeof AdminTestimonialsRoute
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -523,6 +562,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/destinations': {
+      id: '/admin/destinations'
+      path: '/admin/destinations'
+      fullPath: '/admin/destinations'
+      preLoaderRoute: typeof AdminDestinationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/messages': {
       id: '/admin/messages'
       path: '/admin/messages'
@@ -535,6 +581,20 @@ declare module '@tanstack/react-router' {
       path: '/admin/services'
       fullPath: '/admin/services'
       preLoaderRoute: typeof AdminServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/services-content': {
+      id: '/admin/services-content'
+      path: '/admin/services-content'
+      fullPath: '/admin/services-content'
+      preLoaderRoute: typeof AdminServicesContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/testimonials': {
+      id: '/admin/testimonials'
+      path: '/admin/testimonials'
+      fullPath: '/admin/testimonials'
+      preLoaderRoute: typeof AdminTestimonialsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/requests/$id': {
@@ -595,8 +655,11 @@ const rootRouteChildren: RootRouteChildren = {
   AdminActivityRoute: AdminActivityRoute,
   AdminContentRoute: AdminContentRoute,
   AdminCustomersRoute: AdminCustomersRoute,
+  AdminDestinationsRoute: AdminDestinationsRoute,
   AdminMessagesRoute: AdminMessagesRoute,
   AdminServicesRoute: AdminServicesRoute,
+  AdminServicesContentRoute: AdminServicesContentRoute,
+  AdminTestimonialsRoute: AdminTestimonialsRoute,
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,
   AdminIndexRoute: AdminIndexRoute,

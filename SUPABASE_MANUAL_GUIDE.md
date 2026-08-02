@@ -160,3 +160,18 @@ re-run and creates:
 - `site_content` + `testimonials` — website content managed from `/admin/content`
 - `services.description`, `services.image_url`, `services.category`
 - the public `site-media` storage bucket for website imagery
+
+## Stage 6 Part 1 — CMS
+
+Run `supabase/manual/stage6-cms.sql` in the Supabase SQL editor for project
+`etfvjtyrsmcsawsdxqgq`. It creates/updates:
+
+- `site_content` (hero keys: badge, headline, rotating words, description, CTA, images)
+- `destinations` (country, title, description, image_url, services[], status)
+- `service_content` (service_id, title, description, requirements, image_url)
+- `testimonials` (adds `country` and `image_url`)
+- `site-media` storage bucket with folders `website/hero`, `website/services`,
+  `website/destinations`, `website/testimonials`
+
+Admin pages: `/admin/content`, `/admin/services-content`, `/admin/destinations`,
+`/admin/testimonials`.

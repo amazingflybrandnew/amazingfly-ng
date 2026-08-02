@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { AlertCircle, ArrowRight, Briefcase, Headphones, MapPin, ShieldCheck, Star, Zap } from "lucide-react";
 
 import travellerImage from "@/assets/hero-traveller-cutout.png";
+import { getHeroContent } from "@/lib/cms.functions";
 
 const ROTATING_HEADLINES = [
   "get your travel visa",
@@ -59,6 +62,22 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 
 export function HomeHero() {
   const navigate = useNavigate();
+  const fetchHero = useServerFn(getHeroContent);
+  const heroQuery = useQuery({
+    queryKey: ["hero-content"],
+    queryFn: () => fetchHero(),
+    staleTime: 30_000,
+  });
+  const cms = heroQuery.data ?? {};
+
+  const badge = cms.badge ?? "Amazingfly.ng \u00b7 Travel made simple";
+  const headline = cms.headline ?? "Your fastest way to";
+  const description = cms.description ?? "";
+  const ctaLabel = cms.ctaLabel ?? "Get Started";
+  const backgroundImage = cms.backgroundImageUrl ?? "";
+  const traveller = cms.travellerImageUrl || travellerImage;
+  const rotating = cms.rotatingWords?.length ? cms.rotatingWords : ROTATING_HEADLINES;
+
   const [index, setIndex] = useState(0);
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
@@ -67,12 +86,15 @@ export function HomeHero() {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % ROTATING_HEADLINES.length);
+      setIndex((current) => (current + 1) % rotating.length);
     }, 3600);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [rotating.length]);
 
-  const highlight = useMemo(() => ROTATING_HEADLINES[index]!, [index]);
+  const highlight = useMemo(
+    () => rotating[index % rotating.length] ?? rotating[0]!,
+    [rotating, index],
+  );
   const isComplete = Boolean(origin && destination && need);
 
   useEffect(() => {
@@ -105,6 +127,12 @@ export function HomeHero() {
     <section className="relative isolate overflow-hidden hero-aurora">
       {/* Atmosphere: soft clouds, flight routes, skyline silhouettes */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        {backgroundImage ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-35"
+            style={{ backgroundImage: `url(${backgroundImage})` }}
+          />
+        ) : null}
         <div className="hero-glow hero-glow-a" />
         <div className="hero-glow hero-glow-b" />
         <div className="hero-glow hero-glow-c" />
@@ -139,18 +167,25 @@ export function HomeHero() {
       <div className="container-page relative pb-20 pt-14 md:pb-28 md:pt-20">
         <div className="mx-auto max-w-4xl text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-navy/70 backdrop-blur">
-            Amazingfly.ng · Travel made simple
+            {badge}
           </span>
           <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl">
-            <span className="block">Your fastest way to</span>
+            <span className="block">{headline}</span>
             <span key={highlight} className="hero-rotate mt-2 block text-gradient-brand">
               {highlight}
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-navy/70 md:text-lg">
-            <span className="font-semibold text-navy">Fast</span>,{" "}
-            <span className="font-semibold text-navy">reliable</span> and stress-free travel solutions
-            for <span className="font-bold text-gradient-brand">every destination.</span>
+            {description ? (
+              description
+            ) : (
+              <>
+                <span className="font-semibold text-navy">Fast</span>,{" "}
+                <span className="font-semibold text-navy">reliable</span> and stress-free travel
+                solutions for{" "}
+                <span className="font-bold text-gradient-brand">every destination.</span>
+              </>
+            )}
           </p>
         </div>
 
@@ -236,7 +271,7 @@ export function HomeHero() {
                   : "cursor-not-allowed opacity-45 saturate-50"
               }`}
             >
-              Get Started
+              {ctaLabel}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
@@ -292,7 +327,7 @@ export function HomeHero() {
         <div className="relative mt-10 md:mt-4">
           <div className="pointer-events-none flex justify-center md:justify-end">
             <img
-              src={travellerImage}
+              src={traveller}
               alt="Nigerian traveller holding a passport and boarding pass with luggage"
               width={1024}
               height={1280}
