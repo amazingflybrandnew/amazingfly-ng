@@ -156,6 +156,10 @@ function RequestDetailPage() {
             <DocumentList documents={data.documents} requestId={data.request.id} />
           </section>
 
+          <RequestConversation requestId={data.request.id} />
+
+
+
         </div>
       )}
     </AccountShell>
