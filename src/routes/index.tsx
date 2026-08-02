@@ -119,6 +119,24 @@ function Home() {
         </div>
       </section>
 
+      {/* Direct hotel search */}
+      <section className="container-page section-y">
+        <div className="max-w-2xl">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Hotels</p>
+          <h2 className="mt-4 text-3xl font-extrabold md:text-4xl">Find Your Perfect Stay</h2>
+          <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+            Already know you need accommodation? Search hotels by destination, dates, guests and
+            rooms — or keep using the request box above if you would rather our team arrange
+            everything for you.
+          </p>
+        </div>
+        <div className="mt-10">
+          <HotelSearch compact />
+        </div>
+      </section>
+
+
+
 
 
 
