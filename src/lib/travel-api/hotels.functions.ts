@@ -32,12 +32,26 @@ export type HotelDetailsPayload =
     }
   | { ok: false; error: string };
 
+type StayInput = z.infer<typeof stayInput>;
+
+function toRequest(data: StayInput) {
+  return {
+    destination: data.destination,
+    checkInDate: data.checkInDate,
+    checkOutDate: data.checkOutDate,
+    guests: data.guests,
+    rooms: data.rooms,
+    ...(data.nationality ? { nationality: data.nationality } : {}),
+    ...(data.currency ? { currency: data.currency } : {}),
+  };
+}
+
 export const searchHotelStays = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => stayInput.parse(data))
   .handler(async ({ data }): Promise<HotelSearchResponse> => {
     const { searchHotels } = await import("./hotels.server");
     try {
-      const results = await searchHotels(data);
+      const results = await searchHotels(toRequest(data));
       return { ok: true, results };
     } catch (error) {
       console.error("[Hotels] search failed", error);
@@ -54,7 +68,7 @@ export const getHotelStayDetails = createServerFn({ method: "POST" })
     try {
       const [hotel, rooms] = await Promise.all([
         getHotelDetails(data.hotelId),
-        getHotelRooms(data.hotelId, data.stay).catch(() => [] as RoomResult[]),
+        getHotelRooms(data.hotelId, toRequest(data.stay)).catch(() => [] as RoomResult[]),
       ]);
       return { ok: true, hotel, rooms };
     } catch (error) {
