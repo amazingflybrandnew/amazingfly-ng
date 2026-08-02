@@ -10,8 +10,8 @@ const searchInput = z
     returnDate: z.string().trim().max(32).optional(),
     passengers: z.object({
       adults: z.number().int().min(1).max(9),
-      children: z.number().int().min(0).max(8).optional(),
-      infants: z.number().int().min(0).max(8).optional(),
+      children: z.number().int().min(0).max(8).default(0),
+      infants: z.number().int().min(0).max(8).default(0),
     }),
     cabinClass: z.enum(["economy", "premium_economy", "business", "first"]),
   })
