@@ -115,7 +115,39 @@ function DashboardPage() {
             />
           </div>
 
+          {data.documentRequests.some(
+            (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
+          ) ? (
+            <section className="glass-card rounded-3xl border-orange/30 p-6 md:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 text-xl font-extrabold text-navy">
+                  <FileWarning className="h-5 w-5" aria-hidden="true" />
+                  Documents required
+                </h2>
+                <Link
+                  to="/documents"
+                  className="text-sm font-semibold text-navy underline-offset-4 hover:underline"
+                >
+                  View all documents
+                </Link>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Our specialists need these documents to move your request forward.
+              </p>
+              <div className="mt-5">
+                <DocumentRequestList
+                  items={data.documentRequests.filter(
+                    (item) =>
+                      item.uploaded_status === "pending" || item.uploaded_status === "rejected",
+                  )}
+                  showReference
+                />
+              </div>
+            </section>
+          ) : null}
+
           <section className="glass-card rounded-3xl p-6 md:p-8">
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-extrabold text-navy">Active requests</h2>
               <Link
