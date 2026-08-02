@@ -241,6 +241,9 @@ function DashboardPage() {
               <Bell className="h-5 w-5" aria-hidden="true" />
               Updates
             </h2>
+            <Button asChild variant="ghost" size="sm" className="mt-2 h-auto p-0 text-navy-soft">
+              <Link to="/dashboard/notifications">Open notification centre</Link>
+            </Button>
             {data.notifications.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">
                 You are all caught up. We will notify you here whenever a request moves forward or a
