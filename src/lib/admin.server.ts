@@ -258,7 +258,17 @@ function shapeRequestRow(
         ? null
         : Number(row["flight_price"]),
     flight_currency: row["flight_currency"] ? String(row["flight_currency"]) : null,
+    hotel_name: row["hotel_name"] ? String(row["hotel_name"]) : null,
+    hotel_location: row["hotel_location"] ? String(row["hotel_location"]) : null,
+    hotel_check_in: row["hotel_check_in"] ? String(row["hotel_check_in"]) : null,
+    hotel_check_out: row["hotel_check_out"] ? String(row["hotel_check_out"]) : null,
+    hotel_price:
+      row["hotel_price"] === null || row["hotel_price"] === undefined
+        ? null
+        : Number(row["hotel_price"]),
+    hotel_currency: row["hotel_currency"] ? String(row["hotel_currency"]) : null,
   };
+
 }
 
 export async function loadAdminRequests(filters: {
