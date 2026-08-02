@@ -7,6 +7,7 @@
  * placed before the customer created an account still appear in the dashboard.
  */
 import type { SessionUser } from "./auth.server";
+import { normalizePaymentStatus } from "./payment-status";
 import type {
   AccountDocument,
   AccountNotification,
@@ -19,7 +20,7 @@ import type {
 const BUCKET = "request-documents";
 
 const REQUEST_COLUMNS =
-  "id, request_reference, service_type, origin_country, destination_country, travel_date, return_date, request_status, created_at, full_name, email, phone, preferred_contact, request_details";
+  "id, request_reference, service_type, origin_country, destination_country, travel_date, return_date, request_status, created_at, full_name, email, phone, preferred_contact, request_details, payment_status, agreed_fee";
 
 function safeName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
@@ -50,6 +51,11 @@ function shape(row: RawRequest, documentCount: number): AccountRequest {
     phone: get("phone"),
     preferred_contact: get("preferred_contact"),
     request_details: get("request_details"),
+    payment_status: normalizePaymentStatus(row["payment_status"]),
+    agreed_fee:
+      row["agreed_fee"] === null || row["agreed_fee"] === undefined
+        ? null
+        : Number(row["agreed_fee"]),
     document_count: documentCount,
   };
 }
