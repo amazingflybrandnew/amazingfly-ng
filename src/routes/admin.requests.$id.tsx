@@ -50,6 +50,36 @@ export const Route = createFileRoute("/admin/requests/$id")({
   component: AdminRequestDetailPage,
 });
 
+/** Common follow-up documents staff request, with ready-made instructions. */
+const DOCUMENT_PRESETS: { name: string; description: string }[] = [
+  {
+    name: "Bank statement (6 months)",
+    description:
+      "Official 6-month statement, stamped by your bank, showing your name and account number.",
+  },
+  {
+    name: "Employment letter",
+    description: "Letter from your employer on company letterhead confirming your role and leave.",
+  },
+  {
+    name: "Passport data page",
+    description: "Clear colour scan of the data page, valid for at least 6 more months.",
+  },
+  {
+    name: "Passport photograph",
+    description: "Recent photograph on a plain background, taken within the last 6 months.",
+  },
+  {
+    name: "Travel itinerary",
+    description: "Your intended travel dates, destinations and accommodation details.",
+  },
+  {
+    name: "Invitation letter",
+    description: "Signed invitation from your host, with their contact details and address.",
+  },
+];
+
+
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
