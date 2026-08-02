@@ -383,7 +383,7 @@ export async function signMediaUpload(
 ): Promise<{ ok: true; path: string; uploadUrl: string; publicUrl: string } | { ok: false; message: string }> {
   const supabase = await db();
   const safe = fileName.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-120);
-  const path = `${folder}/${Date.now()}-${safe}`;
+  const path = `website/${folder}/${Date.now()}-${safe}`;
   const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUploadUrl(path);
   if (error || !data) {
     return { ok: false, message: error?.message ?? "Could not prepare the upload." };
