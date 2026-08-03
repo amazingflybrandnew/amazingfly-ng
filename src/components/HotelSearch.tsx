@@ -691,6 +691,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               <HotelCard
                 key={hotel.hotelId}
                 hotel={hotel}
+                stay={submittedStay}
                 onOpen={() => setDetailHotel(hotel)}
                 onSelect={() => handleSelect(hotel)}
                 isSelected={selected?.hotelId === hotel.hotelId}
