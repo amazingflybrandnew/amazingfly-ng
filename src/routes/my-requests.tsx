@@ -8,6 +8,9 @@ import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
+import { paymentTone } from "@/lib/payment-status";
+import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
+
 
 export const Route = createFileRoute("/my-requests")({
   head: () => ({
@@ -110,6 +113,22 @@ function MyRequestsPage() {
                   {request.origin_country ?? "Nigeria"} →{" "}
                   {request.destination_country ?? "Destination"}
                 </p>
+                <span
+                  className={`mt-3 inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-bold ${
+                    request.payment_status === "payment_received"
+                      ? bookingStatusTone("confirmed")
+                      : request.payment_status === "payment_failed"
+                        ? paymentTone(request.payment_status)
+                        : paymentTone("pending_payment")
+                  }`}
+                >
+                  {request.payment_status === "payment_received"
+                    ? bookingStatusLabel(request.booking_status ?? "confirmed")
+                    : request.payment_status === "payment_failed"
+                      ? "Payment Failed"
+                      : "Awaiting Payment"}
+                </span>
+
                 <dl className="mt-5 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
                   <div>
                     <dt className="font-bold uppercase tracking-wide">Reference</dt>

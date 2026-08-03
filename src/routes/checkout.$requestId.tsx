@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -16,13 +17,23 @@ import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getBookingReview } from "@/lib/payment/checkout.functions";
 import { initializePayment } from "@/lib/payment/paystack.functions";
+import { verifyPayment } from "@/lib/payment/verify.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
 import { holdBooking } from "@/lib/booking/hold.functions";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 
+type CheckoutSearch = { reference?: string; trxref?: string };
+
 export const Route = createFileRoute("/checkout/$requestId")({
+  validateSearch: (search: Record<string, unknown>): CheckoutSearch => {
+    const out: CheckoutSearch = {};
+    if (typeof search["reference"] === "string") out.reference = search["reference"];
+    if (typeof search["trxref"] === "string") out.trxref = search["trxref"];
+    return out;
+  },
+
   head: () => ({
     meta: [
       { title: "Your Booking Is Ready | Amazingfly.ng" },
@@ -89,12 +100,46 @@ function CheckoutPage() {
     },
   });
 
+  // ---- Paystack callback: verify the reference once, on the server ---------
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const verifyFn = useServerFn(verifyPayment);
+  const verifiedRef = useRef<string | null>(null);
+  const callbackReference = search.reference ?? search.trxref ?? null;
+
+  const verify = useMutation({
+    mutationFn: (reference: string) => verifyFn({ data: { reference } }),
+    onSuccess: async (result) => {
+      await review.refetch();
+      if (result.ok && result.status === "successful") {
+        void navigate({ to: "/booking-confirmation/$requestId", params: { requestId } });
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!callbackReference || !session?.user) return;
+    if (verifiedRef.current === callbackReference) return;
+    verifiedRef.current = callbackReference;
+    verify.mutate(callbackReference);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callbackReference, session?.user?.id]);
+
+  const verifyMessage = verify.isPending
+    ? "Confirming your payment with Paystack…"
+    : verify.data && !verify.data.ok
+      ? verify.data.message
+      : verify.data && verify.data.ok && verify.data.status !== "successful"
+        ? "That payment was not completed. You can try again below."
+        : null;
+
   const payError = pay.isError
     ? "We could not start the secure payment. Please try again."
     : pay.data && !pay.data.ok
       ? pay.data.message
       : null;
   const redirecting = pay.isPending || Boolean(pay.data?.ok);
+
 
   const data = review.data;
   const transaction = data?.transaction ?? null;
@@ -186,6 +231,19 @@ function CheckoutPage() {
                   ? transactionStatusLabel(transaction.status)
                   : "Awaiting Payment"}
               </span>
+
+              {verifyMessage ? (
+                <p className="mt-4 flex items-start gap-2 rounded-2xl border border-white/60 bg-white/70 p-3 text-sm text-navy">
+                  {verify.isPending ? (
+                    <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  )}
+                  {verifyMessage}
+                </p>
+              ) : null}
+
+
 
               <Button
                 size="lg"

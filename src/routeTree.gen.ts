@@ -38,6 +38,7 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
+import { Route as BookingConfirmationRequestIdRouteImport } from './routes/booking-confirmation.$requestId'
 import { Route as BookingReviewRequestIdRouteImport } from './routes/booking-review.$requestId'
 import { Route as CheckoutRequestIdRouteImport } from './routes/checkout.$requestId'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
@@ -50,6 +51,7 @@ import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
 import { Route as AdminRequestsIndexRouteImport } from './routes/admin.requests.index'
 import { Route as AdminRequestsIdRouteImport } from './routes/admin.requests.$id'
+import { Route as ApiPublicPaymentsPaystackWebhookRouteImport } from './routes/api/public/payments/paystack/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -196,6 +198,12 @@ const AdminTestimonialsRoute = AdminTestimonialsRouteImport.update({
   path: '/admin/testimonials',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookingConfirmationRequestIdRoute =
+  BookingConfirmationRequestIdRouteImport.update({
+    id: '/booking-confirmation/$requestId',
+    path: '/booking-confirmation/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const BookingReviewRequestIdRoute = BookingReviewRequestIdRouteImport.update({
   id: '/booking-review/$requestId',
   path: '/booking-review/$requestId',
@@ -256,6 +264,12 @@ const AdminRequestsIdRoute = AdminRequestsIdRouteImport.update({
   path: '/admin/requests/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPaymentsPaystackWebhookRoute =
+  ApiPublicPaymentsPaystackWebhookRouteImport.update({
+    id: '/api/public/payments/paystack/webhook',
+    path: '/api/public/payments/paystack/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -286,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-confirmation/$requestId': typeof BookingConfirmationRequestIdRoute
   '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -299,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/services/': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
+  '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -329,6 +345,7 @@ export interface FileRoutesByTo {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-confirmation/$requestId': typeof BookingConfirmationRequestIdRoute
   '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -342,6 +359,7 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests': typeof AdminRequestsIndexRoute
+  '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -373,6 +391,7 @@ export interface FileRoutesById {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-confirmation/$requestId': typeof BookingConfirmationRequestIdRoute
   '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -386,6 +405,7 @@ export interface FileRoutesById {
   '/services/': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
+  '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -418,6 +438,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-confirmation/$requestId'
     | '/booking-review/$requestId'
     | '/checkout/$requestId'
     | '/dashboard/notifications'
@@ -431,6 +452,7 @@ export interface FileRouteTypes {
     | '/services/'
     | '/admin/requests/$id'
     | '/admin/requests/'
+    | '/api/public/payments/paystack/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -461,6 +483,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-confirmation/$requestId'
     | '/booking-review/$requestId'
     | '/checkout/$requestId'
     | '/dashboard/notifications'
@@ -474,6 +497,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/admin/requests/$id'
     | '/admin/requests'
+    | '/api/public/payments/paystack/webhook'
   id:
     | '__root__'
     | '/'
@@ -504,6 +528,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-confirmation/$requestId'
     | '/booking-review/$requestId'
     | '/checkout/$requestId'
     | '/dashboard/notifications'
@@ -517,6 +542,7 @@ export interface FileRouteTypes {
     | '/services/'
     | '/admin/requests/$id'
     | '/admin/requests/'
+    | '/api/public/payments/paystack/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -548,6 +574,7 @@ export interface RootRouteChildren {
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
   AdminTestimonialsRoute: typeof AdminTestimonialsRoute
+  BookingConfirmationRequestIdRoute: typeof BookingConfirmationRequestIdRoute
   BookingReviewRequestIdRoute: typeof BookingReviewRequestIdRoute
   CheckoutRequestIdRoute: typeof CheckoutRequestIdRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
@@ -561,6 +588,7 @@ export interface RootRouteChildren {
   ServicesIndexRoute: typeof ServicesIndexRoute
   AdminRequestsIdRoute: typeof AdminRequestsIdRoute
   AdminRequestsIndexRoute: typeof AdminRequestsIndexRoute
+  ApiPublicPaymentsPaystackWebhookRoute: typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -768,6 +796,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTestimonialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/booking-confirmation/$requestId': {
+      id: '/booking-confirmation/$requestId'
+      path: '/booking-confirmation/$requestId'
+      fullPath: '/booking-confirmation/$requestId'
+      preLoaderRoute: typeof BookingConfirmationRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/booking-review/$requestId': {
       id: '/booking-review/$requestId'
       path: '/booking-review/$requestId'
@@ -852,6 +887,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRequestsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payments/paystack/webhook': {
+      id: '/api/public/payments/paystack/webhook'
+      path: '/api/public/payments/paystack/webhook'
+      fullPath: '/api/public/payments/paystack/webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsPaystackWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -884,6 +926,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
   AdminTestimonialsRoute: AdminTestimonialsRoute,
+  BookingConfirmationRequestIdRoute: BookingConfirmationRequestIdRoute,
   BookingReviewRequestIdRoute: BookingReviewRequestIdRoute,
   CheckoutRequestIdRoute: CheckoutRequestIdRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
@@ -897,6 +940,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServicesIndexRoute: ServicesIndexRoute,
   AdminRequestsIdRoute: AdminRequestsIdRoute,
   AdminRequestsIndexRoute: AdminRequestsIndexRoute,
+  ApiPublicPaymentsPaystackWebhookRoute: ApiPublicPaymentsPaystackWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
