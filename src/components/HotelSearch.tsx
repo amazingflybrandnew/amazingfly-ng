@@ -510,75 +510,63 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
-        <div className="space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="text-sm">
-              <p className="font-bold">
-                Selected stay: {selected.hotelName} · {selected.location}
-              </p>
-              <p className="text-muted-foreground">
-                {submittedStay?.checkInDate} → {submittedStay?.checkOutDate}
-                {selectedRoom ? ` · ${selectedRoom.roomName}` : ""} ·{" "}
-                {formatPrice(
-                  selectedRoom?.price ?? selected.price,
-                  selectedRoom?.currency ?? selected.currency,
-                )}
-              </p>
+        <HotelConfirmation hotel={selected} room={selectedRoom} stay={submittedStay}>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-3">
+              {createRequest.isPending ? (
+                <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Saving this stay to your account…
+                </span>
+              ) : createRequest.data?.ok ? (
+                <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                  <Link to="/dashboard">
+                    View my hotel requests
+                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              ) : createRequest.data &&
+                !createRequest.data.ok &&
+                createRequest.data.reason === "auth" ? (
+                <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                  <Link to="/auth" search={{ redirect: "/hotels" }}>
+                    Sign in to save this stay
+                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                  <Link to="/request" search={{ service: "hotels", to: selected.location }}>
+                    Continue with this hotel
+                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setDetailHotel(selected)}
+              >
+                Change room
+              </Button>
             </div>
-            {createRequest.isPending ? (
-              <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Saving this stay to your account…
-              </span>
-            ) : createRequest.data?.ok ? (
-              <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                <Link to="/dashboard">
-                  View my hotel requests
-                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            ) : createRequest.data && !createRequest.data.ok && createRequest.data.reason === "auth" ? (
-              <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                <Link to="/auth" search={{ redirect: "/hotels" }}>
-                  Sign in to save this stay
-                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            ) : (
-              <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                <Link to="/request" search={{ service: "hotels", to: selected.location }}>
-                  Continue with this hotel
-                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            )}
+
+            {createRequest.data?.ok ? (
+              <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
+                Hotel request <strong>{createRequest.data.reference}</strong> created. Status: New
+                Request — our specialists will confirm availability and come back to you.
+              </p>
+            ) : null}
+            {createRequest.data && !createRequest.data.ok ? (
+              <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
+                {createRequest.data.message}
+              </p>
+            ) : null}
           </div>
-
-          {createRequest.data?.ok ? (
-            <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
-              Hotel request <strong>{createRequest.data.reference}</strong> created. Status: New
-              Request — our specialists will confirm availability and come back to you.
-            </p>
-          ) : null}
-          {createRequest.data && !createRequest.data.ok ? (
-            <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
-              {createRequest.data.message}
-            </p>
-          ) : null}
-        </div>
+        </HotelConfirmation>
       ) : null}
 
-
-      {mutation.isPending ? (
-        <div className="grid gap-4">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-40 animate-pulse rounded-3xl border border-white/70 bg-white/60"
-            />
-          ))}
-        </div>
-      ) : null}
+      {mutation.isPending ? <HotelSearchSkeleton /> : null}
 
       {result && !result.ok ? (
         <p className="flex gap-2 rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm text-navy">
