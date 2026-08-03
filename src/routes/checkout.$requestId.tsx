@@ -45,12 +45,27 @@ function CheckoutPage() {
   const { requestId } = Route.useParams();
   const { data: session } = useSessionQuery();
   const fetchReview = useServerFn(getBookingReview);
+  const startPayment = useServerFn(initializePayment);
 
   const review = useQuery({
     queryKey: ["booking-review", requestId],
     queryFn: () => fetchReview({ data: { request_id: requestId } }),
     enabled: Boolean(session?.user),
   });
+
+  const pay = useMutation({
+    mutationFn: () => startPayment({ data: { request_id: requestId } }),
+    onSuccess: (result) => {
+      if (result.ok) window.location.href = result.authorizationUrl;
+    },
+  });
+
+  const payError = pay.isError
+    ? "We could not start the secure payment. Please try again."
+    : pay.data && !pay.data.ok
+      ? pay.data.message
+      : null;
+  const redirecting = pay.isPending || Boolean(pay.data?.ok);
 
   const data = review.data;
   const transaction = data?.transaction ?? null;
