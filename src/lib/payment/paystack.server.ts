@@ -185,6 +185,11 @@ export async function startPaystackCheckout(
   return {
     ok: true,
     authorizationUrl: init.authorizationUrl,
-    transaction: { ...transaction, provider: "paystack" },
+    transaction: {
+      ...transaction,
+      provider: "paystack",
+      amount: charge.amount,
+      currency: charge.currency,
+    },
   };
 }
