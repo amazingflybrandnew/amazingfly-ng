@@ -220,8 +220,18 @@ function CheckoutPage() {
                 Amount payable
               </p>
               <p className="mt-2 text-4xl font-extrabold text-navy">
-                {formatMoney(transaction?.amount ?? data.amount, transaction?.currency ?? data.currency)}
+                {formatMoney(
+                  transaction?.amount ?? data.chargeAmount ?? data.amount,
+                  transaction?.currency ?? data.chargeCurrency ?? data.currency,
+                )}
               </p>
+              {data.chargeConverted ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Fare quoted by the airline as {formatMoney(data.amount, data.currency)} and charged
+                  in {data.chargeCurrency} at today's rate. Your booking is still issued in{" "}
+                  {data.currency}.
+                </p>
+              ) : null}
               <span
                 className={`mt-4 inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${transactionTone(
                   transaction?.status ?? "pending",

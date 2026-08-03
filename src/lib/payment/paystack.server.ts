@@ -119,10 +119,18 @@ export async function startPaystackCheckout(
     return { ok: false, message: "This payment has already been processed." };
   }
 
+  // Paystack can only charge currencies enabled on the merchant account (NGN
+  // for Nigerian accounts). Duffel/RateHawk fares are often USD, so we convert
+  // the CUSTOMER charge only — the supplier booking keeps its own currency.
+  const { resolveCustomerCharge } = await import("./currency.server");
+  const fx = await resolveCustomerCharge(transaction.amount, transaction.currency);
+  if (!fx.ok) return fx;
+  const charge = fx.conversion;
+
   const init = await initializePaystackTransaction({
     email: user.email,
-    amount: transaction.amount,
-    currency: transaction.currency,
+    amount: charge.amount,
+    currency: charge.currency,
     reference: transaction.transaction_reference,
     callbackUrl: buildCallbackUrl(requestId),
     metadata: {
@@ -131,6 +139,9 @@ export async function startPaystackCheckout(
       payment_type: transaction.payment_type,
       service_type: review.serviceType,
       customer_name: user.full_name,
+      booking_amount: charge.sourceAmount,
+      booking_currency: charge.sourceCurrency,
+      fx_rate: charge.rate,
     },
   });
 
@@ -144,16 +155,27 @@ export async function startPaystackCheckout(
     .update({
       provider: "paystack",
       status: "pending",
+      // The row now records what the customer is actually charged, so
+      // verification can compare like with like.
+      amount: charge.amount,
+      currency: charge.currency,
       provider_response: {
         stage: "initialized",
         access_code: init.accessCode,
         paystack_reference: init.reference,
         authorization_url: init.authorizationUrl,
         initialized_at: new Date().toISOString(),
+        booking_amount: charge.sourceAmount,
+        booking_currency: charge.sourceCurrency,
+        fx_rate: charge.rate,
+        fx_markup_percent: charge.markupPercent,
+        fx_rate_source: charge.rateSource,
+        fx_converted: charge.converted,
       },
     })
     .eq("id", transaction.id)
     .eq("user_id", user.id);
+
 
   if (error) {
     console.error("[paystack] failed to save initialization", error.message);
@@ -163,6 +185,11 @@ export async function startPaystackCheckout(
   return {
     ok: true,
     authorizationUrl: init.authorizationUrl,
-    transaction: { ...transaction, provider: "paystack" },
+    transaction: {
+      ...transaction,
+      provider: "paystack",
+      amount: charge.amount,
+      currency: charge.currency,
+    },
   };
 }
