@@ -19,6 +19,10 @@ export type BookingReview = {
   kind: BookingReviewKind;
   amount: number;
   currency: string;
+  /** What the customer is charged through Paystack (converted when needed). */
+  chargeAmount: number;
+  chargeCurrency: string;
+  chargeConverted: boolean;
   bookingStatus: string;
   offerId: string | null;
   pnr: string | null;
@@ -109,6 +113,14 @@ export async function loadBookingReview(
   const { listRequestTransactions } = await import("./transactions.server");
   const transactions = await listRequestTransactions(requestId);
 
+  // Paystack can only charge merchant-enabled currencies (NGN). Duffel and
+  // RateHawk fares stay in their own currency for the supplier booking.
+  const { resolveCustomerCharge } = await import("./currency.server");
+  const fx = await resolveCustomerCharge(amount, currency);
+  const charge = fx.ok
+    ? fx.conversion
+    : { amount, currency, converted: false };
+
   const { count: passengerCount } = await supabase
     .from("booking_passengers")
     .select("id", { count: "exact", head: true })
@@ -131,6 +143,9 @@ export async function loadBookingReview(
     kind,
     amount,
     currency,
+    chargeAmount: charge.amount,
+    chargeCurrency: charge.currency,
+    chargeConverted: charge.converted,
     flight: isFlight
       ? {
           airline: str(row["airline"]),
