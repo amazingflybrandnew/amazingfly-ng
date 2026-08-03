@@ -22,6 +22,13 @@ import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
 import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
+import { getMyPaymentTransactions } from "@/lib/payment/transactions.functions";
+import {
+  paymentTypeLabel,
+  transactionStatusLabel,
+  transactionTone,
+} from "@/lib/payment/types";
+
 
 export const Route = createFileRoute("/dashboard/")({
   head: () => ({
