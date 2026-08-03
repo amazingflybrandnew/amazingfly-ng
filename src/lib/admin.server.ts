@@ -311,7 +311,19 @@ export async function loadAdminRequests(filters: {
     };
   }
 
-  const all = (data ?? []).map((row) => shapeRequestRow(row as Record<string, unknown>, staff));
+  const { latestTransactionByRequest } = await import("./payment/transactions.server");
+  const payments = await latestTransactionByRequest();
+
+  const all = (data ?? []).map((row) => {
+    const shaped = shapeRequestRow(row as Record<string, unknown>, staff);
+    const payment = payments.get(shaped.id);
+    if (payment) {
+      shaped.payment_reference = payment.transaction_reference;
+      shaped.payment_currency = payment.currency;
+      if (payment.amount) shaped.payment_amount = payment.amount;
+    }
+    return shaped;
+  });
   const count = (status: string) => all.filter((row) => row.request_status === status).length;
 
   const stats: AdminStats = {
