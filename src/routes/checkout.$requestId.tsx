@@ -146,14 +146,30 @@ function CheckoutPage() {
                   : "Awaiting Payment"}
               </span>
 
-              <Button size="lg" className="btn-gradient mt-6 w-full text-white" disabled>
-                <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
-                Pay Now
+              <Button
+                size="lg"
+                className="btn-gradient mt-6 w-full text-white"
+                onClick={() => pay.mutate()}
+                disabled={redirecting || transaction?.status === "successful"}
+              >
+                {redirecting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
+                {redirecting ? "Preparing secure payment..." : "Pay Now"}
               </Button>
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                Secure online checkout is being finalised. Your specialist will confirm payment
-                instructions for this reference.
-              </p>
+
+              {payError ? (
+                <p className="mt-3 flex items-start gap-2 text-xs font-medium text-coral">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {payError}
+                </p>
+              ) : (
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  You will be taken to Paystack's secure checkout to complete this payment.
+                </p>
+              )}
 
               {transaction ? (
                 <p className="mt-4 flex items-center gap-2 break-all text-xs text-muted-foreground">
