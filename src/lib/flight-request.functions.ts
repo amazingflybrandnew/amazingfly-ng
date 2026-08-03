@@ -108,7 +108,7 @@ export const createFlightRequest = createServerFn({ method: "POST" })
 
     const baseRow: Record<string, unknown> = {
       request_reference: reference,
-      service_id: service?.id ?? null,
+      service_id: service["id"],
       customer_id: customer?.id ?? null,
       user_id: user.id,
       service_type: SERVICE_TYPE,
