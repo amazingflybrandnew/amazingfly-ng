@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, CreditCard, Loader2, ReceiptText, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, CreditCard, Loader2, ReceiptText, ShieldCheck } from "lucide-react";
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getBookingReview } from "@/lib/payment/checkout.functions";
+import { initializePayment } from "@/lib/payment/paystack.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 
@@ -44,12 +45,27 @@ function CheckoutPage() {
   const { requestId } = Route.useParams();
   const { data: session } = useSessionQuery();
   const fetchReview = useServerFn(getBookingReview);
+  const startPayment = useServerFn(initializePayment);
 
   const review = useQuery({
     queryKey: ["booking-review", requestId],
     queryFn: () => fetchReview({ data: { request_id: requestId } }),
     enabled: Boolean(session?.user),
   });
+
+  const pay = useMutation({
+    mutationFn: () => startPayment({ data: { request_id: requestId } }),
+    onSuccess: (result) => {
+      if (result.ok) window.location.href = result.authorizationUrl;
+    },
+  });
+
+  const payError = pay.isError
+    ? "We could not start the secure payment. Please try again."
+    : pay.data && !pay.data.ok
+      ? pay.data.message
+      : null;
+  const redirecting = pay.isPending || Boolean(pay.data?.ok);
 
   const data = review.data;
   const transaction = data?.transaction ?? null;
@@ -130,14 +146,30 @@ function CheckoutPage() {
                   : "Awaiting Payment"}
               </span>
 
-              <Button size="lg" className="btn-gradient mt-6 w-full text-white" disabled>
-                <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
-                Pay Now
+              <Button
+                size="lg"
+                className="btn-gradient mt-6 w-full text-white"
+                onClick={() => pay.mutate()}
+                disabled={redirecting || transaction?.status === "successful"}
+              >
+                {redirecting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
+                {redirecting ? "Preparing secure payment..." : "Pay Now"}
               </Button>
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                Secure online checkout is being finalised. Your specialist will confirm payment
-                instructions for this reference.
-              </p>
+
+              {payError ? (
+                <p className="mt-3 flex items-start gap-2 text-xs font-medium text-coral">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {payError}
+                </p>
+              ) : (
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  You will be taken to Paystack's secure checkout to complete this payment.
+                </p>
+              )}
 
               {transaction ? (
                 <p className="mt-4 flex items-center gap-2 break-all text-xs text-muted-foreground">
