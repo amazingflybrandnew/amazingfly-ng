@@ -43,6 +43,7 @@ import { Route as CheckoutRequestIdRouteImport } from './routes/checkout.$reques
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardNotificationsRouteImport } from './routes/dashboard.notifications'
 import { Route as DashboardPaymentsRouteImport } from './routes/dashboard.payments'
+import { Route as PassengersRequestIdRouteImport } from './routes/passengers.$requestId'
 import { Route as PaymentRequestIdRouteImport } from './routes/payment.$requestId'
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
@@ -220,6 +221,11 @@ const DashboardPaymentsRoute = DashboardPaymentsRouteImport.update({
   path: '/dashboard/payments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PassengersRequestIdRoute = PassengersRequestIdRouteImport.update({
+  id: '/passengers/$requestId',
+  path: '/passengers/$requestId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentRequestIdRoute = PaymentRequestIdRouteImport.update({
   id: '/payment/$requestId',
   path: '/payment/$requestId',
@@ -284,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
+  '/passengers/$requestId': typeof PassengersRequestIdRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByTo {
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
+  '/passengers/$requestId': typeof PassengersRequestIdRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
@@ -369,6 +377,7 @@ export interface FileRoutesById {
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
+  '/passengers/$requestId': typeof PassengersRequestIdRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
@@ -413,6 +422,7 @@ export interface FileRouteTypes {
     | '/checkout/$requestId'
     | '/dashboard/notifications'
     | '/dashboard/payments'
+    | '/passengers/$requestId'
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
@@ -455,6 +465,7 @@ export interface FileRouteTypes {
     | '/checkout/$requestId'
     | '/dashboard/notifications'
     | '/dashboard/payments'
+    | '/passengers/$requestId'
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/checkout/$requestId'
     | '/dashboard/notifications'
     | '/dashboard/payments'
+    | '/passengers/$requestId'
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
@@ -540,6 +552,7 @@ export interface RootRouteChildren {
   CheckoutRequestIdRoute: typeof CheckoutRequestIdRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
   DashboardPaymentsRoute: typeof DashboardPaymentsRoute
+  PassengersRequestIdRoute: typeof PassengersRequestIdRoute
   PaymentRequestIdRoute: typeof PaymentRequestIdRoute
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
@@ -790,6 +803,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPaymentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/passengers/$requestId': {
+      id: '/passengers/$requestId'
+      path: '/passengers/$requestId'
+      fullPath: '/passengers/$requestId'
+      preLoaderRoute: typeof PassengersRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payment/$requestId': {
       id: '/payment/$requestId'
       path: '/payment/$requestId'
@@ -868,6 +888,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRequestIdRoute: CheckoutRequestIdRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
   DashboardPaymentsRoute: DashboardPaymentsRoute,
+  PassengersRequestIdRoute: PassengersRequestIdRoute,
   PaymentRequestIdRoute: PaymentRequestIdRoute,
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,

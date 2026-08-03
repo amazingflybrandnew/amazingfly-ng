@@ -19,6 +19,14 @@ export type BookingReview = {
   kind: BookingReviewKind;
   amount: number;
   currency: string;
+  bookingStatus: string;
+  offerId: string | null;
+  pnr: string | null;
+  duffelOrderId: string | null;
+  holdExpiresAt: string | null;
+  paymentDeadline: string | null;
+  ticketNumber: string | null;
+  passengerCount: number;
   flight: {
     airline: string | null;
     airlineLogoUrl: string | null;
@@ -101,8 +109,21 @@ export async function loadBookingReview(
   const { listRequestTransactions } = await import("./transactions.server");
   const transactions = await listRequestTransactions(requestId);
 
+  const { count: passengerCount } = await supabase
+    .from("booking_passengers")
+    .select("id", { count: "exact", head: true })
+    .eq("request_id", requestId);
+
   return {
     requestId,
+    bookingStatus: String(row["booking_status"] ?? "pending"),
+    offerId: str(row["flight_offer_id"]),
+    pnr: str(row["pnr"]) ?? str(row["booking_reference"]),
+    duffelOrderId: str(row["duffel_order_id"]),
+    holdExpiresAt: str(row["hold_expires_at"]),
+    paymentDeadline: str(row["payment_deadline"]) ?? str(row["hold_expires_at"]),
+    ticketNumber: str(row["ticket_number"]),
+    passengerCount: passengerCount ?? 0,
     reference: String(row["request_reference"] ?? ""),
     serviceType,
     requestStatus: String(row["request_status"] ?? "new_request"),

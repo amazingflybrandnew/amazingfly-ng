@@ -4,13 +4,17 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   BedDouble,
+  Briefcase,
   CalendarCheck,
   CalendarX,
   Clock,
   Loader2,
   Moon,
   Plane,
+  RefreshCcw,
   ShieldCheck,
+  Ticket,
+  UserRound,
   Users,
 } from "lucide-react";
 
@@ -19,6 +23,11 @@ import { Button } from "@/components/ui/button";
 import { getBookingReview, startBookingCheckout } from "@/lib/payment/checkout.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { formatStayDate, nightsBetween } from "@/lib/travel-api/hotel-format";
+import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
+import { getBookingPassengers } from "@/lib/booking/passengers.functions";
+import { fareRuleLabel, INFO_FALLBACK } from "@/lib/travel-api/flight-offer.types";
+import { passengerFullName } from "@/lib/booking/passenger.types";
+import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 
 export const Route = createFileRoute("/booking-review/$requestId")({
   head: () => ({
@@ -79,6 +88,22 @@ function BookingReviewPage() {
     enabled: Boolean(session?.user),
   });
 
+  const fetchOfferInfo = useServerFn(getFlightOfferInfo);
+  const fetchPassengers = useServerFn(getBookingPassengers);
+
+  const offerId = review.data?.offerId ?? null;
+  const offer = useQuery({
+    queryKey: ["flight-offer-info", offerId],
+    queryFn: () => fetchOfferInfo({ data: { offer_id: offerId as string } }),
+    enabled: Boolean(offerId),
+  });
+
+  const passengers = useQuery({
+    queryKey: ["booking-passengers", requestId],
+    queryFn: () => fetchPassengers({ data: { request_id: requestId } }),
+    enabled: Boolean(session?.user),
+  });
+
   const proceed = useMutation({
     mutationFn: () => startCheckout({ data: { request_id: requestId } }),
     onSuccess: (result) => {
@@ -87,6 +112,8 @@ function BookingReviewPage() {
   });
 
   const data = review.data;
+  const needsPassengers =
+    data?.kind === "flight" && (passengers.data?.passengers.length ?? 0) === 0;
   const nights =
     data?.hotel?.nights ?? nightsBetween(data?.hotel?.checkIn, data?.hotel?.checkOut);
 
@@ -190,6 +217,76 @@ function BookingReviewPage() {
               </div>
             ) : null}
 
+            {data.kind === "flight" ? (
+              <div className="mt-6 rounded-2xl border border-white/70 bg-white/60 p-5">
+                <p className="flex items-center gap-2 text-sm font-bold text-navy">
+                  <Ticket className="h-4 w-4 text-orange" aria-hidden="true" />
+                  Airline fare conditions
+                </p>
+                {offer.isPending ? (
+                  <p className="mt-2 text-sm text-muted-foreground">Checking with the airline…</p>
+                ) : offer.data?.ok ? (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <p className="flex items-start gap-2 text-sm text-navy">
+                      <RefreshCcw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      {fareRuleLabel(offer.data.info.refund, "refund")}
+                    </p>
+                    <p className="flex items-start gap-2 text-sm text-navy">
+                      <CalendarCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      {fareRuleLabel(offer.data.info.change, "change")}
+                    </p>
+                    <p className="flex items-start gap-2 text-sm text-navy">
+                      <Briefcase className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      {offer.data.info.baggage.checked === null &&
+                      offer.data.info.baggage.carryOn === null
+                        ? INFO_FALLBACK
+                        : `${offer.data.info.baggage.carryOn ?? 0} carry-on · ${offer.data.info.baggage.checked ?? 0} checked bag(s)`}
+                    </p>
+                    <p className="flex items-start gap-2 text-sm text-navy">
+                      <Plane className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      {offer.data.info.fareBrandName ??
+                        offer.data.info.cabinMarketingName ??
+                        INFO_FALLBACK}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">{INFO_FALLBACK}</p>
+                )}
+              </div>
+            ) : null}
+
+            {data.kind === "flight" ? (
+              <div className="mt-4 rounded-2xl border border-white/70 bg-white/60 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="flex items-center gap-2 text-sm font-bold text-navy">
+                    <UserRound className="h-4 w-4 text-orange" aria-hidden="true" />
+                    Travellers
+                  </p>
+                  <Button asChild variant="ghost" size="sm" className="text-navy-soft">
+                    <Link to="/passengers/$requestId" params={{ requestId }}>
+                      Edit details
+                    </Link>
+                  </Button>
+                </div>
+                {(passengers.data?.passengers.length ?? 0) === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    No traveller details saved yet — add them before payment.
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-1">
+                    {passengers.data?.passengers.map((passenger) => (
+                      <li key={passenger.id} className="text-sm font-semibold text-navy">
+                        {passengerFullName(passenger)}
+                        <span className="ml-2 text-xs font-medium text-muted-foreground">
+                          {passenger.nationality}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+
             {data.kind === "other" ? (
               <p className="mt-5 text-sm text-muted-foreground">
                 Your specialist will confirm the full details of this service before payment.
@@ -232,10 +329,24 @@ function BookingReviewPage() {
                 </p>
               ) : null}
 
+              <span
+                className={`mt-4 inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${bookingStatusTone(
+                  data.bookingStatus,
+                )}`}
+              >
+                {bookingStatusLabel(data.bookingStatus)}
+              </span>
+
+              {needsPassengers ? (
+                <p className="mt-4 rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
+                  Add traveller details before continuing to payment.
+                </p>
+              ) : null}
+
               <Button
                 size="lg"
                 className="btn-gradient mt-6 w-full text-white"
-                disabled={proceed.isPending}
+                disabled={proceed.isPending || needsPassengers}
                 onClick={() => proceed.mutate()}
               >
                 {proceed.isPending ? (

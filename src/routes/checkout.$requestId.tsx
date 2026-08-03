@@ -1,7 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, ReceiptText, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Loader2,
+  ReceiptText,
+  ShieldCheck,
+  Timer,
+} from "lucide-react";
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
@@ -9,6 +18,9 @@ import { getBookingReview } from "@/lib/payment/checkout.functions";
 import { initializePayment } from "@/lib/payment/paystack.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
+import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
+import { holdBooking } from "@/lib/booking/hold.functions";
+import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 
 export const Route = createFileRoute("/checkout/$requestId")({
   head: () => ({
@@ -53,6 +65,23 @@ function CheckoutPage() {
     enabled: Boolean(session?.user),
   });
 
+  const fetchOfferInfo = useServerFn(getFlightOfferInfo);
+  const holdFn = useServerFn(holdBooking);
+
+  const offerId = review.data?.offerId ?? null;
+  const offer = useQuery({
+    queryKey: ["flight-offer-info", offerId],
+    queryFn: () => fetchOfferInfo({ data: { offer_id: offerId as string } }),
+    enabled: Boolean(offerId),
+  });
+
+  const hold = useMutation({
+    mutationFn: () => holdFn({ data: { request_id: requestId } }),
+    onSuccess: (result) => {
+      if (result.ok) void review.refetch();
+    },
+  });
+
   const pay = useMutation({
     mutationFn: () => startPayment({ data: { request_id: requestId } }),
     onSuccess: (result) => {
@@ -69,6 +98,10 @@ function CheckoutPage() {
 
   const data = review.data;
   const transaction = data?.transaction ?? null;
+  const canHold = Boolean(offer.data?.ok && offer.data.info.supportsHold);
+  const heldAlready = data?.bookingStatus === "on_hold" || Boolean(data?.pnr);
+  const holdError = hold.data && !hold.data.ok ? hold.data.message : null;
+  const deadline = data?.paymentDeadline ?? null;
 
   const summary =
     data?.kind === "hotel"
@@ -119,6 +152,14 @@ function CheckoutPage() {
                 value={transaction?.transaction_reference ?? "Not created yet"}
               />
               <Row label="Currency" value={data.currency} />
+              {data.kind === "flight" ? (
+                <>
+                  <Row label="Travellers" value={`${data.passengerCount || data.flight?.passengers || 1}`} />
+                  <Row label="Airline reference (PNR)" value={data.pnr ?? "Issued after booking"} />
+                  <Row label="Airline order ID" value={data.duffelOrderId ?? "—"} />
+                  <Row label="Ticket number" value={data.ticketNumber ?? "Issued after payment"} />
+                </>
+              ) : null}
             </div>
 
             <Button asChild variant="ghost" className="mt-6 text-navy-soft">
@@ -170,6 +211,70 @@ function CheckoutPage() {
                   You will be taken to Paystack's secure checkout to complete this payment.
                 </p>
               )}
+
+              {data.kind === "flight" && !heldAlready && canHold ? (
+                <>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="mt-3 w-full border-navy/20 text-navy"
+                    onClick={() => hold.mutate()}
+                    disabled={hold.isPending}
+                  >
+                    {hold.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Timer className="mr-2 h-4 w-4" aria-hidden="true" />
+                    )}
+                    Book on Hold (pay later)
+                  </Button>
+                  <p className="mt-2 text-center text-xs text-muted-foreground">
+                    Reserves your seat with the airline. The fare is only guaranteed until the
+                    airline's payment deadline.
+                  </p>
+                </>
+              ) : null}
+
+              {data.kind === "flight" && !canHold && !heldAlready && offer.data?.ok ? (
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  This airline requires immediate payment — holding is not available on this fare.
+                </p>
+              ) : null}
+
+              {holdError ? (
+                <p className="mt-3 flex items-start gap-2 text-xs font-medium text-coral">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {holdError}
+                </p>
+              ) : null}
+
+              {heldAlready ? (
+                <div className="mt-4 rounded-2xl border border-peach/60 bg-peach-tint p-4">
+                  <p className="flex items-center gap-2 text-sm font-bold text-navy">
+                    <Clock className="h-4 w-4" aria-hidden="true" />
+                    Reservation held
+                  </p>
+                  {data.pnr ? (
+                    <p className="mt-1 text-sm text-navy">
+                      Airline reference (PNR): <span className="font-extrabold">{data.pnr}</span>
+                    </p>
+                  ) : null}
+                  {deadline ? (
+                    <p className="mt-1 text-xs text-navy-soft">
+                      Pay before {new Date(deadline).toLocaleString("en-GB")} or the airline will
+                      release this reservation.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <span
+                className={`mt-4 inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${bookingStatusTone(
+                  data.bookingStatus,
+                )}`}
+              >
+                Booking: {bookingStatusLabel(data.bookingStatus)}
+              </span>
 
               {transaction ? (
                 <p className="mt-4 flex items-center gap-2 break-all text-xs text-muted-foreground">
