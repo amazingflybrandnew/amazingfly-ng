@@ -129,6 +129,15 @@ function AdminRequestDetailPage() {
     queryFn: () => fetchDetail({ data: { id } }),
   });
 
+  const fetchPayments = useServerFn(getRequestPaymentTransactions);
+  const payments = useQuery({
+    queryKey: ["admin", "request", id, "payments"],
+    queryFn: () => fetchPayments({ data: { request_id: id } }),
+  });
+  const paymentRows = payments.data ?? [];
+
+
+
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin"] });
 
   const statusFn = useServerFn(updateRequestStatus);
