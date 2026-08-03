@@ -133,6 +133,69 @@ function DashboardPage() {
             />
           </div>
 
+          {pendingPayments.length > 0 ? (
+            <section className="glass-card rounded-3xl p-6 md:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 text-xl font-extrabold text-navy">
+                  <CreditCard className="h-5 w-5" aria-hidden="true" />
+                  My pending payments
+                </h2>
+                <Link
+                  to="/dashboard/payments"
+                  className="text-sm font-semibold text-navy underline-offset-4 hover:underline"
+                >
+                  View all payments
+                </Link>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Bookings that are ready for payment. Your specialist confirms every amount first.
+              </p>
+              <ul className="mt-5 space-y-3">
+                {pendingPayments.slice(0, 5).map((payment) => (
+                  <li
+                    key={payment.id}
+                    className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/70 bg-white/70 p-5"
+                  >
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-navy-soft">
+                        {payment.request_reference ?? payment.transaction_reference}
+                      </p>
+                      <p className="mt-1 text-base font-bold text-navy">
+                        {paymentTypeLabel(payment.payment_type)}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Created {formatDate(payment.created_at)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-extrabold text-navy">
+                        {formatMoney(payment.amount, payment.currency)}
+                      </p>
+                      <span
+                        className={`mt-1 inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${transactionTone(
+                          payment.status,
+                        )}`}
+                      >
+                        {transactionStatusLabel(payment.status)}
+                      </span>
+                      {payment.request_id ? (
+                        <Link
+                          to="/checkout/$requestId"
+                          params={{ requestId: payment.request_id }}
+                          className="mt-2 block text-sm font-semibold text-navy underline-offset-4 hover:underline"
+                        >
+                          Open checkout
+                        </Link>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+
+
           {data.documentRequests.some(
             (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
           ) ? (
