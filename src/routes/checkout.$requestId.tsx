@@ -232,6 +232,19 @@ function CheckoutPage() {
                   : "Awaiting Payment"}
               </span>
 
+              {verifyMessage ? (
+                <p className="mt-4 flex items-start gap-2 rounded-2xl border border-white/60 bg-white/70 p-3 text-sm text-navy">
+                  {verify.isPending ? (
+                    <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  )}
+                  {verifyMessage}
+                </p>
+              ) : null}
+
+
+
               <Button
                 size="lg"
                 className="btn-gradient mt-6 w-full text-white"
