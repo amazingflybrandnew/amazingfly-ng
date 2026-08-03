@@ -456,11 +456,15 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
               </span>
             ) : createRequest.data?.ok ? (
               <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                <Link to="/dashboard">
-                  View my flight requests
+                <Link
+                  to="/booking-review/$requestId"
+                  params={{ requestId: createRequest.data.requestId }}
+                >
+                  Review booking
                   <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
                 </Link>
               </Button>
+
             ) : createRequest.data && !createRequest.data.ok && createRequest.data.reason === "auth" ? (
               <Button asChild size="sm" className="btn-gradient border-0 text-white">
                 <Link to="/auth" search={{ redirect: "/flights" }}>
