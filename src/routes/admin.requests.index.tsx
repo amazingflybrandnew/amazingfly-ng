@@ -109,6 +109,7 @@ function AdminRequestsPage() {
                   <th className="px-5 py-4 font-bold">Service</th>
                   <th className="px-5 py-4 font-bold">Route</th>
                   <th className="px-5 py-4 font-bold">Airline / Hotel / Price</th>
+                  <th className="px-5 py-4 font-bold">Payment</th>
                   <th className="px-5 py-4 font-bold">Submitted</th>
                   <th className="px-5 py-4 font-bold">Assigned</th>
                   <th className="px-5 py-4 font-bold">Status</th>
