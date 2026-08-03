@@ -274,6 +274,8 @@ function shapeRequestRow(
         : Number(row["hotel_price"]),
     hotel_currency: row["hotel_currency"] ? String(row["hotel_currency"]) : null,
     payment_status: str(row, "payment_status", "pending_payment"),
+    booking_status: str(row, "booking_status", "pending"),
+
     payment_amount:
       row["agreed_fee"] === null || row["agreed_fee"] === undefined
         ? null
