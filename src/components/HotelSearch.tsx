@@ -31,6 +31,14 @@ import { searchHotelStays } from "@/lib/travel-api/hotels.functions";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
 import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
 import { createHotelRequest } from "@/lib/hotel-request.functions";
+import { HotelSearchSkeleton } from "@/components/HotelSearchSkeleton";
+import { HotelConfirmation } from "@/components/HotelConfirmation";
+import {
+  formatHotelPrice,
+  nightsBetween,
+  perNightPrice,
+} from "@/lib/travel-api/hotel-format";
+
 
 
 type SortKey = "recommended" | "price" | "rating";
