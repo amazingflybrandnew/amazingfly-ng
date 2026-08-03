@@ -174,6 +174,8 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const search = useServerFn(searchFlightOffers);
   const selected = useSelectedFlight();
   const createRequestFn = useServerFn(createFlightRequest);
+  const navigate = useNavigate();
+
 
   const createRequest = useMutation({
     mutationFn: (flight: FlightResult) =>
