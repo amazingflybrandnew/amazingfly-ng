@@ -297,8 +297,25 @@ function AdminRequestDetailPage() {
 
           <Panel
             title="Payment"
-            description="Expected payment for this booking. Read-only for now — no payment actions yet."
+            description="Payment and booking status are set automatically by the payment system — they cannot be changed manually."
           >
+            <div className="mb-4 flex flex-wrap gap-2">
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${paymentTone(
+                  request.payment_status,
+                )}`}
+              >
+                Payment: {paymentStatusLabel(request.payment_status)}
+              </span>
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${bookingStatusTone(
+                  request.booking_status,
+                )}`}
+              >
+                Booking: {bookingStatusLabel(request.booking_status)}
+              </span>
+            </div>
+
             {paymentRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No payment transaction has been prepared for this request yet.
