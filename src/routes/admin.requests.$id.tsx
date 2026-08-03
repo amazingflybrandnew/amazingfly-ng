@@ -34,7 +34,9 @@ import {
   transactionStatusLabel,
   transactionTone,
 } from "@/lib/payment/types";
-import { formatMoney } from "@/lib/payment-status";
+import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
+import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
+
 
 
 export const Route = createFileRoute("/admin/requests/$id")({
