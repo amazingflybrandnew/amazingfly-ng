@@ -31,6 +31,14 @@ import { searchHotelStays } from "@/lib/travel-api/hotels.functions";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
 import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
 import { createHotelRequest } from "@/lib/hotel-request.functions";
+import { HotelSearchSkeleton } from "@/components/HotelSearchSkeleton";
+import { HotelConfirmation } from "@/components/HotelConfirmation";
+import {
+  formatHotelPrice,
+  nightsBetween,
+  perNightPrice,
+} from "@/lib/travel-api/hotel-format";
+
 
 
 type SortKey = "recommended" | "price" | "rating";
@@ -49,78 +57,93 @@ function todayISO() {
   return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
 
-function formatPrice(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toLocaleString()}`;
-  }
-}
+const formatPrice = formatHotelPrice;
 
 function HotelCard({
   hotel,
+  stay,
   onOpen,
   onSelect,
   isSelected,
 }: {
   hotel: HotelResult;
+  stay: StayInputShape | null;
   onOpen: () => void;
   onSelect: () => void;
   isSelected: boolean;
 }) {
   const refundable = hotel.rooms.some((room) => room.cancellationPolicy.refundable);
+  const nights =
+    hotel.nights ??
+    nightsBetween(hotel.checkInDate ?? stay?.checkInDate, hotel.checkOutDate ?? stay?.checkOutDate);
+  const nightly = perNightPrice(hotel.price, nights);
+  const roomCount = hotel.rooms.length;
+
   return (
     <article
-      className={`hover-lift overflow-hidden rounded-3xl border bg-white/80 shadow-card backdrop-blur-sm transition ${
-        isSelected ? "border-orange ring-2 ring-orange/30" : "border-white/70"
+      className={`group overflow-hidden rounded-3xl border bg-white/80 shadow-card backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+        isSelected ? "border-orange ring-2 ring-orange/30" : "border-white/70 hover:border-orange/40"
       }`}
     >
       <div className="flex flex-col md:flex-row">
-        <div className="md:w-64 md:shrink-0">
+        <div className="relative overflow-hidden md:w-72 md:shrink-0">
           {hotel.hotelImage ? (
             <img
               src={hotel.hotelImage}
               alt={hotel.hotelName}
               loading="lazy"
-              className="h-48 w-full object-cover md:h-full"
+              className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-105 md:h-full"
             />
           ) : (
-            <div className="grid h-48 w-full place-items-center bg-gradient-to-br from-sky-tint to-lavender-tint md:h-full">
+            <div className="grid h-52 w-full place-items-center bg-gradient-to-br from-sky-tint to-lavender-tint md:h-full">
               <Hotel className="h-8 w-8 text-orange" aria-hidden="true" />
             </div>
           )}
+          {refundable ? (
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-navy shadow-sm backdrop-blur">
+              <Check className="h-3.5 w-3.5 text-mint" aria-hidden="true" />
+              Free cancellation
+            </span>
+          ) : null}
         </div>
 
-        <div className="flex flex-1 flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-1 flex-col gap-4 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
-            <h3 className="text-lg font-bold">{hotel.hotelName}</h3>
-            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 text-orange" aria-hidden="true" />
-              {hotel.location || hotel.address}
-            </p>
-            <p className="mt-2 flex items-center gap-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-lg font-bold text-navy">{hotel.hotelName}</h3>
               {hotel.rating ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-peach-tint px-2.5 py-1 text-xs font-semibold text-navy">
-                  <Star className="h-3.5 w-3.5 fill-orange text-orange" aria-hidden="true" />
-                  {hotel.rating}-star
+                <span className="inline-flex items-center gap-0.5" aria-label={`${hotel.rating} star hotel`}>
+                  {Array.from({ length: Math.min(5, Math.round(hotel.rating)) }).map((_, i) => (
+                    <Star key={i} className="h-3.5 w-3.5 fill-orange text-orange" aria-hidden="true" />
+                  ))}
                 </span>
               ) : null}
+            </div>
+            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+              <span className="min-w-0 truncate">{hotel.location || hotel.address}</span>
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               {hotel.reviewScore ? (
-                <span className="rounded-full bg-mint-tint px-2.5 py-1 text-xs font-semibold text-navy">
-                  {hotel.reviewScore}/10
+                <span className="inline-flex items-center gap-1 rounded-full bg-mint-tint px-2.5 py-1 text-xs font-semibold text-navy">
+                  <span className="rounded-md bg-white/70 px-1.5 py-0.5 font-extrabold">
+                    {hotel.reviewScore}
+                  </span>
+                  Guest rating
                   {hotel.reviewCount ? ` · ${hotel.reviewCount} reviews` : ""}
                 </span>
               ) : null}
-              {refundable ? (
-                <span className="rounded-full bg-sky-tint px-2.5 py-1 text-xs font-semibold text-navy">
-                  Free cancellation available
-                </span>
-              ) : null}
-            </p>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-navy ${
+                  roomCount > 0 ? "bg-sky-tint" : "bg-peach-tint"
+                }`}
+              >
+                <BedDouble className="h-3.5 w-3.5 text-orange" aria-hidden="true" />
+                {roomCount > 0
+                  ? `${roomCount} room option${roomCount > 1 ? "s" : ""} available`
+                  : "Availability on request"}
+              </span>
+            </div>
             {hotel.amenities.length ? (
               <ul className="mt-3 flex flex-wrap gap-2">
                 {hotel.amenities.slice(0, 5).map((amenity) => (
@@ -131,29 +154,44 @@ function HotelCard({
                     {amenity}
                   </li>
                 ))}
+                {hotel.amenities.length > 5 ? (
+                  <li className="rounded-full border border-white/70 bg-white/70 px-2.5 py-1 text-[11px] font-medium text-orange">
+                    +{hotel.amenities.length - 5} more
+                  </li>
+                ) : null}
               </ul>
             ) : null}
             {hotel.rooms[0] ? (
               <p className="mt-3 text-xs text-muted-foreground">
-                {hotel.rooms.length} room option{hotel.rooms.length > 1 ? "s" : ""} · lowest:{" "}
-                {hotel.rooms[0].roomName}
+                Lowest room: {hotel.rooms[0].roomName}
+                {hotel.rooms[0].boardType ? ` · ${hotel.rooms[0].boardType}` : ""}
               </p>
             ) : null}
           </div>
 
           <div className="flex shrink-0 flex-col items-start gap-3 md:items-end">
             <div className="md:text-right">
-              <p className="text-xl font-extrabold">{formatPrice(hotel.price, hotel.currency)}</p>
+              <p className="text-xl font-extrabold text-navy">
+                {formatPrice(nightly, hotel.currency)}
+                <span className="text-xs font-semibold text-muted-foreground"> / night</span>
+              </p>
+              <p className="text-sm font-semibold text-navy-soft">
+                {formatPrice(hotel.price, hotel.currency)} total
+              </p>
               <p className="text-[11px] text-muted-foreground">
-                {hotel.nights ? `${hotel.nights} night${hotel.nights > 1 ? "s" : ""} · ` : ""}
-                {hotel.currency} · total
+                {nights > 0 ? `${nights} night${nights > 1 ? "s" : ""} · ` : ""}
+                {hotel.currency} · taxes as quoted
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={onOpen}>
+            <div className="flex w-full flex-wrap gap-2 md:w-auto">
+              <Button size="sm" variant="secondary" className="flex-1 md:flex-none" onClick={onOpen}>
                 View Details
               </Button>
-              <Button size="sm" className="btn-gradient border-0 text-white" onClick={onSelect}>
+              <Button
+                size="sm"
+                className="btn-gradient flex-1 border-0 text-white md:flex-none"
+                onClick={onSelect}
+              >
                 {isSelected ? (
                   <>
                     <Check className="mr-1 h-4 w-4" aria-hidden="true" /> Selected
@@ -472,75 +510,63 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
-        <div className="space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="text-sm">
-              <p className="font-bold">
-                Selected stay: {selected.hotelName} · {selected.location}
-              </p>
-              <p className="text-muted-foreground">
-                {submittedStay?.checkInDate} → {submittedStay?.checkOutDate}
-                {selectedRoom ? ` · ${selectedRoom.roomName}` : ""} ·{" "}
-                {formatPrice(
-                  selectedRoom?.price ?? selected.price,
-                  selectedRoom?.currency ?? selected.currency,
-                )}
-              </p>
+        <HotelConfirmation hotel={selected} room={selectedRoom} stay={submittedStay}>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-3">
+              {createRequest.isPending ? (
+                <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Saving this stay to your account…
+                </span>
+              ) : createRequest.data?.ok ? (
+                <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                  <Link to="/dashboard">
+                    View my hotel requests
+                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              ) : createRequest.data &&
+                !createRequest.data.ok &&
+                createRequest.data.reason === "auth" ? (
+                <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                  <Link to="/auth" search={{ redirect: "/hotels" }}>
+                    Sign in to save this stay
+                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                  <Link to="/request" search={{ service: "hotels", to: selected.location }}>
+                    Continue with this hotel
+                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setDetailHotel(selected)}
+              >
+                Change room
+              </Button>
             </div>
-            {createRequest.isPending ? (
-              <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Saving this stay to your account…
-              </span>
-            ) : createRequest.data?.ok ? (
-              <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                <Link to="/dashboard">
-                  View my hotel requests
-                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            ) : createRequest.data && !createRequest.data.ok && createRequest.data.reason === "auth" ? (
-              <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                <Link to="/auth" search={{ redirect: "/hotels" }}>
-                  Sign in to save this stay
-                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            ) : (
-              <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                <Link to="/request" search={{ service: "hotels", to: selected.location }}>
-                  Continue with this hotel
-                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </Link>
-              </Button>
-            )}
+
+            {createRequest.data?.ok ? (
+              <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
+                Hotel request <strong>{createRequest.data.reference}</strong> created. Status: New
+                Request — our specialists will confirm availability and come back to you.
+              </p>
+            ) : null}
+            {createRequest.data && !createRequest.data.ok ? (
+              <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
+                {createRequest.data.message}
+              </p>
+            ) : null}
           </div>
-
-          {createRequest.data?.ok ? (
-            <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
-              Hotel request <strong>{createRequest.data.reference}</strong> created. Status: New
-              Request — our specialists will confirm availability and come back to you.
-            </p>
-          ) : null}
-          {createRequest.data && !createRequest.data.ok ? (
-            <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
-              {createRequest.data.message}
-            </p>
-          ) : null}
-        </div>
+        </HotelConfirmation>
       ) : null}
 
-
-      {mutation.isPending ? (
-        <div className="grid gap-4">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-40 animate-pulse rounded-3xl border border-white/70 bg-white/60"
-            />
-          ))}
-        </div>
-      ) : null}
+      {mutation.isPending ? <HotelSearchSkeleton /> : null}
 
       {result && !result.ok ? (
         <p className="flex gap-2 rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm text-navy">
@@ -653,6 +679,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               <HotelCard
                 key={hotel.hotelId}
                 hotel={hotel}
+                stay={submittedStay}
                 onOpen={() => setDetailHotel(hotel)}
                 onSelect={() => handleSelect(hotel)}
                 isSelected={selected?.hotelId === hotel.hotelId}
