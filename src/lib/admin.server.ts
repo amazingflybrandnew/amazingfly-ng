@@ -196,6 +196,10 @@ export type AdminRequestRow = {
   hotel_check_out: string | null;
   hotel_price: number | null;
   hotel_currency: string | null;
+  payment_status: string;
+  payment_amount: number | null;
+  payment_currency: string | null;
+  payment_reference: string | null;
 };
 
 
@@ -267,6 +271,13 @@ function shapeRequestRow(
         ? null
         : Number(row["hotel_price"]),
     hotel_currency: row["hotel_currency"] ? String(row["hotel_currency"]) : null,
+    payment_status: str(row, "payment_status", "pending_payment"),
+    payment_amount:
+      row["agreed_fee"] === null || row["agreed_fee"] === undefined
+        ? null
+        : Number(row["agreed_fee"]),
+    payment_currency: row["currency"] ? String(row["currency"]) : "NGN",
+    payment_reference: null,
   };
 
 }
@@ -300,7 +311,19 @@ export async function loadAdminRequests(filters: {
     };
   }
 
-  const all = (data ?? []).map((row) => shapeRequestRow(row as Record<string, unknown>, staff));
+  const { latestTransactionByRequest } = await import("./payment/transactions.server");
+  const payments = await latestTransactionByRequest();
+
+  const all = (data ?? []).map((row) => {
+    const shaped = shapeRequestRow(row as Record<string, unknown>, staff);
+    const payment = payments.get(shaped.id);
+    if (payment) {
+      shaped.payment_reference = payment.transaction_reference;
+      shaped.payment_currency = payment.currency;
+      if (payment.amount) shaped.payment_amount = payment.amount;
+    }
+    return shaped;
+  });
   const count = (status: string) => all.filter((row) => row.request_status === status).length;
 
   const stats: AdminStats = {

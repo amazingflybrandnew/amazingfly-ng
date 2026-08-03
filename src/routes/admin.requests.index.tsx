@@ -7,6 +7,7 @@ import { Loader2, Search } from "lucide-react";
 import { AdminShell, PRIORITY_LABELS, priorityTone } from "@/components/AdminShell";
 import { Input } from "@/components/ui/input";
 import { getAdminRequests } from "@/lib/admin.functions";
+import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 
 export const Route = createFileRoute("/admin/requests/")({
@@ -109,6 +110,7 @@ function AdminRequestsPage() {
                   <th className="px-5 py-4 font-bold">Service</th>
                   <th className="px-5 py-4 font-bold">Route</th>
                   <th className="px-5 py-4 font-bold">Airline / Hotel / Price</th>
+                  <th className="px-5 py-4 font-bold">Payment</th>
                   <th className="px-5 py-4 font-bold">Submitted</th>
                   <th className="px-5 py-4 font-bold">Assigned</th>
                   <th className="px-5 py-4 font-bold">Status</th>
@@ -168,6 +170,22 @@ function AdminRequestsPage() {
                       ) : (
                         "—"
                       )}
+                    </td>
+
+                    <td className="px-5 py-4 text-navy-soft">
+                      <span
+                        className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-bold ${paymentTone(row.payment_status)}`}
+                      >
+                        {paymentStatusLabel(row.payment_status)}
+                      </span>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {row.payment_amount !== null
+                          ? formatMoney(row.payment_amount, row.payment_currency ?? "NGN")
+                          : "Fee to be confirmed"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {row.payment_reference ?? "No transaction yet"}
+                      </p>
                     </td>
 
                     <td className="px-5 py-4 text-navy-soft">{formatDate(row.created_at)}</td>

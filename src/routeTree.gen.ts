@@ -40,6 +40,7 @@ import { Route as AdminServicesContentRouteImport } from './routes/admin.service
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardNotificationsRouteImport } from './routes/dashboard.notifications'
+import { Route as DashboardPaymentsRouteImport } from './routes/dashboard.payments'
 import { Route as PaymentRequestIdRouteImport } from './routes/payment.$requestId'
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
@@ -202,6 +203,11 @@ const DashboardNotificationsRoute = DashboardNotificationsRouteImport.update({
   path: '/dashboard/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardPaymentsRoute = DashboardPaymentsRouteImport.update({
+  id: '/dashboard/payments',
+  path: '/dashboard/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentRequestIdRoute = PaymentRequestIdRouteImport.update({
   id: '/payment/$requestId',
   path: '/payment/$requestId',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
+  '/dashboard/payments': typeof DashboardPaymentsRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
+  '/dashboard/payments': typeof DashboardPaymentsRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
@@ -342,6 +350,7 @@ export interface FileRoutesById {
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
+  '/dashboard/payments': typeof DashboardPaymentsRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
@@ -383,6 +392,7 @@ export interface FileRouteTypes {
     | '/admin/services-content'
     | '/admin/testimonials'
     | '/dashboard/notifications'
+    | '/dashboard/payments'
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/admin/services-content'
     | '/admin/testimonials'
     | '/dashboard/notifications'
+    | '/dashboard/payments'
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
@@ -461,6 +472,7 @@ export interface FileRouteTypes {
     | '/admin/services-content'
     | '/admin/testimonials'
     | '/dashboard/notifications'
+    | '/dashboard/payments'
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
@@ -501,6 +513,7 @@ export interface RootRouteChildren {
   AdminServicesContentRoute: typeof AdminServicesContentRoute
   AdminTestimonialsRoute: typeof AdminTestimonialsRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
+  DashboardPaymentsRoute: typeof DashboardPaymentsRoute
   PaymentRequestIdRoute: typeof PaymentRequestIdRoute
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
@@ -730,6 +743,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/payments': {
+      id: '/dashboard/payments'
+      path: '/dashboard/payments'
+      fullPath: '/dashboard/payments'
+      preLoaderRoute: typeof DashboardPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payment/$requestId': {
       id: '/payment/$requestId'
       path: '/payment/$requestId'
@@ -805,6 +825,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminServicesContentRoute: AdminServicesContentRoute,
   AdminTestimonialsRoute: AdminTestimonialsRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
+  DashboardPaymentsRoute: DashboardPaymentsRoute,
   PaymentRequestIdRoute: PaymentRequestIdRoute,
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,
