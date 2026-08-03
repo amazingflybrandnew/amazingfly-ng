@@ -197,6 +197,11 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           currency: flight.currency,
         },
       }),
+    onSuccess: (result) => {
+      if (result.ok) {
+        void navigate({ to: "/booking-review/$requestId", params: { requestId: result.requestId } });
+      }
+    },
   });
 
   const handleSelect = (flight: FlightResult) => {
