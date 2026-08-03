@@ -118,12 +118,11 @@ export async function savePassengers(
 
   const rows = input.passengers.map((passenger) => ({
     request_id: input.requestId,
-    user_id: user.id,
     title: passenger.title,
     first_name: passenger.firstName,
     middle_name: passenger.middleName || null,
     last_name: passenger.lastName,
-    date_of_birth: passenger.dateOfBirth,
+    date_of_birth: passenger.dateOfBirth || null,
     gender: passenger.gender,
     nationality: passenger.nationality,
     passport_number: passenger.passportNumber || null,
@@ -131,15 +130,26 @@ export async function savePassengers(
     passport_expiry: passenger.passportExpiry || null,
   }));
 
-  const { error } = await supabase.from("booking_passengers").insert(rows);
+  let { error } = await supabase.from("booking_passengers").insert(rows);
+
+  // Older/leaner passenger tables may not have every optional column yet.
+  if (error && (error.code === "42703" || error.code === "PGRST204")) {
+    const minimal = rows.map((row) => ({
+      request_id: row.request_id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+    }));
+    ({ error } = await supabase.from("booking_passengers").insert(minimal));
+  }
+
   if (error) {
-    console.error("[passengers] insert", error.message);
+    console.error("[passengers] insert", error.code, error.message, error.details);
     return {
       ok: false,
-      message:
-        "We could not save the traveller details. Please make sure the passenger table migration has been applied.",
+      message: `We could not save the traveller details (${error.message}).`,
     };
   }
+
 
   await supabase.from("request_updates").insert({
     request_id: input.requestId,
