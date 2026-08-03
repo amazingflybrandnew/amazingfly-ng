@@ -171,6 +171,22 @@ function AdminRequestsPage() {
                       )}
                     </td>
 
+                    <td className="px-5 py-4 text-navy-soft">
+                      <span
+                        className={`inline-block rounded-full border px-2.5 py-1 text-[11px] font-bold ${paymentTone(row.payment_status)}`}
+                      >
+                        {paymentStatusLabel(row.payment_status)}
+                      </span>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {row.payment_amount !== null
+                          ? formatMoney(row.payment_amount, row.payment_currency ?? "NGN")
+                          : "Fee to be confirmed"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {row.payment_reference ?? "No transaction yet"}
+                      </p>
+                    </td>
+
                     <td className="px-5 py-4 text-navy-soft">{formatDate(row.created_at)}</td>
                     <td className="px-5 py-4 text-navy-soft">
                       {row.assigned_staff_name ?? "Unassigned"}
