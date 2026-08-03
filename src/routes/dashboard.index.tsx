@@ -5,6 +5,8 @@ import {
   ArrowRight,
   Bell,
   BedDouble,
+  CreditCard,
+
   CheckCircle2,
   FileWarning,
   Loader2,
