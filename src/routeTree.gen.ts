@@ -38,6 +38,7 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
+import { Route as BookingReviewRequestIdRouteImport } from './routes/booking-review.$requestId'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardNotificationsRouteImport } from './routes/dashboard.notifications'
 import { Route as DashboardPaymentsRouteImport } from './routes/dashboard.payments'
@@ -193,6 +194,11 @@ const AdminTestimonialsRoute = AdminTestimonialsRouteImport.update({
   path: '/admin/testimonials',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookingReviewRequestIdRoute = BookingReviewRequestIdRouteImport.update({
+  id: '/booking-review/$requestId',
+  path: '/booking-review/$requestId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/dashboard/',
   path: '/dashboard/',
@@ -268,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
@@ -349,6 +357,7 @@ export interface FileRoutesById {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
   '/payment/$requestId': typeof PaymentRequestIdRoute
@@ -391,6 +400,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-review/$requestId'
     | '/dashboard/notifications'
     | '/dashboard/payments'
     | '/payment/$requestId'
@@ -431,6 +441,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-review/$requestId'
     | '/dashboard/notifications'
     | '/dashboard/payments'
     | '/payment/$requestId'
@@ -471,6 +482,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-review/$requestId'
     | '/dashboard/notifications'
     | '/dashboard/payments'
     | '/payment/$requestId'
@@ -512,6 +524,7 @@ export interface RootRouteChildren {
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
   AdminTestimonialsRoute: typeof AdminTestimonialsRoute
+  BookingReviewRequestIdRoute: typeof BookingReviewRequestIdRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
   DashboardPaymentsRoute: typeof DashboardPaymentsRoute
   PaymentRequestIdRoute: typeof PaymentRequestIdRoute
@@ -729,6 +742,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTestimonialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/booking-review/$requestId': {
+      id: '/booking-review/$requestId'
+      path: '/booking-review/$requestId'
+      fullPath: '/booking-review/$requestId'
+      preLoaderRoute: typeof BookingReviewRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/': {
       id: '/dashboard/'
       path: '/dashboard'
@@ -824,6 +844,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
   AdminTestimonialsRoute: AdminTestimonialsRoute,
+  BookingReviewRequestIdRoute: BookingReviewRequestIdRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
   DashboardPaymentsRoute: DashboardPaymentsRoute,
   PaymentRequestIdRoute: PaymentRequestIdRoute,
