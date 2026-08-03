@@ -271,6 +271,13 @@ function shapeRequestRow(
         ? null
         : Number(row["hotel_price"]),
     hotel_currency: row["hotel_currency"] ? String(row["hotel_currency"]) : null,
+    payment_status: str(row, "payment_status", "pending_payment"),
+    payment_amount:
+      row["agreed_fee"] === null || row["agreed_fee"] === undefined
+        ? null
+        : Number(row["agreed_fee"]),
+    payment_currency: row["currency"] ? String(row["currency"]) : "NGN",
+    payment_reference: null,
   };
 
 }
