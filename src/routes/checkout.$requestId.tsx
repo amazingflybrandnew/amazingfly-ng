@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -16,13 +17,23 @@ import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getBookingReview } from "@/lib/payment/checkout.functions";
 import { initializePayment } from "@/lib/payment/paystack.functions";
+import { verifyPayment } from "@/lib/payment/verify.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
 import { holdBooking } from "@/lib/booking/hold.functions";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 
+type CheckoutSearch = { reference?: string; trxref?: string };
+
 export const Route = createFileRoute("/checkout/$requestId")({
+  validateSearch: (search: Record<string, unknown>): CheckoutSearch => {
+    const out: CheckoutSearch = {};
+    if (typeof search["reference"] === "string") out.reference = search["reference"];
+    if (typeof search["trxref"] === "string") out.trxref = search["trxref"];
+    return out;
+  },
+
   head: () => ({
     meta: [
       { title: "Your Booking Is Ready | Amazingfly.ng" },

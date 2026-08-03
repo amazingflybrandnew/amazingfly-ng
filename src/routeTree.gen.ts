@@ -38,6 +38,7 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
+import { Route as BookingConfirmationRequestIdRouteImport } from './routes/booking-confirmation.$requestId'
 import { Route as BookingReviewRequestIdRouteImport } from './routes/booking-review.$requestId'
 import { Route as CheckoutRequestIdRouteImport } from './routes/checkout.$requestId'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
@@ -197,6 +198,12 @@ const AdminTestimonialsRoute = AdminTestimonialsRouteImport.update({
   path: '/admin/testimonials',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookingConfirmationRequestIdRoute =
+  BookingConfirmationRequestIdRouteImport.update({
+    id: '/booking-confirmation/$requestId',
+    path: '/booking-confirmation/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const BookingReviewRequestIdRoute = BookingReviewRequestIdRouteImport.update({
   id: '/booking-review/$requestId',
   path: '/booking-review/$requestId',
@@ -293,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-confirmation/$requestId': typeof BookingConfirmationRequestIdRoute
   '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -337,6 +345,7 @@ export interface FileRoutesByTo {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-confirmation/$requestId': typeof BookingConfirmationRequestIdRoute
   '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -382,6 +391,7 @@ export interface FileRoutesById {
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
+  '/booking-confirmation/$requestId': typeof BookingConfirmationRequestIdRoute
   '/booking-review/$requestId': typeof BookingReviewRequestIdRoute
   '/checkout/$requestId': typeof CheckoutRequestIdRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-confirmation/$requestId'
     | '/booking-review/$requestId'
     | '/checkout/$requestId'
     | '/dashboard/notifications'
@@ -472,6 +483,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-confirmation/$requestId'
     | '/booking-review/$requestId'
     | '/checkout/$requestId'
     | '/dashboard/notifications'
@@ -516,6 +528,7 @@ export interface FileRouteTypes {
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
+    | '/booking-confirmation/$requestId'
     | '/booking-review/$requestId'
     | '/checkout/$requestId'
     | '/dashboard/notifications'
@@ -561,6 +574,7 @@ export interface RootRouteChildren {
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
   AdminTestimonialsRoute: typeof AdminTestimonialsRoute
+  BookingConfirmationRequestIdRoute: typeof BookingConfirmationRequestIdRoute
   BookingReviewRequestIdRoute: typeof BookingReviewRequestIdRoute
   CheckoutRequestIdRoute: typeof CheckoutRequestIdRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
@@ -782,6 +796,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTestimonialsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/booking-confirmation/$requestId': {
+      id: '/booking-confirmation/$requestId'
+      path: '/booking-confirmation/$requestId'
+      fullPath: '/booking-confirmation/$requestId'
+      preLoaderRoute: typeof BookingConfirmationRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/booking-review/$requestId': {
       id: '/booking-review/$requestId'
       path: '/booking-review/$requestId'
@@ -905,6 +926,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
   AdminTestimonialsRoute: AdminTestimonialsRoute,
+  BookingConfirmationRequestIdRoute: BookingConfirmationRequestIdRoute,
   BookingReviewRequestIdRoute: BookingReviewRequestIdRoute,
   CheckoutRequestIdRoute: CheckoutRequestIdRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
