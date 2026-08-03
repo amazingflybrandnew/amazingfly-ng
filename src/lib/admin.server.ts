@@ -196,6 +196,10 @@ export type AdminRequestRow = {
   hotel_check_out: string | null;
   hotel_price: number | null;
   hotel_currency: string | null;
+  payment_status: string;
+  payment_amount: number | null;
+  payment_currency: string | null;
+  payment_reference: string | null;
 };
 
 
