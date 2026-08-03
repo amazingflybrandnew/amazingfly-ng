@@ -100,12 +100,46 @@ function CheckoutPage() {
     },
   });
 
+  // ---- Paystack callback: verify the reference once, on the server ---------
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const verifyFn = useServerFn(verifyPayment);
+  const verifiedRef = useRef<string | null>(null);
+  const callbackReference = search.reference ?? search.trxref ?? null;
+
+  const verify = useMutation({
+    mutationFn: (reference: string) => verifyFn({ data: { reference } }),
+    onSuccess: async (result) => {
+      await review.refetch();
+      if (result.ok && result.status === "successful") {
+        void navigate({ to: "/booking-confirmation/$requestId", params: { requestId } });
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!callbackReference || !session?.user) return;
+    if (verifiedRef.current === callbackReference) return;
+    verifiedRef.current = callbackReference;
+    verify.mutate(callbackReference);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callbackReference, session?.user?.id]);
+
+  const verifyMessage = verify.isPending
+    ? "Confirming your payment with Paystack…"
+    : verify.data && !verify.data.ok
+      ? verify.data.message
+      : verify.data && verify.data.ok && verify.data.status !== "successful"
+        ? "That payment was not completed. You can try again below."
+        : null;
+
   const payError = pay.isError
     ? "We could not start the secure payment. Please try again."
     : pay.data && !pay.data.ok
       ? pay.data.message
       : null;
   const redirecting = pay.isPending || Boolean(pay.data?.ok);
+
 
   const data = review.data;
   const transaction = data?.transaction ?? null;
