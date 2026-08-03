@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Check,
@@ -174,6 +174,8 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const search = useServerFn(searchFlightOffers);
   const selected = useSelectedFlight();
   const createRequestFn = useServerFn(createFlightRequest);
+  const navigate = useNavigate();
+
 
   const createRequest = useMutation({
     mutationFn: (flight: FlightResult) =>
@@ -195,6 +197,11 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           currency: flight.currency,
         },
       }),
+    onSuccess: (result) => {
+      if (result.ok) {
+        void navigate({ to: "/booking-review/$requestId", params: { requestId: result.requestId } });
+      }
+    },
   });
 
   const handleSelect = (flight: FlightResult) => {

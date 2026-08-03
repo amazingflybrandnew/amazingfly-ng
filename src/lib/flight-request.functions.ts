@@ -53,11 +53,35 @@ export const createFlightRequest = createServerFn({ method: "POST" })
     const supabase = createExternalSupabaseAdmin();
     const reference = generateRequestReference();
 
-    const { data: service } = await supabase
+    // service_requests.service_id is NOT NULL — resolve an existing flight
+    // service row before inserting, trying the known slugs then any match.
+    const { data: services } = await supabase
       .from("services")
-      .select("id")
-      .eq("slug", "flight-booking")
-      .maybeSingle();
+      .select("id, slug, name")
+      .in("slug", ["flight-booking", "flights", "flight-reservation", "flight-reservations"]);
+
+    let service =
+      (services ?? []).find((row) => row["slug"] === "flight-booking") ??
+      (services ?? []).find((row) => row["slug"] === "flights") ??
+      (services ?? [])[0];
+
+    if (!service) {
+      const { data: fuzzy } = await supabase
+        .from("services")
+        .select("id, slug, name")
+        .ilike("name", "%flight%")
+        .limit(1);
+      service = (fuzzy ?? [])[0];
+    }
+
+    if (!service) {
+      console.error("[flight-request] no flight service row found in public.services");
+      return {
+        ok: false,
+        reason: "error",
+        message: "Flight booking is not configured yet. Please contact support.",
+      };
+    }
 
     const { data: customer } = await supabase
       .from("customers")
@@ -84,7 +108,7 @@ export const createFlightRequest = createServerFn({ method: "POST" })
 
     const baseRow: Record<string, unknown> = {
       request_reference: reference,
-      service_id: service?.id ?? null,
+      service_id: service["id"],
       customer_id: customer?.id ?? null,
       user_id: user.id,
       service_type: SERVICE_TYPE,
