@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, CreditCard, Loader2, ReceiptText, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, CreditCard, Loader2, ReceiptText, ShieldCheck } from "lucide-react";
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getBookingReview } from "@/lib/payment/checkout.functions";
+import { initializePayment } from "@/lib/payment/paystack.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 
