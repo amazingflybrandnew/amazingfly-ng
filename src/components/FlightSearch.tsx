@@ -199,7 +199,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       }),
     onSuccess: (result) => {
       if (result.ok) {
-        void navigate({ to: "/booking-review/$requestId", params: { requestId: result.requestId } });
+        void navigate({ to: "/passengers/$requestId", params: { requestId: result.requestId } });
       }
     },
   });
