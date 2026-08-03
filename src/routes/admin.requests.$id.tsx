@@ -28,6 +28,14 @@ import {
 } from "@/lib/admin.functions";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 import { getRequestMessages, sendAdminMessage } from "@/lib/admin-ops.functions";
+import { getRequestPaymentTransactions } from "@/lib/payment/transactions.functions";
+import {
+  paymentTypeLabel,
+  transactionStatusLabel,
+  transactionTone,
+} from "@/lib/payment/types";
+import { formatMoney } from "@/lib/payment-status";
+
 
 export const Route = createFileRoute("/admin/requests/$id")({
   head: () => ({
@@ -120,6 +128,15 @@ function AdminRequestDetailPage() {
     queryKey: ["admin", "request", id],
     queryFn: () => fetchDetail({ data: { id } }),
   });
+
+  const fetchPayments = useServerFn(getRequestPaymentTransactions);
+  const payments = useQuery({
+    queryKey: ["admin", "request", id, "payments"],
+    queryFn: () => fetchPayments({ data: { request_id: id } }),
+  });
+  const paymentRows = payments.data ?? [];
+
+
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["admin"] });
 
@@ -277,6 +294,49 @@ function AdminRequestDetailPage() {
               </div>
             ) : null}
           </Panel>
+
+          <Panel
+            title="Payment"
+            description="Expected payment for this booking. Read-only for now — no payment actions yet."
+          >
+            {paymentRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No payment transaction has been prepared for this request yet.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {paymentRows.map((row) => (
+                  <li
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/70 bg-white/70 p-4"
+                  >
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-navy-soft">
+                        {row.transaction_reference}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {paymentTypeLabel(row.payment_type)} · {formatDate(row.created_at)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-extrabold text-navy">
+                        {formatMoney(row.amount, row.currency)}
+                      </p>
+                      <span
+                        className={`mt-1 inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${transactionTone(
+                          row.status,
+                        )}`}
+                      >
+                        {transactionStatusLabel(row.status)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+
 
           <Panel
             title="Documents"
