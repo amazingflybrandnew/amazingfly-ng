@@ -85,6 +85,15 @@ function DashboardPage() {
     enabled: Boolean(session?.user),
   });
 
+  const fetchPayments = useServerFn(getMyPaymentTransactions);
+  const payments = useQuery({
+    queryKey: ["my-payments"],
+    queryFn: () => fetchPayments(),
+    enabled: Boolean(session?.user),
+  });
+  const pendingPayments = (payments.data ?? []).filter((row) => row.status === "pending");
+
+
   const flightRequests = (data?.requests ?? []).filter(
     (request) =>
       Boolean(request.airline) ||
