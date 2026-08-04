@@ -210,11 +210,11 @@ function RequestDetailPage() {
           </section>
 
           <RequestConversation requestId={data.request.id} />
-
-
-
         </div>
+          );
+        })()
       )}
+
     </AccountShell>
   );
 }
