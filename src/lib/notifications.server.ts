@@ -20,6 +20,8 @@ export type AutomationEvent =
   | "status_update"
   | "document_request"
   | "payment_confirmed"
+  | "admin_payment_received"
+  | "quotation_ready"
   | "request_completed";
 
 export type ComposedEmail = {
