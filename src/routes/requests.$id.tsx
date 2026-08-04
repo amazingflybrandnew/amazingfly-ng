@@ -96,11 +96,11 @@ function RequestDetailPage() {
                 </p>
               </div>
               <span
-                className={`rounded-full border px-4 py-1.5 text-xs font-bold ${statusTone(
-                  data.request.request_status,
+                className={`rounded-full border px-4 py-1.5 text-xs font-bold ${workflowTone(
+                  deriveWorkflowStatus(data.request),
                 )}`}
               >
-                {STATUS_LABELS[data.request.request_status] ?? data.request.request_status}
+                {WORKFLOW_LABELS[deriveWorkflowStatus(data.request)]}
               </span>
             </div>
 
@@ -112,6 +112,8 @@ function RequestDetailPage() {
               <Detail label="Full name" value={data.request.full_name ?? ""} />
               <Detail label="Preferred contact" value={data.request.preferred_contact ?? ""} />
             </dl>
+
+            <PaymentPanel request={data.request} documentCount={data.documents.length} />
 
             {data.request.request_details ? (
               <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-5">
