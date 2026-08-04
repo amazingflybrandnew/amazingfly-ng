@@ -140,7 +140,10 @@ export function DocumentList({
         </p>
       ) : (
         <ul className="space-y-3">
-          {documents.map((doc) => (
+          {documents.map((doc) => {
+            const status = normalizeDocumentStatus(doc.review_status);
+            const replace = needsReplacement(doc.review_status);
+            return (
             <li
               key={doc.id}
               className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/70 bg-white/70 p-4"
@@ -152,8 +155,16 @@ export function DocumentList({
                 <FileText className="h-5 w-5 text-navy" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-navy">
+                <p className="flex flex-wrap items-center gap-2 truncate text-sm font-bold text-navy">
                   {doc.file_name ?? doc.document_type}
+                  <span
+                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${documentStatusTone(
+                      doc.review_status,
+                    )}`}
+                  >
+                    {status === "verified" ? "✓ " : ""}
+                    {documentStatusLabel(doc.review_status)}
+                  </span>
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {doc.document_type}
@@ -161,8 +172,28 @@ export function DocumentList({
                   {doc.file_size ? ` · ${fileSize(doc.file_size)}` : ""} ·{" "}
                   {formatDate(doc.uploaded_at)}
                 </p>
+                {doc.review_note ? (
+                  <p className="mt-1.5 rounded-xl bg-peach-tint px-3 py-2 text-xs font-medium text-navy">
+                    {doc.review_note}
+                  </p>
+                ) : null}
               </div>
               <div className="flex gap-2">
+                {replace && requestId ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="btn-gradient rounded-xl text-white"
+                    disabled={busy}
+                    onClick={() => {
+                      setReplaceFor(doc);
+                      requestAnimationFrame(() => inputRef.current?.click());
+                    }}
+                  >
+                    <UploadCloud className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                    Upload replacement
+                  </Button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => download.mutate(doc.id)}
@@ -181,7 +212,8 @@ export function DocumentList({
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
