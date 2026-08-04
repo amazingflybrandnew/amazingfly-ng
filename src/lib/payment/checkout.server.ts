@@ -76,7 +76,12 @@ function num(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Loads the review payload for a request the signed-in customer owns. */
+/** Loads the review payload for a request the signed-in customer owns.
+ *
+ * Flight and hotel requests always carry `user_id`. Universal service requests
+ * (visa, police character certificate, …) are submitted through the public
+ * wizard, which only records the customer's email — so ownership also matches
+ * on email and the row is claimed for the account when it does. */
 export async function loadBookingReview(
   user: SessionUser,
   requestId: string,
@@ -86,13 +91,28 @@ export async function loadBookingReview(
     .from("service_requests")
     .select("*")
     .eq("id", requestId)
-    .eq("user_id", user.id)
     .maybeSingle();
 
   if (error || !data) {
     if (error) console.error("[checkout] loadBookingReview", error.message);
     return null;
   }
+
+  const owner = (data as Record<string, unknown>)["user_id"];
+  const rowEmail = String((data as Record<string, unknown>)["email"] ?? "").toLowerCase();
+  const ownsById = owner ? String(owner) === user.id : false;
+  const ownsByEmail = !owner && rowEmail.length > 0 && rowEmail === user.email.toLowerCase();
+  if (!ownsById && !ownsByEmail) return null;
+
+  if (ownsByEmail) {
+    const { error: claimError } = await supabase
+      .from("service_requests")
+      .update({ user_id: user.id })
+      .eq("id", requestId)
+      .is("user_id", null);
+    if (claimError) console.error("[checkout] claim request", claimError.message);
+  }
+
 
   const row = data as Record<string, unknown>;
   const serviceType = String(row["service_type"] ?? "Travel service");
