@@ -515,6 +515,46 @@ export async function notifyDocumentRequested(input: {
   );
 }
 
+/** Customer notification when a specialist reviews an uploaded document. */
+export async function notifyDocumentReviewed(input: {
+  requestId: string;
+  documentName: string;
+  status: "verified" | "rejected" | "replacement_required";
+  reason?: string | null;
+}) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  const title =
+    input.status === "verified"
+      ? "Document verified"
+      : input.status === "rejected"
+        ? "Document rejected"
+        : "Replacement document required";
+  const message =
+    input.status === "verified"
+      ? `"${input.documentName}" has been verified for request ${who.reference}.`
+      : `"${input.documentName}" needs to be uploaded again for request ${who.reference}.${
+          input.reason ? ` ${input.reason}` : ""
+        }`;
+  await sendAutomated(
+    composeDocumentReview({
+      reference: who.reference,
+      fullName: who.fullName,
+      email: who.email,
+      documentName: input.documentName,
+      status: input.status,
+      reason: input.reason ?? null,
+    }),
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: { title, message },
+    },
+  );
+}
+
+
 export async function notifyPaymentReceived(input: {
   requestId: string;
   amountLabel: string;
