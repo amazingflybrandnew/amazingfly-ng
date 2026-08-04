@@ -219,6 +219,31 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
     }
 
 
+    // Universal (non-flight/non-hotel) priced services get their pending
+    // Paystack transaction as soon as the application exists, so the request
+    // detail page can show "Pay now" with a reference immediately. Requests
+    // needing a specialist quotation are skipped until an admin prices them.
+    const serviceAmount = data.amount ?? null;
+    if (
+      data.catalogue_id &&
+      serviceAmount &&
+      serviceAmount > 0 &&
+      !data.requires_quote &&
+      !/flight|hotel/i.test(`${data.service_category} ${data.service_type}`)
+    ) {
+      const { createPendingTransaction } = await import("./payment/transactions.server");
+      const { paymentTypeForService } = await import("./payment/types");
+      const created = await createPendingTransaction({
+        user_id: null,
+        request_id: request.id,
+        amount: serviceAmount,
+        currency: data.currency ?? "NGN",
+        provider: "paystack",
+        payment_type: paymentTypeForService(data.service_type),
+      });
+      if (!created.ok) console.error("[service-payment] pending transaction", created.message);
+    }
+
     if (data.documents.length) {
       const { error: docError } = await supabase.from("uploaded_documents").insert(
         data.documents.map((doc) => ({

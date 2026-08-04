@@ -6,7 +6,7 @@
  * provider is contacted here — Paystack/Flutterwave arrive in a later stage.
  */
 import type { SessionUser } from "../auth.server";
-import type { PaymentTransaction } from "./types";
+import type { PaymentProvider, PaymentTransaction } from "./types";
 
 export type BookingReviewKind = "flight" | "hotel" | "other";
 
@@ -23,6 +23,7 @@ export type BookingReview = {
   chargeAmount: number;
   chargeCurrency: string;
   chargeConverted: boolean;
+  requiresQuote: boolean;
   bookingStatus: string;
   offerId: string | null;
   pnr: string | null;
@@ -76,7 +77,12 @@ function num(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Loads the review payload for a request the signed-in customer owns. */
+/** Loads the review payload for a request the signed-in customer owns.
+ *
+ * Flight and hotel requests always carry `user_id`. Universal service requests
+ * (visa, police character certificate, …) are submitted through the public
+ * wizard, which only records the customer's email — so ownership also matches
+ * on email and the row is claimed for the account when it does. */
 export async function loadBookingReview(
   user: SessionUser,
   requestId: string,
@@ -86,13 +92,34 @@ export async function loadBookingReview(
     .from("service_requests")
     .select("*")
     .eq("id", requestId)
-    .eq("user_id", user.id)
     .maybeSingle();
 
   if (error || !data) {
     if (error) console.error("[checkout] loadBookingReview", error.message);
     return null;
   }
+
+  const owner = (data as Record<string, unknown>)["user_id"];
+  const rowEmail = String((data as Record<string, unknown>)["email"] ?? "").toLowerCase();
+  const ownsById = owner ? String(owner) === user.id : false;
+  const ownsByEmail = !owner && rowEmail.length > 0 && rowEmail === user.email.toLowerCase();
+  if (!ownsById && !ownsByEmail) return null;
+
+  if (ownsByEmail) {
+    const { error: claimError } = await supabase
+      .from("service_requests")
+      .update({ user_id: user.id })
+      .eq("id", requestId)
+      .is("user_id", null);
+    if (claimError) console.error("[checkout] claim request", claimError.message);
+    // Transactions created at submission time (public wizard) have no owner yet.
+    await supabase
+      .from("payment_transactions")
+      .update({ user_id: user.id })
+      .eq("request_id", requestId)
+      .is("user_id", null);
+  }
+
 
   const row = data as Record<string, unknown>;
   const serviceType = String(row["service_type"] ?? "Travel service");
@@ -128,6 +155,7 @@ export async function loadBookingReview(
 
   return {
     requestId,
+    requiresQuote: Boolean(row["requires_quote"]),
     bookingStatus: String(row["booking_status"] ?? "pending"),
     offerId: str(row["flight_offer_id"]),
     pnr: str(row["pnr"]) ?? str(row["booking_reference"]),
@@ -188,6 +216,7 @@ export async function loadBookingReview(
 export async function prepareCheckout(
   user: SessionUser,
   requestId: string,
+  options?: { provider?: PaymentProvider },
 ): Promise<
   { ok: true; review: BookingReview; transaction: PaymentTransaction } | { ok: false; message: string }
 > {
@@ -195,7 +224,7 @@ export async function prepareCheckout(
   if (!review) return { ok: false, message: "We could not find that booking on your account." };
 
   // Services priced by a specialist cannot be paid until a price is set.
-  if (!review.amount || review.amount <= 0) {
+  if (review.requiresQuote || !review.amount || review.amount <= 0) {
     return {
       ok: false,
       message:
@@ -216,7 +245,7 @@ export async function prepareCheckout(
     request_id: requestId,
     amount: review.amount,
     currency: review.currency,
-    provider: "manual",
+    provider: options?.provider ?? "manual",
     payment_type: paymentTypeForService(review.serviceType),
   });
 
