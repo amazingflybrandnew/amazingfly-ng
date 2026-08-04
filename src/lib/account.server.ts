@@ -295,9 +295,41 @@ export async function loadAccountData(user: SessionUser): Promise<DashboardData>
 
 
 async function ownedRequestRow(user: SessionUser, requestId: string): Promise<RawRequest | null> {
+  // Direct lookup first: a request submitted moments ago through the public
+  // wizard may not be owned yet (user_id null) — it is claimed here when the
+  // submission email matches the signed-in account.
+  const supabase = await admin();
+  const { data, error } = await supabase
+    .from("service_requests")
+    .select("*")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (!error && data) {
+    const row = data as RawRequest;
+    const owner = row["user_id"] ? String(row["user_id"]) : null;
+    const rowEmail = String(row["email"] ?? "").toLowerCase();
+    if (owner && owner === user.id) return row;
+    if (!owner && rowEmail && rowEmail === user.email.toLowerCase()) {
+      await supabase
+        .from("service_requests")
+        .update({ user_id: user.id })
+        .eq("id", requestId)
+        .is("user_id", null);
+      await supabase
+        .from("payment_transactions")
+        .update({ user_id: user.id })
+        .eq("request_id", requestId)
+        .is("user_id", null);
+      return { ...row, user_id: user.id } as RawRequest;
+    }
+    if (owner) return null;
+  }
+
   const rows = await fetchOwnedRequests(user);
-  return rows.find((row) => String(row["id"]) === requestId) ?? null;
+  return rows.find((r) => String(r["id"]) === requestId) ?? null;
 }
+
 
 export async function loadRequestDetail(
   user: SessionUser,
