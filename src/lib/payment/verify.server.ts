@@ -291,13 +291,17 @@ export async function finalizePaystackPayment(input: {
   if (requestId) {
     await confirmBooking(requestId);
     try {
-      const { notifyPaymentReceived } = await import("../notifications.server");
+      const { notifyPaymentReceived, notifyAdminPaidRequest } = await import(
+        "../notifications.server"
+      );
       const { formatMoney } = await import("../payment-status");
+      const amountLabel = formatMoney(amount, currency);
       await notifyPaymentReceived({
         requestId,
-        amountLabel: formatMoney(amount, currency),
+        amountLabel,
         transactionReference: reference,
       });
+      await notifyAdminPaidRequest({ requestId, amountLabel, transactionReference: reference });
     } catch (error) {
       console.error("[paystack] notify", error);
     }
