@@ -492,3 +492,69 @@ export async function notifyPaymentReceived(input: {
     },
   );
 }
+
+/** Tells the operations team a paid request is ready for processing. */
+export async function notifyAdminPaidRequest(input: {
+  requestId: string;
+  amountLabel: string;
+  transactionReference?: string;
+}) {
+  const who = await requestRecipient(input.requestId);
+  if (!who) return;
+  await sendAutomated(
+    {
+      to: ADMIN_RECIPIENT,
+      kind: "admin_payment_received",
+      subject: `Paid request ${who.reference} - ${who.serviceLabel}`,
+      body: lines(
+        "A paid travel request is ready for processing.",
+        "",
+        `Reference: ${who.reference}`,
+        `Customer: ${who.fullName} <${who.email}>`,
+        `Service: ${who.serviceLabel}`,
+        `Amount paid: ${input.amountLabel}`,
+        ...(input.transactionReference ? [`Transaction: ${input.transactionReference}`] : []),
+      ),
+    },
+    { requestId: input.requestId, reference: who.reference, inApp: false },
+  );
+}
+
+/** Sent when an admin prices a request that required a personalised quotation. */
+export async function notifyQuotationReady(input: {
+  requestId: string;
+  amountLabel: string;
+  note?: string | null;
+}) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  await sendAutomated(
+    {
+      to: who.email,
+      kind: "quotation_ready",
+      subject: `Your quotation for ${who.reference} is ready`,
+      body: lines(
+        `Dear ${who.fullName},`,
+        "",
+        `Our travel specialist has reviewed your request (${who.reference}) and prepared your quotation.`,
+        "",
+        `Service: ${who.serviceLabel}`,
+        `Amount payable: ${input.amountLabel}`,
+        ...(input.note ? ["", `Specialist note: ${input.note}`] : []),
+        "",
+        "Sign in to your Amazingfly.ng account to complete payment and begin processing.",
+        "",
+        "Amazingfly Travels",
+      ),
+    },
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: {
+        title: "Your quotation is ready",
+        message: `Your quotation for request ${who.reference} is ${input.amountLabel}. You can now complete payment.`,
+      },
+    },
+  );
+}
