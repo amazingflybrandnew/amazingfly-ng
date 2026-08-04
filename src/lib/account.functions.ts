@@ -19,6 +19,10 @@ export type AccountRequest = {
   request_details: string | null;
   payment_status: string;
   agreed_fee: number | null;
+  amount: number | null;
+  currency: string | null;
+  catalogue_id: string | null;
+  requires_quote: boolean;
   document_count: number;
   /** Flight booking details (present when the request came from flight search). */
   airline: string | null;

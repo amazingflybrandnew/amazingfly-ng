@@ -18,7 +18,8 @@ export type FieldType =
   | "date"
   | "select"
   | "radio"
-  | "country";
+  | "country"
+  | "catalogue";
 
 export type Question = {
   id: string;
@@ -100,7 +101,8 @@ const CONTACT_SECTION: Section = {
   ],
 };
 
-const VISA_TYPES = ["Tourist", "Business", "Student", "Work", "Family Visit", "Transit"];
+/** Amazingfly Travels only offers these visa categories. */
+const VISA_TYPES = ["Tourist", "Visit", "Business"];
 
 export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
@@ -111,17 +113,18 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
     sections: [
       {
         title: "Destination Information",
+        description:
+          "Choose the visa service you need. The price, processing time and required documents are shown as soon as you select it.",
         questions: [
           {
-            id: "destination_country",
-            label: "Destination country",
-            type: "country",
+            id: "catalogue_id",
+            label: "Visa service required",
+            type: "catalogue",
             required: true,
-            half: true,
           },
           {
             id: "visa_type",
-            label: "Visa type required",
+            label: "Visa category",
             type: "select",
             required: true,
             options: VISA_TYPES,
@@ -249,11 +252,20 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
         hint: "Recent, white background",
         required: true,
       },
-      { value: "bank_statement", label: "Bank statement", hint: "Last 3–6 months", required: true },
+      { value: "bank_statement", label: "Bank statement", hint: "Last 3–6 months" },
       { value: "employment_letter", label: "Employment letter" },
       { value: "invitation_letter", label: "Invitation letter", hint: "If applicable" },
       { value: "accommodation_details", label: "Accommodation details" },
-      { value: "flight_itinerary", label: "Flight itinerary" },
+      {
+        value: "flight_itinerary",
+        label: "Flight itinerary (optional)",
+        hint: "Optional — Amazingfly Travels can prepare this for you.",
+      },
+      {
+        value: "hotel_itinerary",
+        label: "Hotel itinerary (optional)",
+        hint: "Optional — Amazingfly Travels can prepare this for you.",
+      },
     ],
   },
   {
@@ -439,7 +451,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     id: "documents",
     name: "Travel Documents",
-    tagline: "Passport support, invitation letters, itineraries and more.",
+    tagline: "Police character certificate, proof of funds and other travel documents.",
     serviceSlug: "proof-of-funds",
     sections: [
       {
@@ -451,13 +463,9 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
             type: "select",
             required: true,
             options: [
-              "Passport assistance",
-              "Travel insurance",
-              "Invitation letter",
-              "Itinerary preparation",
-              "Proof of funds",
               "Police character certificate",
-              "Yellow fever card",
+              "Proof of funds",
+              "Travel insurance",
               "Other documents",
             ],
           },

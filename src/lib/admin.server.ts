@@ -201,7 +201,8 @@ export type AdminRequestRow = {
   payment_amount: number | null;
   payment_currency: string | null;
   payment_reference: string | null;
-
+  requires_quote: boolean;
+  document_count: number;
 };
 
 
@@ -276,10 +277,12 @@ function shapeRequestRow(
     payment_status: str(row, "payment_status", "pending_payment"),
     booking_status: str(row, "booking_status", "pending"),
 
-    payment_amount:
-      row["agreed_fee"] === null || row["agreed_fee"] === undefined
-        ? null
-        : Number(row["agreed_fee"]),
+    payment_amount: (() => {
+      const value = row["amount"] ?? row["quoted_amount"] ?? row["agreed_fee"];
+      return value === null || value === undefined ? null : Number(value);
+    })(),
+    requires_quote: row["requires_quote"] === true,
+    document_count: 0,
     payment_currency: row["currency"] ? String(row["currency"]) : "NGN",
     payment_reference: null,
   };
