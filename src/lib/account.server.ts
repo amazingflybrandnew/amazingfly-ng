@@ -37,7 +37,48 @@ function num(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value);
 }
 
-function shape(row: RawRequest, documentCount: number): AccountRequest {
+type TxSummary = {
+  amount: number | null;
+  currency: string | null;
+  reference: string | null;
+  status: string | null;
+};
+
+/** Latest payment transaction per request, for dashboard payment columns. */
+async function fetchTransactionSummaries(
+  requestIds: string[],
+): Promise<Map<string, TxSummary>> {
+  const map = new Map<string, TxSummary>();
+  if (!requestIds.length) return map;
+  const supabase = await admin();
+  const { data, error } = await supabase
+    .from("payment_transactions")
+    .select("request_id, amount, currency, transaction_reference, status, created_at")
+    .in("request_id", requestIds)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("[account] transactions", error.message);
+    return map;
+  }
+  for (const row of data ?? []) {
+    const id = String(row["request_id"] ?? "");
+    if (!id) continue;
+    const status = String(row["status"] ?? "pending");
+    const existing = map.get(id);
+    // Prefer a successful payment, otherwise keep the most recent attempt.
+    if (existing && existing.status === "successful") continue;
+    if (existing && status !== "successful") continue;
+    map.set(id, {
+      amount: row["amount"] === null || row["amount"] === undefined ? null : Number(row["amount"]),
+      currency: (row["currency"] as string | null) ?? null,
+      reference: (row["transaction_reference"] as string | null) ?? null,
+      status,
+    });
+  }
+  return map;
+}
+
+function shape(row: RawRequest, documentCount: number, tx?: TxSummary): AccountRequest {
   const get = (key: string) => (row[key] === undefined ? null : (row[key] as string | null));
   return {
     id: String(row["id"]),
@@ -65,6 +106,11 @@ function shape(row: RawRequest, documentCount: number): AccountRequest {
     catalogue_id: get("catalogue_id"),
     requires_quote: row["requires_quote"] === true,
     document_count: documentCount,
+    paid_amount: tx?.amount ?? null,
+    paid_currency: tx?.currency ?? null,
+    transaction_reference: tx?.reference ?? null,
+    transaction_status: tx?.status ?? null,
+    quote_notes: get("quote_notes"),
     airline: get("airline"),
     airline_logo_url: get("airline_logo_url"),
     flight_number: get("flight_number"),
@@ -217,7 +263,14 @@ export async function loadAccountData(user: SessionUser): Promise<DashboardData>
     countByRequest.set(doc.request_id, (countByRequest.get(doc.request_id) ?? 0) + 1);
   });
 
-  const requests = rows.map((row) => shape(row, countByRequest.get(String(row["id"])) ?? 0));
+  const transactions = await fetchTransactionSummaries(ids);
+  const requests = rows.map((row) =>
+    shape(
+      row,
+      countByRequest.get(String(row["id"])) ?? 0,
+      transactions.get(String(row["id"])),
+    ),
+  );
   const closed = ["completed", "cancelled"];
   const outstanding = documentRequests.filter(
     (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
@@ -280,7 +333,13 @@ export async function loadRequestDetail(
     created_at: String(u["created_at"] ?? ""),
   }));
 
-  return { request: shape(row, documents.length), documents, documentRequests, updates };
+  const transactions = await fetchTransactionSummaries([requestId]);
+  return {
+    request: shape(row, documents.length, transactions.get(requestId)),
+    documents,
+    documentRequests,
+    updates,
+  };
 }
 
 
