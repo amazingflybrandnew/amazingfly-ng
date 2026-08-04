@@ -48,6 +48,10 @@ const submissionSchema = z
     date_of_birth: dateish,
     passport_issue_date: dateish,
     passport_expiry_date: dateish,
+    catalogue_id: z.string().trim().max(80).nullable().optional(),
+    amount: z.number().nonnegative().max(1_000_000_000).nullable().optional(),
+    currency: z.string().trim().max(8).optional(),
+    requires_quote: z.boolean().optional(),
     documents: z.array(documentSchema).max(20),
     consent_to_contact: z.literal(true),
   })
@@ -184,6 +188,11 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       ...baseRow,
       service_category: data.service_category,
       answers: data.answers,
+      catalogue_id: data.catalogue_id ?? null,
+      amount: data.amount ?? null,
+      currency: data.currency ?? "NGN",
+      requires_quote: data.requires_quote ?? false,
+      payment_status: data.requires_quote ? "awaiting_quote" : "pending_payment",
     };
 
     let { data: request, error: requestError } = await supabase
