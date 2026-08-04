@@ -620,8 +620,9 @@ export async function loadAdminRequestDetail(
     return status !== "uploaded" && status !== "fulfilled";
   }).length;
 
-  const { latestTransactionForRequest } = await import("./payment/transactions.server");
-  const payment = await latestTransactionForRequest(requestId).catch(() => null);
+  const { listRequestTransactions } = await import("./payment/transactions.server");
+  const payment = (await listRequestTransactions(requestId).catch(() => []))[0] ?? null;
+
   if (payment) {
     shaped.payment_reference = payment.transaction_reference;
     shaped.payment_currency = payment.currency;
