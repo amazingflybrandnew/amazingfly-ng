@@ -60,7 +60,7 @@ const submissionSchema = z
 export type TravelRequestSubmission = z.infer<typeof submissionSchema>;
 
 export type SubmitResult =
-  | { ok: true; reference: string }
+  | { ok: true; reference: string; requestId: string; payable: boolean }
   | { ok: false; code?: string; message: string };
 
 const uploadInput = z.object({
@@ -224,6 +224,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
     // detail page can show "Pay now" with a reference immediately. Requests
     // needing a specialist quotation are skipped until an admin prices them.
     const serviceAmount = data.amount ?? null;
+    let payable = false;
     if (
       data.catalogue_id &&
       serviceAmount &&
@@ -242,6 +243,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
         payment_type: paymentTypeForService(data.service_type),
       });
       if (!created.ok) console.error("[service-payment] pending transaction", created.message);
+      payable = created.ok;
     }
 
     if (data.documents.length) {
@@ -269,7 +271,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       documentCount: data.documents.length,
     });
 
-    return { ok: true, reference: data.request_reference };
+    return { ok: true, reference: data.request_reference, requestId: request.id, payable };
   });
 
 const trackInput = z.object({
