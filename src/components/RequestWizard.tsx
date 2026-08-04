@@ -877,7 +877,7 @@ function SummaryBlock({
   );
 }
 
-function Confirmation({ reference }: { reference: string }) {
+function Confirmation({ reference, quoteOnly }: { reference: string; quoteOnly?: boolean }) {
   return (
     <div className="glass-card mx-auto max-w-2xl rounded-3xl p-8 md:p-12">
       <CheckCircle2 className="h-12 w-12 text-coral" aria-hidden="true" />
@@ -885,9 +885,11 @@ function Confirmation({ reference }: { reference: string }) {
         Your travel request has been received.
       </h2>
       <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-        Our travel specialists will review your request and contact you shortly through your
-        preferred contact method.
+        {quoteOnly
+          ? "Your application has been received. Our specialist will review and provide a quotation before payment."
+          : "Our travel specialists will review your request and contact you shortly through your preferred contact method."}
       </p>
+
       <div className="mt-8 rounded-2xl border border-border/70 bg-white/70 p-6">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
           Request reference number
