@@ -6,7 +6,7 @@
  * provider is contacted here — Paystack/Flutterwave arrive in a later stage.
  */
 import type { SessionUser } from "../auth.server";
-import type { PaymentTransaction } from "./types";
+import type { PaymentProvider, PaymentTransaction } from "./types";
 
 export type BookingReviewKind = "flight" | "hotel" | "other";
 
@@ -23,6 +23,7 @@ export type BookingReview = {
   chargeAmount: number;
   chargeCurrency: string;
   chargeConverted: boolean;
+  requiresQuote: boolean;
   bookingStatus: string;
   offerId: string | null;
   pnr: string | null;
@@ -148,6 +149,7 @@ export async function loadBookingReview(
 
   return {
     requestId,
+    requiresQuote: Boolean(row["requires_quote"]),
     bookingStatus: String(row["booking_status"] ?? "pending"),
     offerId: str(row["flight_offer_id"]),
     pnr: str(row["pnr"]) ?? str(row["booking_reference"]),
@@ -208,6 +210,7 @@ export async function loadBookingReview(
 export async function prepareCheckout(
   user: SessionUser,
   requestId: string,
+  options?: { provider?: PaymentProvider },
 ): Promise<
   { ok: true; review: BookingReview; transaction: PaymentTransaction } | { ok: false; message: string }
 > {
@@ -215,7 +218,7 @@ export async function prepareCheckout(
   if (!review) return { ok: false, message: "We could not find that booking on your account." };
 
   // Services priced by a specialist cannot be paid until a price is set.
-  if (!review.amount || review.amount <= 0) {
+  if (review.requiresQuote || !review.amount || review.amount <= 0) {
     return {
       ok: false,
       message:
@@ -236,7 +239,7 @@ export async function prepareCheckout(
     request_id: requestId,
     amount: review.amount,
     currency: review.currency,
-    provider: "manual",
+    provider: options?.provider ?? "manual",
     payment_type: paymentTypeForService(review.serviceType),
   });
 
