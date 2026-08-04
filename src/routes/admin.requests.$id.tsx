@@ -647,7 +647,113 @@ function AdminRequestDetailPage() {
             </Panel>
           ) : null}
 
+          {allow("update_status") ? (
+            <Panel
+              title="Processing actions"
+              description="Move this application through the workflow. Every action is logged and the customer is notified."
+            >
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${adminStageTone(stage)}`}
+              >
+                {ADMIN_STAGE_LABELS[stage]}
+              </span>
+
+              {!canProcess ? (
+                <p className="mt-4 rounded-2xl border border-orange/40 bg-peach-tint px-4 py-3 text-sm font-semibold text-navy">
+                  {PAYMENT_REQUIRED_MESSAGE}
+                </p>
+              ) : null}
+
+              <div className="mt-4 space-y-2.5">
+                <Button
+                  type="button"
+                  className="btn-gradient w-full text-white"
+                  disabled={quickStatus.isPending || !canProcess || stage === "processing"}
+                  onClick={() =>
+                    quickStatus.mutate({
+                      status: "processing",
+                      message: "Your application is now being processed by our team.",
+                    })
+                  }
+                >
+                  <PlayCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Start processing
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={quickStatus.isPending}
+                  onClick={() =>
+                    quickStatus.mutate({
+                      status: "additional_documents_required",
+                      message:
+                        "Additional documents are required before we can continue your application.",
+                    })
+                  }
+                >
+                  <FileWarning className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Mark additional documents required
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={quickStatus.isPending || !canProcess || stage === "completed"}
+                  onClick={() =>
+                    quickStatus.mutate({
+                      status: "completed",
+                      message: "Your request has been completed.",
+                    })
+                  }
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Mark completed
+                </Button>
+              </div>
+
+              <div className="mt-5 space-y-2.5 rounded-2xl border border-white/70 bg-white/60 p-4">
+                <label className="block text-[11px] font-bold uppercase tracking-[0.14em] text-navy-soft">
+                  Cancel request
+                </label>
+                <Textarea
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  placeholder="Reason shared with the customer"
+                  aria-label="Cancellation reason"
+                  rows={2}
+                  className="rounded-2xl border-white/60 bg-white/80"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-coral/50 text-navy"
+                  disabled={
+                    quickStatus.isPending ||
+                    stage === "cancelled" ||
+                    cancelReason.trim().length < 3
+                  }
+                  onClick={() => {
+                    quickStatus.mutate({ status: "cancelled", message: cancelReason.trim() });
+                    setCancelReason("");
+                  }}
+                >
+                  <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Cancel request
+                </Button>
+              </div>
+
+              <p className="mt-3 text-xs text-muted-foreground">
+                Requesting additional documents from the Documents panel also notifies the customer
+                by email.
+              </p>
+            </Panel>
+          ) : null}
+
           <Panel title="Status">
+
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`rounded-full border px-3 py-1 text-xs font-bold ${statusTone(request.request_status)}`}
