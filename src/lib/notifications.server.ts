@@ -201,6 +201,47 @@ export function composeDocumentRequest(ctx: {
   };
 }
 
+export function composeDocumentReview(ctx: {
+  reference: string;
+  fullName: string;
+  email: string;
+  documentName: string;
+  status: "verified" | "rejected" | "replacement_required";
+  reason?: string | null;
+}): ComposedEmail {
+  const headline =
+    ctx.status === "verified"
+      ? "One of your documents has been verified."
+      : ctx.status === "rejected"
+        ? "One of your documents could not be accepted."
+        : "We need a replacement for one of your documents.";
+  const subject =
+    ctx.status === "verified"
+      ? `Document verified (${ctx.reference})`
+      : ctx.status === "rejected"
+        ? `Document rejected (${ctx.reference})`
+        : `Replacement document required (${ctx.reference})`;
+  return {
+    to: ctx.email,
+    kind: "document_review",
+    subject,
+    body: lines(
+      greeting(ctx.fullName),
+      "",
+      headline,
+      "",
+      `Reference: ${ctx.reference}`,
+      `Document: ${ctx.documentName}`,
+      ctx.reason ? `Reason: ${ctx.reason}` : "",
+      "",
+      ctx.status === "verified"
+        ? "No action is needed for this document."
+        : "Please upload a new copy from Amazingfly.ng/dashboard under Documents.",
+      SIGN_OFF,
+    ),
+  };
+}
+
 export function composePaymentConfirmation(ctx: {
   reference: string;
   fullName: string;
