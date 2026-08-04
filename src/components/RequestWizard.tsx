@@ -127,13 +127,23 @@ export function RequestWizard({
     [category, answers],
   );
 
+  // Fixed-price catalogue services continue into a payment step after review.
+  const payableService = Boolean(
+    catalogueItem && !requiresQuote && (catalogueItem.price ?? 0) > 0,
+  );
+
   const stepLabels = useMemo(
     () => ["Service", ...sections.map((s) => s.title), "Documents", "Review"],
     [sections],
   );
+  const progressLabels = useMemo(
+    () => (payableService ? [...stepLabels, "Payment"] : stepLabels),
+    [stepLabels, payableService],
+  );
   const totalSteps = stepLabels.length;
   const documentsStep = sections.length + 1;
   const reviewStep = documentsStep + 1;
+
 
   const set = (id: string, value: string) => setAnswers((prev) => ({ ...prev, [id]: value }));
 
