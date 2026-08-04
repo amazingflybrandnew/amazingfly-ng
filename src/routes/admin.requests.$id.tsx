@@ -28,6 +28,15 @@ import {
   updateRequestStatus,
 } from "@/lib/admin.functions";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
+import {
+  ADMIN_STAGE_LABELS,
+  PAYMENT_REQUIRED_MESSAGE,
+  adminStageTone,
+  deriveAdminStage,
+  isPaid,
+} from "@/lib/admin-workflow";
+import { findCatalogueItem } from "@/lib/catalogue/visa-catalogue";
+
 import { getRequestMessages, sendAdminMessage } from "@/lib/admin-ops.functions";
 import { getRequestPaymentTransactions } from "@/lib/payment/transactions.functions";
 import {
@@ -260,6 +269,12 @@ function AdminRequestDetailPage() {
     (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
   );
   const currentStatus = statusValue || request.request_status;
+  const stage = deriveAdminStage(request);
+  const paid = isPaid(request.payment_status);
+  const amountDue = request.payment_amount ?? 0;
+  const canProcess = paid || amountDue <= 0;
+  const catalogueItem = findCatalogueItem(request.catalogue_id);
+
 
   return (
     <AdminShell
