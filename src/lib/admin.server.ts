@@ -445,6 +445,8 @@ export type AdminDocument = {
   uploaded_at: string;
   review_status: string;
   review_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   document_request_id: string | null;
 };
 
