@@ -283,18 +283,27 @@ function PaymentPanel({
     );
   }
 
-  const amount = request.amount ?? request.agreed_fee;
   const paid = status === "payment_successful" || status === "processing" || status === "completed";
 
-  // As soon as the application is complete the pending transaction is created,
-  // so the customer always sees a payment reference next to the Pay now button.
+  // A pending transaction already exists for priced services — use it as the
+  // source of truth for the amount, currency and reference we display.
+  const pendingTransaction = !paid && request.transaction_status === "pending";
+  const amount =
+    request.amount ?? request.agreed_fee ?? (pendingTransaction ? request.paid_amount : null);
+  const currency =
+    (pendingTransaction ? request.paid_currency : null) ?? request.currency ?? "NGN";
+
   const ensureFn = useServerFn(ensureServicePayment);
   const payment = useQuery({
     queryKey: ["service-payment", request.id],
     queryFn: () => ensureFn({ data: { request_id: request.id } }),
-    enabled: !paid && Boolean(amount && amount > 0),
+    enabled: !paid && !request.transaction_reference && Boolean(amount && amount > 0),
     staleTime: 60_000,
   });
+  const reference =
+    request.transaction_reference ??
+    (payment.data && payment.data.ok ? payment.data.reference : null);
+
 
   if (paid) {
     const paidLabel = request.paid_amount
