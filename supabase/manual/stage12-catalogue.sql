@@ -134,11 +134,16 @@ on conflict (id) do update set
 update public.service_catalogue set active = false
  where id in ('passport-assistance', 'invitation-letter', 'itinerary-preparation', 'yellow-fever-card');
 
-update public.services set is_active = false
- where slug in ('yellow-fever-card')
-   and exists (select 1 from information_schema.columns
-                where table_schema = 'public' and table_name = 'services' and column_name = 'is_active');
-
+update public.services 
+set active = false
+where slug in ('yellow-fever-card')
+and exists (
+ select 1 
+ from information_schema.columns
+ where table_schema = 'public' 
+ and table_name = 'services'
+ and column_name = 'active'
+);
 -- 4. Payable service requests -----------------------------------------------
 alter table public.service_requests
   add column if not exists catalogue_id text,
