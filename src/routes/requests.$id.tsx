@@ -19,7 +19,7 @@ import {
 import { STATUS_LABELS, formatDate } from "@/lib/request-status";
 import { formatMoney } from "@/lib/payment-status";
 import type { AccountRequest } from "@/lib/account.functions";
-import { LONG_STAY_QUOTE_MESSAGE, PROCESSING_FAQ } from "@/lib/catalogue/visa-catalogue";
+import { LONG_STAY_QUOTE_MESSAGE } from "@/lib/catalogue/visa-catalogue";
 import { ensureServicePayment } from "@/lib/payment/service-payment.functions";
 import { WORKFLOW_LABELS, deriveWorkflowStatus, workflowTone } from "@/lib/workflow-status";
 
