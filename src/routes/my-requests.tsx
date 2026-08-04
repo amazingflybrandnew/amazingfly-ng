@@ -168,7 +168,13 @@ function MyRequestsPage() {
                   </div>
                   <div>
                     <dt className="font-bold uppercase tracking-wide">Documents</dt>
-                    <dd className="mt-0.5 font-medium text-navy">{request.document_count}</dd>
+                    <dd
+                      className={`mt-0.5 font-medium ${
+                        documentsFor(request.id).attention > 0 ? "text-coral" : "text-navy"
+                      }`}
+                    >
+                      {documentsFor(request.id).label}
+                    </dd>
                   </div>
                   <div>
                     <dt className="font-bold uppercase tracking-wide">Amount paid</dt>
