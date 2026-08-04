@@ -233,12 +233,13 @@ function AdminRequestsPage() {
                         {STATUS_LABELS[row.request_status] ?? row.request_status}
                       </span>
                       <span
-                        className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-[11px] font-bold ${workflowTone(
-                          deriveWorkflowStatus(row),
+                        className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-[11px] font-bold ${adminStageTone(
+                          deriveAdminStage(row),
                         )}`}
                       >
-                        {WORKFLOW_LABELS[deriveWorkflowStatus(row)]}
+                        {ADMIN_STAGE_LABELS[deriveAdminStage(row)]}
                       </span>
+
                     </td>
                     <td className="px-5 py-4">
                       <span
