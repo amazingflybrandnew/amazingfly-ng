@@ -197,7 +197,7 @@ export const reviewUploadedDocument = createServerFn({ method: "POST" })
       data.document_id,
       data.review_status,
       data.review_note,
-      who.admin.full_name ?? who.user.email,
+      who.admin.full_name || who.user.email,
     );
     if (result.ok) {
       const label =
