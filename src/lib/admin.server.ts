@@ -519,7 +519,7 @@ export async function loadAdminRequestDetail(
   if (error || !row) return null;
   const record = row as Record<string, unknown>;
 
-  const [docsRes, docReqRes, notesRes, activityRes, staff] = await Promise.all([
+  const [docsRes, docReqRes, notesRes, activityRes, adminLogRes, staff] = await Promise.all([
     supabase
       .from("uploaded_documents")
       .select("*")
@@ -540,8 +540,14 @@ export async function loadAdminRequestDetail(
       .select("id, status, message, created_at")
       .eq("request_id", requestId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("admin_activity_log")
+      .select("id, action, detail, admin_name, created_at")
+      .eq("entity_id", requestId)
+      .order("created_at", { ascending: false }),
     listStaff(),
   ]);
+
 
   const documents: AdminDocument[] = (docsRes.data ?? []).map((d) => {
     const doc = d as Record<string, unknown>;
