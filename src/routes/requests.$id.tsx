@@ -20,6 +20,7 @@ import { STATUS_LABELS, formatDate } from "@/lib/request-status";
 import { formatMoney } from "@/lib/payment-status";
 import type { AccountRequest } from "@/lib/account.functions";
 import { LONG_STAY_QUOTE_MESSAGE } from "@/lib/catalogue/visa-catalogue";
+import { ensureServicePayment } from "@/lib/payment/service-payment.functions";
 import { WORKFLOW_LABELS, deriveWorkflowStatus, workflowTone } from "@/lib/workflow-status";
 
 export const Route = createFileRoute("/requests/$id")({
@@ -285,15 +286,36 @@ function PaymentPanel({
   const amount = request.amount ?? request.agreed_fee;
   const paid = status === "payment_successful" || status === "processing" || status === "completed";
 
+  // As soon as the application is complete the pending transaction is created,
+  // so the customer always sees a payment reference next to the Pay now button.
+  const ensureFn = useServerFn(ensureServicePayment);
+  const payment = useQuery({
+    queryKey: ["service-payment", request.id],
+    queryFn: () => ensureFn({ data: { request_id: request.id } }),
+    enabled: !paid && Boolean(amount && amount > 0),
+    staleTime: 60_000,
+  });
+
   if (paid) {
+    const paidLabel = request.paid_amount
+      ? formatMoney(request.paid_amount, request.paid_currency ?? "NGN")
+      : amount
+        ? formatMoney(amount, request.currency ?? "NGN")
+        : "";
     return (
       <div className="mt-6 rounded-2xl border border-mint/50 bg-mint-tint p-5">
         <p className="text-sm font-bold text-navy">
-          Payment received{amount ? ` — ${formatMoney(amount, request.currency ?? "NGN")}` : ""}
+          Payment received{paidLabel ? ` — ${paidLabel}` : ""}
         </p>
         <p className="mt-1 text-sm text-navy-soft">
-          Your request is with our specialists. We will update this page as processing progresses.
+          Amazingfly Travels has started processing your request. We will update this page as
+          processing progresses.
         </p>
+        {request.transaction_reference ? (
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Transaction reference: {request.transaction_reference}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -309,11 +331,17 @@ function PaymentPanel({
         <p className="mt-1 text-2xl font-extrabold text-navy">
           {formatMoney(amount, request.currency ?? "NGN")}
         </p>
-        {documentCount === 0 ? (
-          <p className="mt-1 text-sm text-navy-soft">
-            Upload your documents below — you can still pay now and add them afterwards.
-          </p>
-        ) : null}
+        <p className="mt-1 text-sm text-navy-soft">
+          {documentCount === 0
+            ? "Upload your documents below — you can still pay now and add them afterwards."
+            : "Documents received successfully. Your application fee is ready. Complete payment to begin processing."}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {request.service_type ?? "Travel service"}
+          {payment.data && payment.data.ok
+            ? ` · Payment reference ${payment.data.reference}`
+            : ""}
+        </p>
       </div>
       <Button asChild size="lg" className="btn-gradient rounded-2xl text-white">
         <Link to="/checkout/$requestId" params={{ requestId: request.id }}>

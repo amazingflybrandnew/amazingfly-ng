@@ -210,3 +210,35 @@ export const getAdminDocumentUrl = createServerFn({ method: "POST" })
     await requireAdmin("view");
     return signAdminDocumentDownload(data.document_id);
   });
+
+/** Admin: record a personalised quotation so the customer can pay. */
+export const setRequestQuotation = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        request_id: z.string().uuid(),
+        amount: z.number().positive().max(1_000_000_000),
+        currency: z.string().trim().min(3).max(3).default("NGN"),
+        note: z.string().trim().max(600).optional().default(""),
+      })
+      .strict()
+      .parse(data),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
+    const { requireAdmin, saveRequestQuote, logAdminAction } = await import("./admin.server");
+    const who = await requireAdmin("manage_payments");
+    const result = await saveRequestQuote(who, {
+      requestId: data.request_id,
+      amount: data.amount,
+      currency: data.currency,
+      note: data.note || null,
+    });
+    if (result.ok) {
+      await logAdminAction(who, `Quoted ${data.currency} ${data.amount}`, {
+        type: "request",
+        id: data.request_id,
+        detail: data.note,
+      });
+    }
+    return result;
+  });

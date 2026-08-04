@@ -3,6 +3,7 @@ import { CheckCircle2, ClipboardList, HelpCircle, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Disclaimer, PageHero } from "@/components/PageParts";
 import type { Service } from "@/data/services";
+import { ITINERARY_NOTE, PROCESSING_FAQ } from "@/lib/catalogue/visa-catalogue";
 
 function Bullets({ items }: { items: string[] }) {
   return (
@@ -110,7 +111,7 @@ export function ServicePage({ service }: { service: Service }) {
           <h2 className="text-2xl font-bold">Frequently asked questions</h2>
         </div>
         <div className="mt-8 grid gap-5 md:grid-cols-2">
-          {service.faqs.map((faq) => (
+          {[...service.faqs, ...PROCESSING_FAQ].map((faq) => (
             <div key={faq.question} className="rounded-2xl border border-border bg-card p-6 shadow-card">
               <h3 className="text-base font-bold">{faq.question}</h3>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{faq.answer}</p>
@@ -118,8 +119,14 @@ export function ServicePage({ service }: { service: Service }) {
           ))}
         </div>
 
-        <div className="mt-10 max-w-3xl">
+        <div className="mt-10 max-w-3xl space-y-4">
           <Disclaimer>{service.disclaimer}</Disclaimer>
+          <Disclaimer>
+            Visa processing times displayed are estimated timelines. Processing may take longer due
+            to embassy appointment availability, embassy delays, public holidays, additional
+            document requests, or circumstances outside Amazingfly Travels&apos; control.
+          </Disclaimer>
+          <Disclaimer>{ITINERARY_NOTE}</Disclaimer>
         </div>
 
         <div className="mt-10 flex flex-wrap gap-3">

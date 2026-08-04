@@ -148,6 +148,20 @@ function MyRequestsPage() {
                     <dt className="font-bold uppercase tracking-wide">Documents</dt>
                     <dd className="mt-0.5 font-medium text-navy">{request.document_count}</dd>
                   </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-wide">Amount paid</dt>
+                    <dd className="mt-0.5 font-medium text-navy">
+                      {request.transaction_status === "successful" && request.paid_amount
+                        ? formatMoney(request.paid_amount, request.paid_currency ?? "NGN")
+                        : "Not paid yet"}
+                    </dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="font-bold uppercase tracking-wide">Transaction reference</dt>
+                    <dd className="mt-0.5 font-medium text-navy">
+                      {request.transaction_reference ?? "—"}
+                    </dd>
+                  </div>
                 </dl>
                 <span className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-navy">
                   View details

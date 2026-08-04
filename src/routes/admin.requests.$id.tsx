@@ -24,6 +24,7 @@ import {
   requestDocumentFromCustomer,
   reviewUploadedDocument,
   setRequestPriority,
+  setRequestQuotation,
   updateRequestStatus,
 } from "@/lib/admin.functions";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
@@ -156,6 +157,8 @@ function AdminRequestDetailPage() {
   const [docName, setDocName] = useState("");
   const [docDescription, setDocDescription] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [quoteAmount, setQuoteAmount] = useState("");
+  const [quoteNote, setQuoteNote] = useState("");
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>) =>
     fn().then(async (result) => {
@@ -163,6 +166,25 @@ function AdminRequestDetailPage() {
       if (result.ok) await refresh();
       return result;
     });
+
+  const quoteFn = useServerFn(setRequestQuotation);
+  const quoteMutation = useMutation({
+    mutationFn: () =>
+      run(() =>
+        quoteFn({
+          data: {
+            request_id: id,
+            amount: Number(quoteAmount),
+            currency: "NGN",
+            note: quoteNote,
+          },
+        }),
+      ),
+    onSuccess: () => {
+      setQuoteAmount("");
+      setQuoteNote("");
+    },
+  });
 
   const statusMutation = useMutation({
     mutationFn: () =>
@@ -525,6 +547,50 @@ function AdminRequestDetailPage() {
         </div>
 
         <div className="space-y-6">
+          {allow("manage_payments") && request.requires_quote ? (
+            <Panel title="Personalised quotation">
+              <p className="text-sm text-navy-soft">
+                This service needs specialist pricing. Saving a quotation makes the payment button
+                available to the customer and notifies them by email.
+              </p>
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  quoteMutation.mutate();
+                }}
+              >
+                <label className="block text-[11px] font-bold uppercase tracking-[0.14em] text-navy-soft">
+                  Quoted amount (NGN)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quoteAmount}
+                  onChange={(event) => setQuoteAmount(event.target.value)}
+                  placeholder="e.g. 3300000"
+                  className="w-full rounded-2xl border border-white/60 bg-white/80 px-3.5 py-2.5 text-sm font-semibold text-navy"
+                />
+                <Textarea
+                  value={quoteNote}
+                  onChange={(event) => setQuoteNote(event.target.value)}
+                  placeholder="Quote notes shared with the customer (optional)"
+                  aria-label="Quote notes"
+                  rows={3}
+                  className="rounded-2xl border-white/60 bg-white/80"
+                />
+                <Button
+                  type="submit"
+                  className="btn-gradient w-full text-white"
+                  disabled={quoteMutation.isPending || !(Number(quoteAmount) > 0)}
+                >
+                  {quoteMutation.isPending ? "Saving…" : "Save quotation"}
+                </Button>
+              </form>
+            </Panel>
+          ) : null}
+
           <Panel title="Status">
             <div className="flex flex-wrap items-center gap-2">
               <span

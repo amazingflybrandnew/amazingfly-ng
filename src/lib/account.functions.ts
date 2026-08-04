@@ -24,6 +24,12 @@ export type AccountRequest = {
   catalogue_id: string | null;
   requires_quote: boolean;
   document_count: number;
+  /** Latest payment attempt on this request (Paystack or manual). */
+  paid_amount: number | null;
+  paid_currency: string | null;
+  transaction_reference: string | null;
+  transaction_status: string | null;
+  quote_notes: string | null;
   /** Flight booking details (present when the request came from flight search). */
   airline: string | null;
   airline_logo_url: string | null;
