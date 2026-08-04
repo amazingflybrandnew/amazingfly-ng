@@ -259,8 +259,10 @@ function shapeRequestRow(
     full_name: str(row, "full_name", "—"),
     email: str(row, "email"),
     phone: str(row, "phone"),
+    whatsapp: str(row, "whatsapp"),
     service_type: str(row, "service_type"),
     service_category: str(row, "service_category"),
+    catalogue_id: row["catalogue_id"] ? String(row["catalogue_id"]) : null,
     origin_country: str(row, "origin_country"),
     destination_country: str(row, "destination_country"),
     created_at: str(row, "created_at"),
@@ -293,10 +295,53 @@ function shapeRequestRow(
     })(),
     requires_quote: row["requires_quote"] === true,
     document_count: 0,
+    outstanding_documents: 0,
     payment_currency: row["currency"] ? String(row["currency"]) : "NGN",
     payment_reference: null,
+    payment_date: null,
   };
 
+}
+
+const EMPTY_STATS: AdminStats = {
+  total: 0,
+  newRequests: 0,
+  documentsRequired: 0,
+  processing: 0,
+  completed: 0,
+  underReview: 0,
+  cancelled: 0,
+  awaitingDocuments: 0,
+  awaitingPayment: 0,
+  readyForProcessing: 0,
+  additionalDocuments: 0,
+};
+
+/** Uploaded document count and still-outstanding document requests per request. */
+async function documentCounts(): Promise<Map<string, { uploaded: number; outstanding: number }>> {
+  const supabase = await admin();
+  const map = new Map<string, { uploaded: number; outstanding: number }>();
+  const bump = (id: string, key: "uploaded" | "outstanding") => {
+    const current = map.get(id) ?? { uploaded: 0, outstanding: 0 };
+    current[key] += 1;
+    map.set(id, current);
+  };
+
+  const [uploads, requested] = await Promise.all([
+    supabase.from("uploaded_documents").select("request_id").limit(5000),
+    supabase.from("document_requests").select("request_id, uploaded_status").limit(5000),
+  ]);
+
+  (uploads.data ?? []).forEach((row) => {
+    if (row["request_id"]) bump(String(row["request_id"]), "uploaded");
+  });
+  (requested.data ?? []).forEach((row) => {
+    const status = String(row["uploaded_status"] ?? "pending").toLowerCase();
+    if (row["request_id"] && status !== "uploaded" && status !== "fulfilled") {
+      bump(String(row["request_id"]), "outstanding");
+    }
+  });
+  return map;
 }
 
 export async function loadAdminRequests(filters: {
@@ -314,22 +359,11 @@ export async function loadAdminRequests(filters: {
 
   if (error) {
     console.error("[admin] requests", error.message);
-    return {
-      rows: [],
-      stats: {
-        total: 0,
-        newRequests: 0,
-        documentsRequired: 0,
-        processing: 0,
-        completed: 0,
-        underReview: 0,
-        cancelled: 0,
-      },
-    };
+    return { rows: [], stats: { ...EMPTY_STATS } };
   }
 
   const { latestTransactionByRequest } = await import("./payment/transactions.server");
-  const payments = await latestTransactionByRequest();
+  const [payments, docs] = await Promise.all([latestTransactionByRequest(), documentCounts()]);
 
   const all = (data ?? []).map((row) => {
     const shaped = shapeRequestRow(row as Record<string, unknown>, staff);
@@ -337,25 +371,41 @@ export async function loadAdminRequests(filters: {
     if (payment) {
       shaped.payment_reference = payment.transaction_reference;
       shaped.payment_currency = payment.currency;
+      shaped.payment_date = payment.paid_at ?? null;
       if (payment.amount) shaped.payment_amount = payment.amount;
+    }
+    const counts = docs.get(shaped.id);
+    if (counts) {
+      shaped.document_count = counts.uploaded;
+      shaped.outstanding_documents = counts.outstanding;
     }
     return shaped;
   });
+
   const count = (status: string) => all.filter((row) => row.request_status === status).length;
+  const stage = (value: AdminStage) =>
+    all.filter((row) => deriveAdminStage(row) === value).length;
 
   const stats: AdminStats = {
     total: all.length,
     newRequests: count("new_request") + count("received"),
     documentsRequired: count("documents_required"),
-    processing: count("processing") + count("approved"),
-    completed: count("completed"),
+    processing: stage("processing"),
+    completed: stage("completed"),
     underReview: count("under_review"),
-    cancelled: count("cancelled"),
+    cancelled: stage("cancelled"),
+    awaitingDocuments: stage("awaiting_documents"),
+    awaitingPayment: stage("awaiting_payment"),
+    readyForProcessing: stage("payment_received"),
+    additionalDocuments: stage("additional_documents_required"),
   };
 
   let rows = all;
-  if (filters.status && filters.status !== "all") {
-    rows = rows.filter((row) => row.request_status === filters.status);
+  const filter = filters.status;
+  if (filter && filter !== "all") {
+    rows = (ADMIN_STAGES as readonly string[]).includes(filter)
+      ? rows.filter((row) => deriveAdminStage(row) === filter)
+      : rows.filter((row) => row.request_status === filter);
   }
   const term = filters.search?.trim().toLowerCase();
   if (term) {
@@ -364,11 +414,14 @@ export async function loadAdminRequests(filters: {
         row.request_reference,
         row.full_name,
         row.email,
+        row.phone,
         row.service_type,
+        row.service_category,
         row.destination_country,
+        row.origin_country,
         row.airline ?? "",
         row.hotel_name ?? "",
-
+        row.payment_reference ?? "",
       ]
         .join(" ")
         .toLowerCase()
@@ -378,6 +431,7 @@ export async function loadAdminRequests(filters: {
 
   return { rows, stats };
 }
+
 
 // ---------------------------------------------------------------- detail
 
