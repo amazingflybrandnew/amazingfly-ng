@@ -205,7 +205,22 @@ function RequestDetailPage() {
           </section>
 
           <section className="glass-card rounded-3xl p-6 md:p-8">
-            <h2 className="mb-5 text-xl font-extrabold text-navy">Documents</h2>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-extrabold text-navy">Documents</h2>
+              {data.documents.length ? (
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                    summariseDocuments(data.documents).attention > 0
+                      ? "border-coral/50 bg-peach-tint text-navy"
+                      : summariseDocuments(data.documents).ready
+                        ? "border-mint/50 bg-mint-tint text-navy"
+                        : "border-sky/50 bg-sky-tint text-navy"
+                  }`}
+                >
+                  {summariseDocuments(data.documents).label}
+                </span>
+              ) : null}
+            </div>
             <DocumentList documents={data.documents} requestId={data.request.id} />
           </section>
 
