@@ -16,7 +16,11 @@ import {
   getRequestDetail,
   replyToAmazingfly,
 } from "@/lib/account.functions";
-import { STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
+import { formatDate } from "@/lib/request-status";
+import { formatMoney } from "@/lib/payment-status";
+import type { AccountRequest } from "@/lib/account.functions";
+import { LONG_STAY_QUOTE_MESSAGE } from "@/lib/catalogue/visa-catalogue";
+import { WORKFLOW_LABELS, deriveWorkflowStatus, workflowTone } from "@/lib/workflow-status";
 
 export const Route = createFileRoute("/requests/$id")({
   head: () => ({
@@ -254,5 +258,68 @@ function RequestConversation({ requestId }: { requestId: string }) {
         </Button>
       </form>
     </section>
+  );
+}
+
+/** Universal payment call-to-action: available as soon as the application is
+ * complete and documents are uploaded, unless the service needs a quotation. */
+function PaymentPanel({
+  request,
+  documentCount,
+}: {
+  request: AccountRequest;
+  documentCount: number;
+}) {
+  const status = deriveWorkflowStatus({ ...request, document_count: documentCount });
+  if (status === "cancelled") return null;
+
+  if (status === "quotation_pending") {
+    return (
+      <div className="mt-6 rounded-2xl border border-coral/30 bg-peach-tint p-5">
+        <p className="text-sm font-bold text-navy">Personalised quotation</p>
+        <p className="mt-1 text-sm leading-relaxed text-navy-soft">{LONG_STAY_QUOTE_MESSAGE}</p>
+      </div>
+    );
+  }
+
+  const amount = request.amount ?? request.agreed_fee;
+  const paid = status === "payment_successful" || status === "processing" || status === "completed";
+
+  if (paid) {
+    return (
+      <div className="mt-6 rounded-2xl border border-mint/50 bg-mint-tint p-5">
+        <p className="text-sm font-bold text-navy">
+          Payment received{amount ? ` — ${formatMoney(amount, request.currency ?? "NGN")}` : ""}
+        </p>
+        <p className="mt-1 text-sm text-navy-soft">
+          Your request is with our specialists. We will update this page as processing progresses.
+        </p>
+      </div>
+    );
+  }
+
+  if (!amount) return null;
+
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-orange/40 bg-peach-tint p-5">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Amount payable
+        </p>
+        <p className="mt-1 text-2xl font-extrabold text-navy">
+          {formatMoney(amount, request.currency ?? "NGN")}
+        </p>
+        {documentCount === 0 ? (
+          <p className="mt-1 text-sm text-navy-soft">
+            Upload your documents below — you can still pay now and add them afterwards.
+          </p>
+        ) : null}
+      </div>
+      <Button asChild size="lg" className="btn-gradient rounded-2xl text-white">
+        <Link to="/checkout/$requestId" params={{ requestId: request.id }}>
+          Pay now
+        </Link>
+      </Button>
+    </div>
   );
 }
