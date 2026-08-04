@@ -92,6 +92,7 @@ export function RequestWizard({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { data: session } = useSessionQuery();
   const topRef = useRef<HTMLDivElement>(null);
 
   // Carry the homepage hero selections in.
