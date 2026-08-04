@@ -28,7 +28,9 @@ export const ensureServicePayment = createServerFn({ method: "POST" })
     const { prepareCheckout } = await import("./checkout.server");
     const { user } = await requireUser();
 
-    const prepared = await prepareCheckout(user, data.request_id);
+    // Universal services are always charged through Paystack, so the pending
+    // row is tagged with that provider up front (flight/hotel keep "manual").
+    const prepared = await prepareCheckout(user, data.request_id, { provider: "paystack" });
     if (!prepared.ok) {
       return {
         ok: false,
