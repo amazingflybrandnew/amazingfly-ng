@@ -768,25 +768,75 @@ export async function createDocumentRequest(
 
 export async function reviewDocument(
   documentId: string,
-  reviewStatus: "approved" | "rejected",
+  reviewStatus: "verified" | "rejected" | "replacement_required",
   reviewNote: string,
+  reviewerName?: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const supabase = await admin();
-  const { data, error } = await supabase
+  const patch: Record<string, unknown> = {
+    review_status: reviewStatus,
+    review_note: reviewNote || null,
+    reviewed_at: new Date().toISOString(),
+    reviewed_by: reviewerName ?? null,
+  };
+
+  let { data, error } = await supabase
     .from("uploaded_documents")
-    .update({ review_status: reviewStatus, review_note: reviewNote || null })
+    .update(patch)
     .eq("id", documentId)
-    .select("id, document_request_id")
+    .select("id, request_id, document_type, file_name, document_request_id")
     .maybeSingle();
+
+  if (error) {
+    // Fallback while the Task 3 migration has not been applied yet.
+    const legacy = await supabase
+      .from("uploaded_documents")
+      .update({ review_status: reviewStatus, review_note: reviewNote || null })
+      .eq("id", documentId)
+      .select("id, request_id, document_type, file_name, document_request_id")
+      .maybeSingle();
+    data = legacy.data;
+    error = legacy.error;
+  }
   if (error) return { ok: false, message: error.message };
 
-  const linked = (data as Record<string, unknown> | null)?.["document_request_id"];
+  const row = (data as Record<string, unknown> | null) ?? null;
+  const linked = row?.["document_request_id"];
   if (linked) {
     await supabase
       .from("document_requests")
-      .update({ uploaded_status: reviewStatus })
+      .update({
+        uploaded_status: reviewStatus === "verified" ? "approved" : "pending",
+      })
       .eq("id", String(linked));
   }
+
+  const requestId = row?.["request_id"] ? String(row["request_id"]) : null;
+  if (requestId) {
+    const documentName =
+      (row?.["document_type"] as string | null) ||
+      (row?.["file_name"] as string | null) ||
+      "Document";
+    const { notifyDocumentReviewed } = await import("./notifications.server");
+    await notifyDocumentReviewed({
+      requestId,
+      documentName,
+      status: reviewStatus,
+      reason: reviewNote || null,
+    });
+
+    await supabase.from("request_updates").insert({
+      request_id: requestId,
+      status: null,
+      message:
+        reviewStatus === "verified"
+          ? `Document verified: ${documentName}`
+          : reviewStatus === "rejected"
+            ? `Document rejected: ${documentName}${reviewNote ? ` — ${reviewNote}` : ""}`
+            : `Replacement requested: ${documentName}${reviewNote ? ` — ${reviewNote}` : ""}`,
+    });
+  }
+
   return { ok: true };
 }
 
