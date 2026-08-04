@@ -243,8 +243,15 @@ function AdminRequestDetailPage() {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: (input: { document_id: string; review_status: "approved" | "rejected" }) =>
-      run(() => reviewFn({ data: { ...input, review_note: "" } })),
+    mutationFn: (input: {
+      document_id: string;
+      review_status: DocumentReviewStatus;
+      review_note: string;
+    }) => run(() => reviewFn({ data: input })),
+    onSuccess: () => {
+      setReviewTarget(null);
+      setReviewNote("");
+    },
   });
 
   const openDocument = async (documentId: string) => {
