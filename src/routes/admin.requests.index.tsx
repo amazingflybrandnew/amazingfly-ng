@@ -100,7 +100,7 @@ function AdminRequestsPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2 border-t border-white/60 pt-4">
-          {(["all", ...WORKFLOW_STATUSES] as const).map((value) => (
+          {(["all", ...ADMIN_STAGES] as const).map((value) => (
             <button
               key={value}
               type="button"
@@ -112,10 +112,13 @@ function AdminRequestsPage() {
                   : "border-white/70 bg-white/70 text-navy-soft hover:bg-white"
               }`}
             >
-              {value === "all" ? "All stages" : WORKFLOW_LABELS[value]}
+              {value === "all"
+                ? "All stages"
+                : `${ADMIN_STAGE_LABELS[value]} (${stageCount(value)})`}
             </button>
           ))}
         </div>
+
       </div>
 
       {isPending ? (
