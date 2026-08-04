@@ -691,3 +691,74 @@ export async function signAdminDocumentDownload(
   }
   return { ok: true, url: signed.data.signedUrl };
 }
+
+/**
+ * Saves a specialist quotation for a request that requires custom pricing.
+ * Once saved the customer's payment button becomes available.
+ */
+export async function saveRequestQuote(
+  who: { user: SessionUser; admin: AdminProfile },
+  input: { requestId: string; amount: number; currency: string; note?: string | null },
+): Promise<{ ok: boolean; message?: string }> {
+  const supabase = await admin();
+  const currency = (input.currency || "NGN").toUpperCase();
+
+  const patch: Record<string, unknown> = {
+    amount: input.amount,
+    quoted_amount: input.amount,
+    currency,
+    requires_quote: false,
+    quote_notes: input.note ?? null,
+    quoted_at: new Date().toISOString(),
+    quoted_by: who.user.id,
+    payment_status: "pending_payment",
+  };
+
+  let { error } = await supabase.from("service_requests").update(patch).eq("id", input.requestId);
+  if (error?.code === "42703" || error?.code === "PGRST204") {
+    // Lean schema fallback — keep the essential pricing columns only.
+    ({ error } = await supabase
+      .from("service_requests")
+      .update({ amount: input.amount, currency, requires_quote: false })
+      .eq("id", input.requestId));
+  }
+  if (error) return { ok: false, message: error.message };
+
+  await supabase.from("request_updates").insert({
+    request_id: input.requestId,
+    status: "quotation_ready",
+    message: input.note?.trim()
+      ? `Quotation prepared: ${input.note.trim()}`
+      : "Your personalised quotation is ready. You can now complete payment.",
+  });
+
+  try {
+    const { notifyQuotationReady } = await import("./notifications.server");
+    const { formatMoney } = await import("./payment-status");
+    await notifyQuotationReady({
+      requestId: input.requestId,
+      amountLabel: formatMoney(input.amount, currency),
+      note: input.note ?? null,
+    });
+  } catch (error) {
+    console.error("[admin] quote notification", error);
+  }
+
+  return { ok: true };
+}
+
+/** True when a request has money outstanding, so admins cannot start work. */
+export async function isRequestPaid(requestId: string): Promise<boolean> {
+  const supabase = await admin();
+  const { data } = await supabase
+    .from("service_requests")
+    .select("payment_status, amount, quoted_amount, agreed_fee, requires_quote")
+    .eq("id", requestId)
+    .maybeSingle();
+  const row = (data as Record<string, unknown> | null) ?? {};
+  const status = String(row["payment_status"] ?? "");
+  if (status === "payment_received" || status === "paid" || status === "refunded") return true;
+  const amount = Number(row["amount"] ?? row["quoted_amount"] ?? row["agreed_fee"] ?? 0);
+  // Nothing to pay yet (unpriced or quotation pending) — do not block admins.
+  return !(amount > 0);
+}
