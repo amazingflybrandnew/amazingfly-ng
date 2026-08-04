@@ -337,21 +337,18 @@ function PaymentPanel({
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
           Amount payable
         </p>
-        <p className="mt-1 text-2xl font-extrabold text-navy">
-          {formatMoney(amount, request.currency ?? "NGN")}
-        </p>
+        <p className="mt-1 text-2xl font-extrabold text-navy">{formatMoney(amount, currency)}</p>
         <p className="mt-1 text-sm text-navy-soft">
-          {documentCount === 0
+          {documentCount === 0 && !pendingTransaction
             ? "Upload your documents below — you can still pay now and add them afterwards."
             : "Documents received successfully. Your application fee is ready. Complete payment to begin processing."}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {request.service_type ?? "Travel service"}
-          {payment.data && payment.data.ok
-            ? ` · Payment reference ${payment.data.reference}`
-            : ""}
+          {reference ? ` · Payment reference ${reference}` : ""}
         </p>
       </div>
+
       <Button asChild size="lg" className="btn-gradient rounded-2xl text-white">
         <Link to="/checkout/$requestId" params={{ requestId: request.id }}>
           Pay now
