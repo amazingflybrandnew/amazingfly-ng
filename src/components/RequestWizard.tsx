@@ -340,9 +340,17 @@ export function RequestWizard({
       // Priced services already have a pending payment transaction, so send the
       // customer straight to the payment panel instead of a dead-end screen.
       if (result.payable || payableService) {
-        void navigate({ to: "/requests/$id", params: { id: result.requestId } });
+        const target = `/requests/${result.requestId}`;
+        if (session?.user) {
+          void navigate({ to: "/requests/$id", params: { id: result.requestId } });
+        } else {
+          // The wizard is public: sign in (or create an account with the same
+          // email) first, then land straight on the payment panel.
+          void navigate({ to: "/auth", search: { redirect: target } });
+        }
         return;
       }
+
       setSubmittedRef(result.reference);
     } catch {
       setSubmitError(
