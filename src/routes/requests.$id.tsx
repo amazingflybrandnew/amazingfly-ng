@@ -118,6 +118,7 @@ function RequestDetailPage() {
               <Detail label="Preferred contact" value={data.request.preferred_contact ?? ""} />
             </dl>
 
+            <pre data-dbg>{JSON.stringify(data.request)}</pre>
             <PaymentPanel request={data.request} documentCount={data.documents.length} />
 
             {data.request.request_details ? (
