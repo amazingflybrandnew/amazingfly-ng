@@ -375,6 +375,27 @@ function AdminRequestDetailPage() {
               </span>
             </div>
 
+            <div className="mb-5 grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Amount"
+                value={
+                  amountDue > 0
+                    ? formatMoney(amountDue, request.payment_currency ?? "NGN")
+                    : request.requires_quote
+                      ? "Awaiting quotation"
+                      : "—"
+                }
+              />
+              <Field label="Transaction reference" value={request.payment_reference ?? "—"} />
+              <Field
+                label="Payment date"
+                value={request.payment_date ? formatDate(request.payment_date) : "—"}
+              />
+              <Field label="Documents uploaded" value={String(request.document_count)} />
+            </div>
+
+
+
             {paymentRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No payment transaction has been prepared for this request yet.
