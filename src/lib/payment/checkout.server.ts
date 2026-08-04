@@ -112,6 +112,12 @@ export async function loadBookingReview(
       .eq("id", requestId)
       .is("user_id", null);
     if (claimError) console.error("[checkout] claim request", claimError.message);
+    // Transactions created at submission time (public wizard) have no owner yet.
+    await supabase
+      .from("payment_transactions")
+      .update({ user_id: user.id })
+      .eq("request_id", requestId)
+      .is("user_id", null);
   }
 
 
