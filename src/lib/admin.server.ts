@@ -6,8 +6,10 @@
  * has an active row in `admin_profiles`. Customers can never reach this data:
  * the role is read from the database, never from the browser.
  */
+import { ADMIN_STAGES, deriveAdminStage, type AdminStage } from "./admin-workflow";
 import { requireUser, type SessionUser } from "./auth.server";
 import { REQUEST_STATUSES, type RequestStatus } from "./request-status";
+
 
 const BUCKET = "request-documents";
 
@@ -169,7 +171,12 @@ export type AdminStats = {
   completed: number;
   underReview: number;
   cancelled: number;
+  awaitingDocuments: number;
+  awaitingPayment: number;
+  readyForProcessing: number;
+  additionalDocuments: number;
 };
+
 
 export type AdminRequestRow = {
   id: string;
@@ -177,8 +184,10 @@ export type AdminRequestRow = {
   full_name: string;
   email: string;
   phone: string;
+  whatsapp: string;
   service_type: string;
   service_category: string;
+  catalogue_id: string | null;
   origin_country: string;
   destination_country: string;
   created_at: string;
@@ -201,9 +210,12 @@ export type AdminRequestRow = {
   payment_amount: number | null;
   payment_currency: string | null;
   payment_reference: string | null;
+  payment_date: string | null;
   requires_quote: boolean;
   document_count: number;
+  outstanding_documents: number;
 };
+
 
 
 function str(row: Record<string, unknown>, key: string, fallback = ""): string {
@@ -249,8 +261,10 @@ function shapeRequestRow(
     full_name: str(row, "full_name", "—"),
     email: str(row, "email"),
     phone: str(row, "phone"),
+    whatsapp: str(row, "whatsapp"),
     service_type: str(row, "service_type"),
     service_category: str(row, "service_category"),
+    catalogue_id: row["catalogue_id"] ? String(row["catalogue_id"]) : null,
     origin_country: str(row, "origin_country"),
     destination_country: str(row, "destination_country"),
     created_at: str(row, "created_at"),
@@ -283,10 +297,53 @@ function shapeRequestRow(
     })(),
     requires_quote: row["requires_quote"] === true,
     document_count: 0,
+    outstanding_documents: 0,
     payment_currency: row["currency"] ? String(row["currency"]) : "NGN",
     payment_reference: null,
+    payment_date: null,
   };
 
+}
+
+const EMPTY_STATS: AdminStats = {
+  total: 0,
+  newRequests: 0,
+  documentsRequired: 0,
+  processing: 0,
+  completed: 0,
+  underReview: 0,
+  cancelled: 0,
+  awaitingDocuments: 0,
+  awaitingPayment: 0,
+  readyForProcessing: 0,
+  additionalDocuments: 0,
+};
+
+/** Uploaded document count and still-outstanding document requests per request. */
+async function documentCounts(): Promise<Map<string, { uploaded: number; outstanding: number }>> {
+  const supabase = await admin();
+  const map = new Map<string, { uploaded: number; outstanding: number }>();
+  const bump = (id: string, key: "uploaded" | "outstanding") => {
+    const current = map.get(id) ?? { uploaded: 0, outstanding: 0 };
+    current[key] += 1;
+    map.set(id, current);
+  };
+
+  const [uploads, requested] = await Promise.all([
+    supabase.from("uploaded_documents").select("request_id").limit(5000),
+    supabase.from("document_requests").select("request_id, uploaded_status").limit(5000),
+  ]);
+
+  (uploads.data ?? []).forEach((row) => {
+    if (row["request_id"]) bump(String(row["request_id"]), "uploaded");
+  });
+  (requested.data ?? []).forEach((row) => {
+    const status = String(row["uploaded_status"] ?? "pending").toLowerCase();
+    if (row["request_id"] && status !== "uploaded" && status !== "fulfilled") {
+      bump(String(row["request_id"]), "outstanding");
+    }
+  });
+  return map;
 }
 
 export async function loadAdminRequests(filters: {
@@ -304,22 +361,11 @@ export async function loadAdminRequests(filters: {
 
   if (error) {
     console.error("[admin] requests", error.message);
-    return {
-      rows: [],
-      stats: {
-        total: 0,
-        newRequests: 0,
-        documentsRequired: 0,
-        processing: 0,
-        completed: 0,
-        underReview: 0,
-        cancelled: 0,
-      },
-    };
+    return { rows: [], stats: { ...EMPTY_STATS } };
   }
 
   const { latestTransactionByRequest } = await import("./payment/transactions.server");
-  const payments = await latestTransactionByRequest();
+  const [payments, docs] = await Promise.all([latestTransactionByRequest(), documentCounts()]);
 
   const all = (data ?? []).map((row) => {
     const shaped = shapeRequestRow(row as Record<string, unknown>, staff);
@@ -327,25 +373,41 @@ export async function loadAdminRequests(filters: {
     if (payment) {
       shaped.payment_reference = payment.transaction_reference;
       shaped.payment_currency = payment.currency;
+      shaped.payment_date = payment.paid_at ?? null;
       if (payment.amount) shaped.payment_amount = payment.amount;
+    }
+    const counts = docs.get(shaped.id);
+    if (counts) {
+      shaped.document_count = counts.uploaded;
+      shaped.outstanding_documents = counts.outstanding;
     }
     return shaped;
   });
+
   const count = (status: string) => all.filter((row) => row.request_status === status).length;
+  const stage = (value: AdminStage) =>
+    all.filter((row) => deriveAdminStage(row) === value).length;
 
   const stats: AdminStats = {
     total: all.length,
     newRequests: count("new_request") + count("received"),
     documentsRequired: count("documents_required"),
-    processing: count("processing") + count("approved"),
-    completed: count("completed"),
+    processing: stage("processing"),
+    completed: stage("completed"),
     underReview: count("under_review"),
-    cancelled: count("cancelled"),
+    cancelled: stage("cancelled"),
+    awaitingDocuments: stage("awaiting_documents"),
+    awaitingPayment: stage("awaiting_payment"),
+    readyForProcessing: stage("payment_received"),
+    additionalDocuments: stage("additional_documents_required"),
   };
 
   let rows = all;
-  if (filters.status && filters.status !== "all") {
-    rows = rows.filter((row) => row.request_status === filters.status);
+  const filter = filters.status;
+  if (filter && filter !== "all") {
+    rows = (ADMIN_STAGES as readonly string[]).includes(filter)
+      ? rows.filter((row) => deriveAdminStage(row) === filter)
+      : rows.filter((row) => row.request_status === filter);
   }
   const term = filters.search?.trim().toLowerCase();
   if (term) {
@@ -354,11 +416,14 @@ export async function loadAdminRequests(filters: {
         row.request_reference,
         row.full_name,
         row.email,
+        row.phone,
         row.service_type,
+        row.service_category,
         row.destination_country,
+        row.origin_country,
         row.airline ?? "",
         row.hotel_name ?? "",
-
+        row.payment_reference ?? "",
       ]
         .join(" ")
         .toLowerCase()
@@ -368,6 +433,7 @@ export async function loadAdminRequests(filters: {
 
   return { rows, stats };
 }
+
 
 // ---------------------------------------------------------------- detail
 
@@ -453,7 +519,7 @@ export async function loadAdminRequestDetail(
   if (error || !row) return null;
   const record = row as Record<string, unknown>;
 
-  const [docsRes, docReqRes, notesRes, activityRes, staff] = await Promise.all([
+  const [docsRes, docReqRes, notesRes, activityRes, adminLogRes, staff] = await Promise.all([
     supabase
       .from("uploaded_documents")
       .select("*")
@@ -474,8 +540,14 @@ export async function loadAdminRequestDetail(
       .select("id, status, message, created_at")
       .eq("request_id", requestId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("admin_activity_log")
+      .select("id, action, detail, admin_name, created_at")
+      .eq("entity_id", requestId)
+      .order("created_at", { ascending: false }),
     listStaff(),
   ]);
+
 
   const documents: AdminDocument[] = (docsRes.data ?? []).map((d) => {
     const doc = d as Record<string, unknown>;
@@ -514,7 +586,7 @@ export async function loadAdminRequestDetail(
     };
   });
 
-  const activity: AdminActivity[] = (activityRes.data ?? []).map((a) => {
+  const statusHistory: AdminActivity[] = (activityRes.data ?? []).map((a) => {
     const item = a as Record<string, unknown>;
     return {
       id: str(item, "id"),
@@ -525,9 +597,42 @@ export async function loadAdminRequestDetail(
     };
   });
 
+  const staffActions: AdminActivity[] = (adminLogRes.data ?? []).map((a) => {
+    const item = a as Record<string, unknown>;
+    const detail = (item["detail"] as string | null) ?? null;
+    return {
+      id: `log-${str(item, "id")}`,
+      status: null,
+      message: detail ? `${str(item, "action")} — ${detail}` : str(item, "action"),
+      author: str(item, "admin_name", "Amazingfly staff"),
+      created_at: str(item, "created_at"),
+    };
+  });
+
+  const activity: AdminActivity[] = [...statusHistory, ...staffActions].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
+
+  const shaped = shapeRequestRow(record, staffMap);
+  shaped.document_count = documents.length;
+  shaped.outstanding_documents = documentRequests.filter((item) => {
+    const status = item.uploaded_status.toLowerCase();
+    return status !== "uploaded" && status !== "fulfilled";
+  }).length;
+
+  const { listRequestTransactions } = await import("./payment/transactions.server");
+  const payment = (await listRequestTransactions(requestId).catch(() => []))[0] ?? null;
+
+  if (payment) {
+    shaped.payment_reference = payment.transaction_reference;
+    shaped.payment_currency = payment.currency;
+    shaped.payment_date = payment.paid_at ?? null;
+    if (payment.amount) shaped.payment_amount = payment.amount;
+  }
+
   return {
     request: {
-      ...shapeRequestRow(record, staffMap),
+      ...shaped,
       nationality: str(record, "nationality"),
       country_of_residence: str(record, "country_of_residence"),
       travel_date: str(record, "travel_date"),
@@ -544,6 +649,7 @@ export async function loadAdminRequestDetail(
     staff,
   };
 }
+
 
 // ---------------------------------------------------------------- mutations
 

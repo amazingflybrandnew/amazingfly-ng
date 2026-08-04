@@ -9,6 +9,8 @@ import {
   ExternalLink,
   FileWarning,
   Loader2,
+  PlayCircle,
+
   XCircle,
 } from "lucide-react";
 
@@ -28,6 +30,15 @@ import {
   updateRequestStatus,
 } from "@/lib/admin.functions";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
+import {
+  ADMIN_STAGE_LABELS,
+  PAYMENT_REQUIRED_MESSAGE,
+  adminStageTone,
+  deriveAdminStage,
+  isPaid,
+} from "@/lib/admin-workflow";
+import { findCatalogueItem } from "@/lib/catalogue/visa-catalogue";
+
 import { getRequestMessages, sendAdminMessage } from "@/lib/admin-ops.functions";
 import { getRequestPaymentTransactions } from "@/lib/payment/transactions.functions";
 import {
@@ -159,6 +170,8 @@ function AdminRequestDetailPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteNote, setQuoteNote] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>) =>
     fn().then(async (result) => {
@@ -195,6 +208,16 @@ function AdminRequestDetailPage() {
       ),
     onSuccess: () => setStatusMessage(""),
   });
+
+  /** One-click workflow actions: start processing, complete, cancel. */
+  const quickStatus = useMutation({
+    mutationFn: (input: { status: string; message: string }) =>
+      run(() =>
+        statusFn({ data: { request_id: id, status: input.status, message: input.message } }),
+      ),
+  });
+
+
 
   const noteMutation = useMutation({
     mutationFn: () => run(() => noteFn({ data: { request_id: id, note } })),
@@ -260,6 +283,12 @@ function AdminRequestDetailPage() {
     (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
   );
   const currentStatus = statusValue || request.request_status;
+  const stage = deriveAdminStage(request);
+  const paid = isPaid(request.payment_status);
+  const amountDue = request.payment_amount ?? 0;
+  const canProcess = paid || amountDue <= 0;
+  const catalogueItem = findCatalogueItem(request.catalogue_id);
+
 
   return (
     <AdminShell
@@ -287,13 +316,15 @@ function AdminRequestDetailPage() {
               <Field label="Name" value={request.full_name} />
               <Field label="Email" value={request.email} />
               <Field label="Phone" value={request.phone} />
+              <Field label="WhatsApp" value={request.whatsapp} />
               <Field label="Nationality" value={request.nationality} />
               <Field label="Country of residence" value={request.country_of_residence} />
               <Field label="Preferred contact" value={request.preferred_contact} />
+              <Field label="Submitted" value={formatDate(request.created_at)} />
             </div>
           </Panel>
 
-          <Panel title="Travel information">
+          <Panel title="Service & travel information">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Origin" value={request.origin_country} />
               <Field label="Destination" value={request.destination_country} />
@@ -301,10 +332,16 @@ function AdminRequestDetailPage() {
                 label="Service type"
                 value={request.service_type || request.service_category}
               />
+              <Field label="Service selected" value={catalogueItem?.name ?? "—"} />
+              <Field
+                label="Expected processing time"
+                value={catalogueItem?.processingTime ?? "Confirmed by our specialists"}
+              />
               <Field label="Purpose" value={request.travel_purpose} />
               <Field label="Travel date" value={formatDate(request.travel_date)} />
               <Field label="Return date" value={formatDate(request.return_date)} />
             </div>
+
             {request.request_details ? (
               <p className="mt-5 whitespace-pre-line rounded-2xl bg-white/70 p-4 text-sm leading-relaxed text-navy-soft">
                 {request.request_details}
@@ -339,6 +376,27 @@ function AdminRequestDetailPage() {
                 Booking: {bookingStatusLabel(request.booking_status)}
               </span>
             </div>
+
+            <div className="mb-5 grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Amount"
+                value={
+                  amountDue > 0
+                    ? formatMoney(amountDue, request.payment_currency ?? "NGN")
+                    : request.requires_quote
+                      ? "Awaiting quotation"
+                      : "—"
+                }
+              />
+              <Field label="Transaction reference" value={request.payment_reference ?? "—"} />
+              <Field
+                label="Payment date"
+                value={request.payment_date ? formatDate(request.payment_date) : "—"}
+              />
+              <Field label="Documents uploaded" value={String(request.document_count)} />
+            </div>
+
+
 
             {paymentRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">
@@ -591,7 +649,113 @@ function AdminRequestDetailPage() {
             </Panel>
           ) : null}
 
+          {allow("update_status") ? (
+            <Panel
+              title="Processing actions"
+              description="Move this application through the workflow. Every action is logged and the customer is notified."
+            >
+              <span
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${adminStageTone(stage)}`}
+              >
+                {ADMIN_STAGE_LABELS[stage]}
+              </span>
+
+              {!canProcess ? (
+                <p className="mt-4 rounded-2xl border border-orange/40 bg-peach-tint px-4 py-3 text-sm font-semibold text-navy">
+                  {PAYMENT_REQUIRED_MESSAGE}
+                </p>
+              ) : null}
+
+              <div className="mt-4 space-y-2.5">
+                <Button
+                  type="button"
+                  className="btn-gradient w-full text-white"
+                  disabled={quickStatus.isPending || !canProcess || stage === "processing"}
+                  onClick={() =>
+                    quickStatus.mutate({
+                      status: "processing",
+                      message: "Your application is now being processed by our team.",
+                    })
+                  }
+                >
+                  <PlayCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Start processing
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={quickStatus.isPending}
+                  onClick={() =>
+                    quickStatus.mutate({
+                      status: "additional_documents_required",
+                      message:
+                        "Additional documents are required before we can continue your application.",
+                    })
+                  }
+                >
+                  <FileWarning className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Mark additional documents required
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={quickStatus.isPending || !canProcess || stage === "completed"}
+                  onClick={() =>
+                    quickStatus.mutate({
+                      status: "completed",
+                      message: "Your request has been completed.",
+                    })
+                  }
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Mark completed
+                </Button>
+              </div>
+
+              <div className="mt-5 space-y-2.5 rounded-2xl border border-white/70 bg-white/60 p-4">
+                <label className="block text-[11px] font-bold uppercase tracking-[0.14em] text-navy-soft">
+                  Cancel request
+                </label>
+                <Textarea
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  placeholder="Reason shared with the customer"
+                  aria-label="Cancellation reason"
+                  rows={2}
+                  className="rounded-2xl border-white/60 bg-white/80"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-coral/50 text-navy"
+                  disabled={
+                    quickStatus.isPending ||
+                    stage === "cancelled" ||
+                    cancelReason.trim().length < 3
+                  }
+                  onClick={() => {
+                    quickStatus.mutate({ status: "cancelled", message: cancelReason.trim() });
+                    setCancelReason("");
+                  }}
+                >
+                  <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                  Cancel request
+                </Button>
+              </div>
+
+              <p className="mt-3 text-xs text-muted-foreground">
+                Requesting additional documents from the Documents panel also notifies the customer
+                by email.
+              </p>
+            </Panel>
+          ) : null}
+
           <Panel title="Status">
+
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`rounded-full border px-3 py-1 text-xs font-bold ${statusTone(request.request_status)}`}
@@ -711,15 +875,19 @@ function AdminRequestDetailPage() {
                 {activity.map((entry) => (
                   <li key={entry.id} className="border-l-2 border-lavender/60 pl-4">
                     <p className="text-sm font-semibold text-navy">
-                      {STATUS_LABELS[entry.status ?? ""] ?? entry.status ?? "Update"}
+                      {entry.status
+                        ? (STATUS_LABELS[entry.status] ?? entry.status)
+                        : "Staff action"}
                     </p>
                     {entry.message ? (
                       <p className="mt-0.5 text-sm text-navy-soft">{entry.message}</p>
                     ) : null}
                     <p className="mt-0.5 text-xs text-muted-foreground">
+                      {entry.author ? `${entry.author} · ` : ""}
                       {formatDate(entry.created_at)}
                     </p>
                   </li>
+
                 ))}
               </ol>
             )}

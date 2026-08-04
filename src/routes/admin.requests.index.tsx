@@ -10,11 +10,12 @@ import { getAdminRequests } from "@/lib/admin.functions";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 import {
-  WORKFLOW_LABELS,
-  WORKFLOW_STATUSES,
-  deriveWorkflowStatus,
-  workflowTone,
-} from "@/lib/workflow-status";
+  ADMIN_STAGES,
+  ADMIN_STAGE_LABELS,
+  adminStageTone,
+  deriveAdminStage,
+} from "@/lib/admin-workflow";
+
 
 export const Route = createFileRoute("/admin/requests/")({
   head: () => ({
@@ -52,8 +53,11 @@ function AdminRequestsPage() {
   });
 
   const rows = (data?.rows ?? []).filter(
-    (row) => workflow === "all" || deriveWorkflowStatus(row) === workflow,
+    (row) => workflow === "all" || deriveAdminStage(row) === workflow,
   );
+  const stageCount = (value: string) =>
+    (data?.rows ?? []).filter((row) => deriveAdminStage(row) === value).length;
+
 
   return (
     <AdminShell
@@ -96,7 +100,7 @@ function AdminRequestsPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2 border-t border-white/60 pt-4">
-          {(["all", ...WORKFLOW_STATUSES] as const).map((value) => (
+          {(["all", ...ADMIN_STAGES] as const).map((value) => (
             <button
               key={value}
               type="button"
@@ -108,10 +112,13 @@ function AdminRequestsPage() {
                   : "border-white/70 bg-white/70 text-navy-soft hover:bg-white"
               }`}
             >
-              {value === "all" ? "All stages" : WORKFLOW_LABELS[value]}
+              {value === "all"
+                ? "All stages"
+                : `${ADMIN_STAGE_LABELS[value]} (${stageCount(value)})`}
             </button>
           ))}
         </div>
+
       </div>
 
       {isPending ? (
@@ -226,12 +233,13 @@ function AdminRequestsPage() {
                         {STATUS_LABELS[row.request_status] ?? row.request_status}
                       </span>
                       <span
-                        className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-[11px] font-bold ${workflowTone(
-                          deriveWorkflowStatus(row),
+                        className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-[11px] font-bold ${adminStageTone(
+                          deriveAdminStage(row),
                         )}`}
                       >
-                        {WORKFLOW_LABELS[deriveWorkflowStatus(row)]}
+                        {ADMIN_STAGE_LABELS[deriveAdminStage(row)]}
                       </span>
+
                     </td>
                     <td className="px-5 py-4">
                       <span
