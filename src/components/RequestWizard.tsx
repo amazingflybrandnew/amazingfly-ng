@@ -337,12 +337,13 @@ export function RequestWizard({
         );
         return;
       }
-      setSubmittedRef(result.reference);
       // Priced services already have a pending payment transaction, so send the
-      // customer straight to the payment step instead of a dead-end screen.
-      if (result.payable) {
+      // customer straight to the payment panel instead of a dead-end screen.
+      if (result.payable || payableService) {
         void navigate({ to: "/requests/$id", params: { id: result.requestId } });
+        return;
       }
+      setSubmittedRef(result.reference);
     } catch {
       setSubmitError(
         "We could not submit your request at the moment. Please check your connection and try again.",
@@ -352,13 +353,14 @@ export function RequestWizard({
     }
   }
 
-  if (submittedRef) return <Confirmation reference={submittedRef} />;
+  if (submittedRef) return <Confirmation reference={submittedRef} quoteOnly={requiresQuote} />;
 
   const activeSection = step >= 1 && step <= sections.length ? sections[step - 1] : undefined;
 
   return (
     <div ref={topRef} className="mx-auto max-w-3xl">
-      <ProgressBar labels={stepLabels} step={step} />
+      <ProgressBar labels={progressLabels} step={step} />
+
 
       <div className="glass-card mt-6 rounded-3xl p-6 md:p-10">
         <div key={`${categoryId}-${step}`} className="animate-in fade-in slide-in-from-right-4 duration-300">
