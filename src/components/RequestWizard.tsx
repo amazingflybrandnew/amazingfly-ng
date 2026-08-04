@@ -31,6 +31,16 @@ import {
   type ServiceCategory,
 } from "@/lib/service-forms";
 import { createDocumentUploadUrl, submitTravelRequest } from "@/lib/travel-request.functions";
+import {
+  ITINERARY_NOTE,
+  LONG_STAY_QUOTE_MESSAGE,
+  PROCESSING_FAQ,
+  catalogueDisplayPrice,
+  catalogueGroups,
+  findCatalogueItem,
+  needsCustomQuote,
+  type CatalogueItem,
+} from "@/lib/catalogue/visa-catalogue";
 
 type UploadedDoc = {
   id: string;
@@ -101,6 +111,15 @@ export function RequestWizard({
   }, [initialFrom, initialTo, initialService]);
 
   const category = useMemo(() => findCategory(categoryId), [categoryId]);
+  const catalogueItem = useMemo<CatalogueItem | undefined>(() => {
+    const direct = findCatalogueItem(answers["catalogue_id"]);
+    if (direct) return direct;
+    if ((answers["document_service"] ?? "") === "Police character certificate") {
+      return findCatalogueItem("police-character-certificate");
+    }
+    return undefined;
+  }, [answers]);
+  const requiresQuote = needsCustomQuote(catalogueItem, answers["duration_of_stay"]);
   const sections: Section[] = useMemo(() => (category ? buildSections(category) : []), [category]);
   const documents = useMemo(
     () => (category ? category.documents.filter((d) => isVisible(d, answers)) : []),
@@ -262,7 +281,7 @@ export function RequestWizard({
       const result = await sendRequest({
         data: {
           request_reference: reference,
-          service_type: category.name,
+          service_type: catalogueItem?.name ?? category.name,
           service_slug: category.serviceSlug,
           service_category: category.id,
           origin_country: (answers["origin_country"] ?? "").trim(),
@@ -293,6 +312,10 @@ export function RequestWizard({
               file_name: d.fileName,
               file_size: d.fileSize,
             })),
+          catalogue_id: catalogueItem?.id ?? null,
+          amount: catalogueItem && !requiresQuote ? catalogueItem.price : null,
+          currency: "NGN",
+          requires_quote: requiresQuote,
           consent_to_contact: true as const,
         },
       });
@@ -395,6 +418,9 @@ export function RequestWizard({
                   errors={errors}
                   onChange={set}
                 />
+                {catalogueItem ? (
+                  <CataloguePanel item={catalogueItem} requiresQuote={requiresQuote} />
+                ) : null}
               </>
             ) : null}
 
@@ -423,7 +449,19 @@ export function RequestWizard({
               <>
                 <SummaryBlock
                   title="Selected service"
-                  rows={[["Service", category?.name ?? "—"]]}
+                  rows={[
+                    ["Service", category?.name ?? "—"],
+                    ...(catalogueItem
+                      ? ([
+                          ["Selected", catalogueItem.name],
+                          [
+                            "Price",
+                            requiresQuote ? "Personalised quotation" : catalogueDisplayPrice(catalogueItem),
+                          ],
+                          ["Processing time", catalogueItem.processingTime],
+                        ] as Array<[string, string]>)
+                      : []),
+                  ]}
                   onEdit={() => goTo(0)}
                 />
                 {sections.map((section, index) => (
@@ -598,6 +636,23 @@ function QuestionField({
             <option key={option} value={option}>
               {option}
             </option>
+          ))}
+        </select>
+      ) : question.type === "catalogue" ? (
+        <select
+          className={selectClass}
+          value={value}
+          onChange={(e) => onChange(question.id, e.target.value)}
+        >
+          <option value="">Select a service</option>
+          {catalogueGroups("visa").map((group) => (
+            <optgroup key={group.country} label={group.country}>
+              {group.options.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} — {catalogueDisplayPrice(item)}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       ) : question.type === "country" ? (
@@ -830,6 +885,108 @@ function Confirmation({ reference }: { reference: string }) {
           <Link to="/">Return Home</Link>
         </Button>
       </div>
+    </div>
+  );
+}
+
+function CataloguePanel({
+  item,
+  requiresQuote,
+}: {
+  item: CatalogueItem;
+  requiresQuote: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-white/75 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-coral">
+            {item.flag ? `${item.flag} ` : ""}
+            {item.country}
+          </p>
+          <h3 className="mt-1 text-lg font-extrabold text-navy">{item.name}</h3>
+        </div>
+        <p className="text-lg font-extrabold text-navy">
+          {requiresQuote ? "Quotation" : catalogueDisplayPrice(item)}
+        </p>
+      </div>
+
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Processing time
+          </dt>
+          <dd className="mt-0.5 font-medium text-navy">{item.processingTime}</dd>
+        </div>
+        {item.validity ? (
+          <div>
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Validity
+            </dt>
+            <dd className="mt-0.5 font-medium text-navy">{item.validity}</dd>
+          </div>
+        ) : null}
+      </dl>
+
+      {item.includes?.length ? (
+        <div className="mt-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Includes</p>
+          <ul className="mt-1.5 grid gap-1 text-sm text-navy">
+            {item.includes.map((entry) => (
+              <li key={entry}>• {entry}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Required documents
+        </p>
+        <ul className="mt-1.5 grid gap-1 text-sm text-navy">
+          {item.requirements.map((entry) => (
+            <li key={entry}>• {entry}</li>
+          ))}
+        </ul>
+      </div>
+
+      {item.optionalDocuments?.length ? (
+        <div className="mt-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Optional supporting documents
+          </p>
+          <ul className="mt-1.5 grid gap-1 text-sm text-navy">
+            {item.optionalDocuments.map((entry) => (
+              <li key={entry}>• {entry}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{ITINERARY_NOTE}</p>
+        </div>
+      ) : null}
+
+      {requiresQuote ? (
+        <p className="mt-4 rounded-xl border border-coral/30 bg-peach-tint p-3 text-sm font-medium text-navy">
+          {LONG_STAY_QUOTE_MESSAGE}
+        </p>
+      ) : (
+        <p className="mt-4 rounded-xl border border-sky/40 bg-sky-tint p-3 text-sm font-medium text-navy">
+          Payment becomes available as soon as you submit this application with your documents.
+        </p>
+      )}
+
+      <details className="mt-4 rounded-xl border border-border/60 bg-white/70 p-4">
+        <summary className="cursor-pointer text-sm font-bold text-navy">
+          Processing time & service FAQ
+        </summary>
+        <div className="mt-3 grid gap-3">
+          {PROCESSING_FAQ.map((faq) => (
+            <div key={faq.question}>
+              <p className="text-sm font-semibold text-navy">{faq.question}</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{faq.answer}</p>
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }
