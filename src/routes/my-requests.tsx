@@ -55,6 +55,10 @@ function MyRequestsPage() {
     (request) => filter === "all" || deriveWorkflowStatus(request) === filter,
   );
 
+  /** Document verification progress for one request. */
+  const documentsFor = (requestId: string) =>
+    summariseDocuments((data?.documents ?? []).filter((doc) => doc.request_id === requestId));
+
   return (
     <AccountShell
       title="My travel requests"
