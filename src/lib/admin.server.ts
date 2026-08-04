@@ -586,7 +586,7 @@ export async function loadAdminRequestDetail(
     };
   });
 
-  const activity: AdminActivity[] = (activityRes.data ?? []).map((a) => {
+  const statusHistory: AdminActivity[] = (activityRes.data ?? []).map((a) => {
     const item = a as Record<string, unknown>;
     return {
       id: str(item, "id"),
@@ -597,9 +597,41 @@ export async function loadAdminRequestDetail(
     };
   });
 
+  const staffActions: AdminActivity[] = (adminLogRes.data ?? []).map((a) => {
+    const item = a as Record<string, unknown>;
+    const detail = (item["detail"] as string | null) ?? null;
+    return {
+      id: `log-${str(item, "id")}`,
+      status: null,
+      message: detail ? `${str(item, "action")} — ${detail}` : str(item, "action"),
+      author: str(item, "admin_name", "Amazingfly staff"),
+      created_at: str(item, "created_at"),
+    };
+  });
+
+  const activity: AdminActivity[] = [...statusHistory, ...staffActions].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
+
+  const shaped = shapeRequestRow(record, staffMap);
+  shaped.document_count = documents.length;
+  shaped.outstanding_documents = documentRequests.filter((item) => {
+    const status = item.uploaded_status.toLowerCase();
+    return status !== "uploaded" && status !== "fulfilled";
+  }).length;
+
+  const { latestTransactionForRequest } = await import("./payment/transactions.server");
+  const payment = await latestTransactionForRequest(requestId).catch(() => null);
+  if (payment) {
+    shaped.payment_reference = payment.transaction_reference;
+    shaped.payment_currency = payment.currency;
+    shaped.payment_date = payment.paid_at ?? null;
+    if (payment.amount) shaped.payment_amount = payment.amount;
+  }
+
   return {
     request: {
-      ...shapeRequestRow(record, staffMap),
+      ...shaped,
       nationality: str(record, "nationality"),
       country_of_residence: str(record, "country_of_residence"),
       travel_date: str(record, "travel_date"),
@@ -616,6 +648,7 @@ export async function loadAdminRequestDetail(
     staff,
   };
 }
+
 
 // ---------------------------------------------------------------- mutations
 
