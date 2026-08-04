@@ -127,13 +127,23 @@ export function RequestWizard({
     [category, answers],
   );
 
+  // Fixed-price catalogue services continue into a payment step after review.
+  const payableService = Boolean(
+    catalogueItem && !requiresQuote && (catalogueItem.price ?? 0) > 0,
+  );
+
   const stepLabels = useMemo(
     () => ["Service", ...sections.map((s) => s.title), "Documents", "Review"],
     [sections],
   );
+  const progressLabels = useMemo(
+    () => (payableService ? [...stepLabels, "Payment"] : stepLabels),
+    [stepLabels, payableService],
+  );
   const totalSteps = stepLabels.length;
   const documentsStep = sections.length + 1;
   const reviewStep = documentsStep + 1;
+
 
   const set = (id: string, value: string) => setAnswers((prev) => ({ ...prev, [id]: value }));
 
@@ -327,12 +337,13 @@ export function RequestWizard({
         );
         return;
       }
-      setSubmittedRef(result.reference);
       // Priced services already have a pending payment transaction, so send the
-      // customer straight to the payment step instead of a dead-end screen.
-      if (result.payable) {
+      // customer straight to the payment panel instead of a dead-end screen.
+      if (result.payable || payableService) {
         void navigate({ to: "/requests/$id", params: { id: result.requestId } });
+        return;
       }
+      setSubmittedRef(result.reference);
     } catch {
       setSubmitError(
         "We could not submit your request at the moment. Please check your connection and try again.",
@@ -342,13 +353,14 @@ export function RequestWizard({
     }
   }
 
-  if (submittedRef) return <Confirmation reference={submittedRef} />;
+  if (submittedRef) return <Confirmation reference={submittedRef} quoteOnly={requiresQuote} />;
 
   const activeSection = step >= 1 && step <= sections.length ? sections[step - 1] : undefined;
 
   return (
     <div ref={topRef} className="mx-auto max-w-3xl">
-      <ProgressBar labels={stepLabels} step={step} />
+      <ProgressBar labels={progressLabels} step={step} />
+
 
       <div className="glass-card mt-6 rounded-3xl p-6 md:p-10">
         <div key={`${categoryId}-${step}`} className="animate-in fade-in slide-in-from-right-4 duration-300">
@@ -543,12 +555,18 @@ export function RequestWizard({
             <Button type="button" size="lg" disabled={submitting} onClick={handleSubmit}>
               {submitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                  {payableService ? "Preparing payment…" : "Submitting…"}
+                </>
+              ) : payableService ? (
+                <>
+                  Continue to Payment <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               ) : (
                 "Submit Travel Request"
               )}
             </Button>
+
           )}
         </div>
       </div>
@@ -859,7 +877,7 @@ function SummaryBlock({
   );
 }
 
-function Confirmation({ reference }: { reference: string }) {
+function Confirmation({ reference, quoteOnly }: { reference: string; quoteOnly?: boolean }) {
   return (
     <div className="glass-card mx-auto max-w-2xl rounded-3xl p-8 md:p-12">
       <CheckCircle2 className="h-12 w-12 text-coral" aria-hidden="true" />
@@ -867,9 +885,11 @@ function Confirmation({ reference }: { reference: string }) {
         Your travel request has been received.
       </h2>
       <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-        Our travel specialists will review your request and contact you shortly through your
-        preferred contact method.
+        {quoteOnly
+          ? "Your application has been received. Our specialist will review and provide a quotation before payment."
+          : "Our travel specialists will review your request and contact you shortly through your preferred contact method."}
       </p>
+
       <div className="mt-8 rounded-2xl border border-border/70 bg-white/70 p-6">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
           Request reference number
