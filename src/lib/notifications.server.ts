@@ -151,6 +151,11 @@ const STATUS_COPY: Record<string, { subject: string; line: string }> = {
     subject: "Additional documents required",
     line: "We need a few additional documents before we can continue with your application.",
   },
+  additional_documents_required: {
+    subject: "Additional documents are required",
+    line: "Additional documents are required to continue processing your request.",
+  },
+
   processing: {
     subject: "Your application is now processing",
     line: "Your application is now being processed by our team.",

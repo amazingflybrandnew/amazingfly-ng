@@ -51,7 +51,9 @@ export function statusTone(status: string): string {
     case "approved":
       return "bg-mint-tint text-navy border-mint/50";
     case "documents_required":
+    case "additional_documents_required":
       return "bg-peach-tint text-navy border-orange/40";
+
     case "cancelled":
       return "bg-muted text-muted-foreground border-border";
     case "processing":
