@@ -16,7 +16,7 @@ import {
   getRequestDetail,
   replyToAmazingfly,
 } from "@/lib/account.functions";
-import { formatDate } from "@/lib/request-status";
+import { STATUS_LABELS, formatDate } from "@/lib/request-status";
 import { formatMoney } from "@/lib/payment-status";
 import type { AccountRequest } from "@/lib/account.functions";
 import { LONG_STAY_QUOTE_MESSAGE } from "@/lib/catalogue/visa-catalogue";
