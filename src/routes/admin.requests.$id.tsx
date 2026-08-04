@@ -297,6 +297,7 @@ function AdminRequestDetailPage() {
   }
 
   const { request, documents, documentRequests, notes, activity, staff } = data;
+  const docProgress = summariseDocuments(documents);
   const missing = documentRequests.filter(
     (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
   );
