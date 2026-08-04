@@ -39,6 +39,7 @@ export function DocumentList({
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [replaceFor, setReplaceFor] = useState<AccountDocument | null>(null);
 
   const signUpload = useServerFn(createAccountUploadUrl);
   const recordDoc = useServerFn(recordAccountDocument);
@@ -49,13 +50,15 @@ export function DocumentList({
 
   const upload = async (file: File) => {
     if (!requestId) return;
+    const replacing = replaceFor;
+    const documentType = replacing?.document_type || "Supporting document";
     setError(null);
     setBusy(true);
     try {
       const signed = await signUpload({
         data: {
           request_id: requestId,
-          document_type: "Supporting document",
+          document_type: documentType,
           file_name: file.name,
           file_size: file.size,
         },
@@ -70,18 +73,20 @@ export function DocumentList({
       const saved = await recordDoc({
         data: {
           request_id: requestId,
-          document_type: "Supporting document",
+          document_type: documentType,
           file_url: signed.path,
           file_name: file.name,
           file_size: file.size,
         },
       });
       if (!saved.ok) throw new Error(saved.message ?? "Could not save the document.");
+      if (replacing) await removeDoc({ data: { document_id: replacing.id } });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setBusy(false);
+      setReplaceFor(null);
       if (inputRef.current) inputRef.current.value = "";
     }
   };
