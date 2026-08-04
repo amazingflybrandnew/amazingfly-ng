@@ -7,9 +7,14 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
-import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
-import { paymentTone } from "@/lib/payment-status";
-import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
+import { formatDate } from "@/lib/request-status";
+import { formatMoney } from "@/lib/payment-status";
+import {
+  WORKFLOW_LABELS,
+  WORKFLOW_STATUSES,
+  deriveWorkflowStatus,
+  workflowTone,
+} from "@/lib/workflow-status";
 
 
 export const Route = createFileRoute("/my-requests")({
@@ -33,7 +38,7 @@ export const Route = createFileRoute("/my-requests")({
   component: MyRequestsPage,
 });
 
-const FILTERS = ["all", ...REQUEST_STATUSES] as const;
+const FILTERS = ["all", ...WORKFLOW_STATUSES] as const;
 
 function MyRequestsPage() {
   const { data: session } = useSessionQuery();
@@ -47,7 +52,7 @@ function MyRequestsPage() {
   });
 
   const requests = (data?.requests ?? []).filter(
-    (request) => filter === "all" || request.request_status === filter,
+    (request) => filter === "all" || deriveWorkflowStatus(request) === filter,
   );
 
   return (
@@ -67,7 +72,7 @@ function MyRequestsPage() {
                 : "border-white/70 bg-white/70 text-navy-soft hover:text-navy"
             }`}
           >
-            {value === "all" ? "All" : (STATUS_LABELS[value] ?? value)}
+            {value === "all" ? "All" : WORKFLOW_LABELS[value]}
           </button>
         ))}
       </div>
@@ -102,32 +107,17 @@ function MyRequestsPage() {
                     {request.service_type ?? "Travel request"}
                   </p>
                   <span
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${statusTone(
-                      request.request_status,
+                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${workflowTone(
+                      deriveWorkflowStatus(request),
                     )}`}
                   >
-                    {STATUS_LABELS[request.request_status] ?? request.request_status}
+                    {WORKFLOW_LABELS[deriveWorkflowStatus(request)]}
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {request.origin_country ?? "Nigeria"} →{" "}
                   {request.destination_country ?? "Destination"}
                 </p>
-                <span
-                  className={`mt-3 inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-bold ${
-                    request.payment_status === "payment_received"
-                      ? bookingStatusTone("confirmed")
-                      : request.payment_status === "payment_failed"
-                        ? paymentTone(request.payment_status)
-                        : paymentTone("pending_payment")
-                  }`}
-                >
-                  {request.payment_status === "payment_received"
-                    ? bookingStatusLabel(request.booking_status ?? "confirmed")
-                    : request.payment_status === "payment_failed"
-                      ? "Payment Failed"
-                      : "Awaiting Payment"}
-                </span>
 
                 <dl className="mt-5 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
                   <div>
@@ -144,6 +134,14 @@ function MyRequestsPage() {
                     <dt className="font-bold uppercase tracking-wide">Travel date</dt>
                     <dd className="mt-0.5 font-medium text-navy">
                       {formatDate(request.travel_date)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-wide">Amount</dt>
+                    <dd className="mt-0.5 font-medium text-navy">
+                      {request.requires_quote && !request.amount
+                        ? "Quotation pending"
+                        : formatMoney(request.amount ?? request.agreed_fee, request.currency ?? "NGN")}
                     </dd>
                   </div>
                   <div>
