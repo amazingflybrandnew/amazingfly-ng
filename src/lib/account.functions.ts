@@ -74,6 +74,10 @@ export type AccountDocument = {
   file_name: string | null;
   file_size: number | null;
   uploaded_at: string;
+  /** "pending" | "verified" | "rejected" | "replacement_required" */
+  review_status: string;
+  review_note: string | null;
+  reviewed_at: string | null;
 };
 
 export type DocumentRequestItem = {

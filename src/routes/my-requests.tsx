@@ -8,6 +8,7 @@ import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
 import { formatDate } from "@/lib/request-status";
+import { summariseDocuments } from "@/lib/document-status";
 import { formatMoney } from "@/lib/payment-status";
 import {
   WORKFLOW_LABELS,
@@ -54,6 +55,10 @@ function MyRequestsPage() {
   const requests = (data?.requests ?? []).filter(
     (request) => filter === "all" || deriveWorkflowStatus(request) === filter,
   );
+
+  /** Document verification progress for one request. */
+  const documentsFor = (requestId: string) =>
+    summariseDocuments((data?.documents ?? []).filter((doc) => doc.request_id === requestId));
 
   return (
     <AccountShell
@@ -168,7 +173,13 @@ function MyRequestsPage() {
                   </div>
                   <div>
                     <dt className="font-bold uppercase tracking-wide">Documents</dt>
-                    <dd className="mt-0.5 font-medium text-navy">{request.document_count}</dd>
+                    <dd
+                      className={`mt-0.5 font-medium ${
+                        documentsFor(request.id).attention > 0 ? "text-coral" : "text-navy"
+                      }`}
+                    >
+                      {documentsFor(request.id).label}
+                    </dd>
                   </div>
                   <div>
                     <dt className="font-bold uppercase tracking-wide">Amount paid</dt>

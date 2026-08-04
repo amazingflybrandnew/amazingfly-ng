@@ -47,6 +47,12 @@ import {
   transactionTone,
 } from "@/lib/payment/types";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
+import {
+  documentStatusLabel,
+  documentStatusTone,
+  summariseDocuments,
+  type DocumentReviewStatus,
+} from "@/lib/document-status";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 
 
@@ -171,6 +177,11 @@ function AdminRequestDetailPage() {
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteNote, setQuoteNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
+  const [reviewTarget, setReviewTarget] = useState<{
+    id: string;
+    mode: Extract<DocumentReviewStatus, "rejected" | "replacement_required">;
+  } | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
 
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>) =>
@@ -243,8 +254,15 @@ function AdminRequestDetailPage() {
   });
 
   const reviewMutation = useMutation({
-    mutationFn: (input: { document_id: string; review_status: "approved" | "rejected" }) =>
-      run(() => reviewFn({ data: { ...input, review_note: "" } })),
+    mutationFn: (input: {
+      document_id: string;
+      review_status: DocumentReviewStatus;
+      review_note: string;
+    }) => run(() => reviewFn({ data: input })),
+    onSuccess: () => {
+      setReviewTarget(null);
+      setReviewNote("");
+    },
   });
 
   const openDocument = async (documentId: string) => {
@@ -279,6 +297,7 @@ function AdminRequestDetailPage() {
   }
 
   const { request, documents, documentRequests, notes, activity, staff } = data;
+  const docProgress = summariseDocuments(documents);
   const missing = documentRequests.filter(
     (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
   );
@@ -439,94 +458,172 @@ function AdminRequestDetailPage() {
 
           <Panel
             title="Documents"
-            description="Files the customer uploaded, plus anything still outstanding."
+            description="Review every file the customer uploaded, plus anything still outstanding."
           >
+            <div
+              className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-bold ${
+                docProgress.total === 0 || docProgress.attention > 0 || docProgress.pending > 0
+                  ? "border-orange/40 bg-peach-tint text-navy"
+                  : "border-mint/50 bg-mint-tint text-navy"
+              }`}
+            >
+              {docProgress.total === 0
+                ? "Required documents incomplete — nothing uploaded yet"
+                : docProgress.attention > 0 || docProgress.pending > 0 || missing.length > 0
+                  ? `Required documents incomplete — ${docProgress.verified}/${docProgress.total} verified${
+                      missing.length ? `, ${missing.length} still requested` : ""
+                    }`
+                  : "Documents verified — ready for processing"}
+            </div>
+
             {documents.length === 0 ? (
               <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
             ) : (
               <ul className="space-y-3">
                 {documents.map((doc) => (
-                  <li
-                    key={doc.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white/70 p-4"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-navy">{doc.document_type}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {doc.file_name} · {formatDate(doc.uploaded_at)}
-                      </p>
+                  <li key={doc.id} className="rounded-2xl bg-white/70 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-navy">{doc.document_type}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {doc.file_name} · uploaded {formatDate(doc.uploaded_at)} ·{" "}
+                          {request.full_name}
+                        </p>
+                        {doc.review_note ? (
+                          <p className="mt-1.5 text-xs font-medium text-navy">{doc.review_note}</p>
+                        ) : null}
+                        {doc.reviewed_at ? (
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Reviewed {formatDate(doc.reviewed_at)}
+                            {doc.reviewed_by ? ` by ${doc.reviewed_by}` : ""}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${documentStatusTone(
+                            doc.review_status,
+                          )}`}
+                        >
+                          {documentStatusLabel(doc.review_status)}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-navy-soft"
+                          onClick={() => openDocument(doc.id)}
+                        >
+                          <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                          View
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-navy-soft"
+                          onClick={() => openDocument(doc.id)}
+                        >
+                          <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                          Download
+                        </Button>
+                        {allow("review_document") ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="btn-gradient text-white"
+                              disabled={reviewMutation.isPending}
+                              onClick={() =>
+                                reviewMutation.mutate({
+                                  document_id: doc.id,
+                                  review_status: "verified",
+                                  review_note: "",
+                                })
+                              }
+                            >
+                              <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                              Verify
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReviewNote("");
+                                setReviewTarget({ id: doc.id, mode: "rejected" });
+                              }}
+                            >
+                              <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                              Reject
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReviewNote("");
+                                setReviewTarget({ id: doc.id, mode: "replacement_required" });
+                              }}
+                            >
+                              <FileWarning className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                              Request replacement
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${
-                          doc.review_status === "approved"
-                            ? "border-mint/50 bg-mint-tint text-navy"
-                            : doc.review_status === "rejected"
-                              ? "border-coral/50 bg-peach-tint text-navy"
-                              : "border-sky/50 bg-sky-tint text-navy"
-                        }`}
+
+                    {reviewTarget?.id === doc.id ? (
+                      <form
+                        className="mt-3 space-y-2 rounded-2xl border border-orange/30 bg-peach-tint p-3"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          if (reviewNote.trim().length < 3) return;
+                          reviewMutation.mutate({
+                            document_id: doc.id,
+                            review_status: reviewTarget.mode,
+                            review_note: reviewNote.trim(),
+                          });
+                        }}
                       >
-                        {doc.review_status === "approved"
-                          ? "Approved"
-                          : doc.review_status === "rejected"
-                            ? "Rejected"
-                            : "Pending review"}
-                      </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="text-navy-soft"
-                        onClick={() => openDocument(doc.id)}
-                      >
-                        <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                        View
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="text-navy-soft"
-                        onClick={() => openDocument(doc.id)}
-                      >
-                        <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                        Download
-                      </Button>
-                      {allow("review_document") ? (
-                        <>
+                        <label
+                          className="text-xs font-bold uppercase tracking-wide text-navy"
+                          htmlFor={`reason-${doc.id}`}
+                        >
+                          {reviewTarget.mode === "rejected"
+                            ? "Reason for rejection (sent to the customer)"
+                            : "What should the customer upload instead?"}
+                        </label>
+                        <Textarea
+                          id={`reason-${doc.id}`}
+                          rows={2}
+                          value={reviewNote}
+                          onChange={(event) => setReviewNote(event.target.value)}
+                          placeholder="Passport image is unclear. Please upload a clearer copy."
+                          className="rounded-xl border-white/70 bg-white/80"
+                        />
+                        <div className="flex gap-2">
                           <Button
-                            type="button"
+                            type="submit"
                             size="sm"
                             className="btn-gradient text-white"
-                            disabled={reviewMutation.isPending}
-                            onClick={() =>
-                              reviewMutation.mutate({
-                                document_id: doc.id,
-                                review_status: "approved",
-                              })
-                            }
+                            disabled={reviewMutation.isPending || reviewNote.trim().length < 3}
                           >
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                            Approve
+                            Send to customer
                           </Button>
                           <Button
                             type="button"
                             size="sm"
-                            variant="outline"
-                            disabled={reviewMutation.isPending}
-                            onClick={() =>
-                              reviewMutation.mutate({
-                                document_id: doc.id,
-                                review_status: "rejected",
-                              })
-                            }
+                            variant="ghost"
+                            className="text-navy-soft"
+                            onClick={() => setReviewTarget(null)}
                           >
-                            <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                            Reject
+                            Cancel
                           </Button>
-                        </>
-                      ) : null}
-                    </div>
+                        </div>
+                      </form>
+                    ) : null}
                   </li>
                 ))}
               </ul>

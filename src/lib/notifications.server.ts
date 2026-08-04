@@ -19,6 +19,7 @@ export type AutomationEvent =
   | "admin_new_request"
   | "status_update"
   | "document_request"
+  | "document_review"
   | "payment_confirmed"
   | "admin_payment_received"
   | "quotation_ready"
@@ -196,6 +197,47 @@ export function composeDocumentRequest(ctx: {
       ctx.description ? `Details: ${ctx.description}` : "",
       "",
       "You can upload it securely from Amazingfly.ng/dashboard under Documents required.",
+      SIGN_OFF,
+    ),
+  };
+}
+
+export function composeDocumentReview(ctx: {
+  reference: string;
+  fullName: string;
+  email: string;
+  documentName: string;
+  status: "verified" | "rejected" | "replacement_required";
+  reason?: string | null;
+}): ComposedEmail {
+  const headline =
+    ctx.status === "verified"
+      ? "One of your documents has been verified."
+      : ctx.status === "rejected"
+        ? "One of your documents could not be accepted."
+        : "We need a replacement for one of your documents.";
+  const subject =
+    ctx.status === "verified"
+      ? `Document verified (${ctx.reference})`
+      : ctx.status === "rejected"
+        ? `Document rejected (${ctx.reference})`
+        : `Replacement document required (${ctx.reference})`;
+  return {
+    to: ctx.email,
+    kind: "document_review",
+    subject,
+    body: lines(
+      greeting(ctx.fullName),
+      "",
+      headline,
+      "",
+      `Reference: ${ctx.reference}`,
+      `Document: ${ctx.documentName}`,
+      ctx.reason ? `Reason: ${ctx.reason}` : "",
+      "",
+      ctx.status === "verified"
+        ? "No action is needed for this document."
+        : "Please upload a new copy from Amazingfly.ng/dashboard under Documents.",
       SIGN_OFF,
     ),
   };
@@ -472,6 +514,46 @@ export async function notifyDocumentRequested(input: {
     },
   );
 }
+
+/** Customer notification when a specialist reviews an uploaded document. */
+export async function notifyDocumentReviewed(input: {
+  requestId: string;
+  documentName: string;
+  status: "verified" | "rejected" | "replacement_required";
+  reason?: string | null;
+}) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  const title =
+    input.status === "verified"
+      ? "Document verified"
+      : input.status === "rejected"
+        ? "Document rejected"
+        : "Replacement document required";
+  const message =
+    input.status === "verified"
+      ? `"${input.documentName}" has been verified for request ${who.reference}.`
+      : `"${input.documentName}" needs to be uploaded again for request ${who.reference}.${
+          input.reason ? ` ${input.reason}` : ""
+        }`;
+  await sendAutomated(
+    composeDocumentReview({
+      reference: who.reference,
+      fullName: who.fullName,
+      email: who.email,
+      documentName: input.documentName,
+      status: input.status,
+      reason: input.reason ?? null,
+    }),
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: { title, message },
+    },
+  );
+}
+
 
 export async function notifyPaymentReceived(input: {
   requestId: string;
