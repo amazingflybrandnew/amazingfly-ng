@@ -8,6 +8,7 @@ import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
 import { formatDate } from "@/lib/request-status";
+import { summariseDocuments } from "@/lib/document-status";
 import { formatMoney } from "@/lib/payment-status";
 import {
   WORKFLOW_LABELS,
