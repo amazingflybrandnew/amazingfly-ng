@@ -875,15 +875,19 @@ function AdminRequestDetailPage() {
                 {activity.map((entry) => (
                   <li key={entry.id} className="border-l-2 border-lavender/60 pl-4">
                     <p className="text-sm font-semibold text-navy">
-                      {STATUS_LABELS[entry.status ?? ""] ?? entry.status ?? "Update"}
+                      {entry.status
+                        ? (STATUS_LABELS[entry.status] ?? entry.status)
+                        : "Staff action"}
                     </p>
                     {entry.message ? (
                       <p className="mt-0.5 text-sm text-navy-soft">{entry.message}</p>
                     ) : null}
                     <p className="mt-0.5 text-xs text-muted-foreground">
+                      {entry.author ? `${entry.author} · ` : ""}
                       {formatDate(entry.created_at)}
                     </p>
                   </li>
+
                 ))}
               </ol>
             )}
