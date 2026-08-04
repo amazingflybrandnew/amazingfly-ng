@@ -19,6 +19,7 @@ export type AutomationEvent =
   | "admin_new_request"
   | "status_update"
   | "document_request"
+  | "document_review"
   | "payment_confirmed"
   | "admin_payment_received"
   | "quotation_ready"
