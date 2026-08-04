@@ -2,6 +2,7 @@ export const REQUEST_STATUSES = [
   "new_request",
   "under_review",
   "documents_required",
+  "additional_documents_required",
   "processing",
   "approved",
   "completed",
@@ -15,11 +16,13 @@ export const STATUS_LABELS: Record<string, string> = {
   received: "New Request",
   under_review: "Under Review",
   documents_required: "Documents Required",
+  additional_documents_required: "Additional Documents Required",
   processing: "Processing",
   approved: "Approved",
   completed: "Completed",
   cancelled: "Cancelled",
 };
+
 
 /** Visual progression used by the tracking timeline. */
 export const TIMELINE_STEPS: { status: RequestStatus; label: string; hint: string }[] = [
