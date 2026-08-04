@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
@@ -91,6 +91,7 @@ export function RequestWizard({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
+  const navigate = useNavigate();
   const topRef = useRef<HTMLDivElement>(null);
 
   // Carry the homepage hero selections in.
@@ -327,6 +328,11 @@ export function RequestWizard({
         return;
       }
       setSubmittedRef(result.reference);
+      // Priced services already have a pending payment transaction, so send the
+      // customer straight to the payment step instead of a dead-end screen.
+      if (result.payable) {
+        void navigate({ to: "/requests/$id", params: { id: result.requestId } });
+      }
     } catch {
       setSubmitError(
         "We could not submit your request at the moment. Please check your connection and try again.",
