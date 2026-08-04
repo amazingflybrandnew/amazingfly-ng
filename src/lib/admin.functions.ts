@@ -181,7 +181,7 @@ export const reviewUploadedDocument = createServerFn({ method: "POST" })
     z
       .object({
         document_id: z.string().uuid(),
-        review_status: z.enum(["approved", "rejected"]),
+        review_status: z.enum(["verified", "rejected", "replacement_required"]),
         review_note: z.string().trim().max(600).optional().default(""),
       })
       .strict()
@@ -190,9 +190,23 @@ export const reviewUploadedDocument = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
     const { requireAdmin, reviewDocument, logAdminAction } = await import("./admin.server");
     const who = await requireAdmin("review_document");
-    const result = await reviewDocument(data.document_id, data.review_status, data.review_note);
+    if (data.review_status !== "verified" && !data.review_note) {
+      return { ok: false, message: "Please give the customer a reason." };
+    }
+    const result = await reviewDocument(
+      data.document_id,
+      data.review_status,
+      data.review_note,
+      who.admin.full_name ?? who.user.email,
+    );
     if (result.ok) {
-      await logAdminAction(who, `Marked a document ${data.review_status}`, {
+      const label =
+        data.review_status === "verified"
+          ? "Document verified"
+          : data.review_status === "rejected"
+            ? "Document rejected"
+            : "Replacement requested";
+      await logAdminAction(who, label, {
         type: "document",
         id: data.document_id,
         detail: data.review_note,
