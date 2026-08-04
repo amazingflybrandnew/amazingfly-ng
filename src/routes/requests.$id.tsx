@@ -283,18 +283,27 @@ function PaymentPanel({
     );
   }
 
-  const amount = request.amount ?? request.agreed_fee;
   const paid = status === "payment_successful" || status === "processing" || status === "completed";
 
-  // As soon as the application is complete the pending transaction is created,
-  // so the customer always sees a payment reference next to the Pay now button.
+  // A pending transaction already exists for priced services — use it as the
+  // source of truth for the amount, currency and reference we display.
+  const pendingTransaction = !paid && request.transaction_status === "pending";
+  const amount =
+    request.amount ?? request.agreed_fee ?? (pendingTransaction ? request.paid_amount : null);
+  const currency =
+    (pendingTransaction ? request.paid_currency : null) ?? request.currency ?? "NGN";
+
   const ensureFn = useServerFn(ensureServicePayment);
   const payment = useQuery({
     queryKey: ["service-payment", request.id],
     queryFn: () => ensureFn({ data: { request_id: request.id } }),
-    enabled: !paid && Boolean(amount && amount > 0),
+    enabled: !paid && !request.transaction_reference && Boolean(amount && amount > 0),
     staleTime: 60_000,
   });
+  const reference =
+    request.transaction_reference ??
+    (payment.data && payment.data.ok ? payment.data.reference : null);
+
 
   if (paid) {
     const paidLabel = request.paid_amount
@@ -328,21 +337,18 @@ function PaymentPanel({
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
           Amount payable
         </p>
-        <p className="mt-1 text-2xl font-extrabold text-navy">
-          {formatMoney(amount, request.currency ?? "NGN")}
-        </p>
+        <p className="mt-1 text-2xl font-extrabold text-navy">{formatMoney(amount, currency)}</p>
         <p className="mt-1 text-sm text-navy-soft">
-          {documentCount === 0
+          {documentCount === 0 && !pendingTransaction
             ? "Upload your documents below — you can still pay now and add them afterwards."
             : "Documents received successfully. Your application fee is ready. Complete payment to begin processing."}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {request.service_type ?? "Travel service"}
-          {payment.data && payment.data.ok
-            ? ` · Payment reference ${payment.data.reference}`
-            : ""}
+          {reference ? ` · Payment reference ${reference}` : ""}
         </p>
       </div>
+
       <Button asChild size="lg" className="btn-gradient rounded-2xl text-white">
         <Link to="/checkout/$requestId" params={{ requestId: request.id }}>
           Pay now
