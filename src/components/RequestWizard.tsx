@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useSessionQuery } from "@/components/AccountShell";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
