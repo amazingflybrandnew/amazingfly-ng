@@ -168,6 +168,8 @@ function AdminRequestDetailPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteNote, setQuoteNote] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>) =>
     fn().then(async (result) => {
