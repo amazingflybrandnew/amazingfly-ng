@@ -12,6 +12,12 @@ import {
   type AccountDocument,
 } from "@/lib/account.functions";
 import { formatDate } from "@/lib/request-status";
+import {
+  documentStatusLabel,
+  documentStatusTone,
+  needsReplacement,
+  normalizeDocumentStatus,
+} from "@/lib/document-status";
 
 function fileSize(bytes: number | null) {
   if (!bytes) return "";
