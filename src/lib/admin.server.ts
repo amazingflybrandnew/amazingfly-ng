@@ -561,6 +561,8 @@ export async function loadAdminRequestDetail(
       uploaded_at: str(doc, "uploaded_at"),
       review_status: str(doc, "review_status", "pending"),
       review_note: (doc["review_note"] as string | null) ?? null,
+      reviewed_at: (doc["reviewed_at"] as string | null) ?? null,
+      reviewed_by: (doc["reviewed_by"] as string | null) ?? null,
       document_request_id: (doc["document_request_id"] as string | null) ?? null,
     };
   });
