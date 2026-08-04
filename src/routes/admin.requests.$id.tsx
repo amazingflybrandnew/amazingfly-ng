@@ -205,6 +205,16 @@ function AdminRequestDetailPage() {
     onSuccess: () => setStatusMessage(""),
   });
 
+  /** One-click workflow actions: start processing, complete, cancel. */
+  const quickStatus = useMutation({
+    mutationFn: (input: { status: string; message: string }) =>
+      run(() =>
+        statusFn({ data: { request_id: id, status: input.status, message: input.message } }),
+      ),
+  });
+
+
+
   const noteMutation = useMutation({
     mutationFn: () => run(() => noteFn({ data: { request_id: id, note } })),
     onSuccess: () => setNote(""),
