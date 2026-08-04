@@ -177,8 +177,10 @@ export type AdminRequestRow = {
   full_name: string;
   email: string;
   phone: string;
+  whatsapp: string;
   service_type: string;
   service_category: string;
+  catalogue_id: string | null;
   origin_country: string;
   destination_country: string;
   created_at: string;
@@ -201,9 +203,12 @@ export type AdminRequestRow = {
   payment_amount: number | null;
   payment_currency: string | null;
   payment_reference: string | null;
+  payment_date: string | null;
   requires_quote: boolean;
   document_count: number;
+  outstanding_documents: number;
 };
+
 
 
 function str(row: Record<string, unknown>, key: string, fallback = ""): string {
