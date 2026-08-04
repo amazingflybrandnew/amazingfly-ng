@@ -192,24 +192,43 @@ async function fetchDocuments(
 ): Promise<AccountDocument[]> {
   if (!requestIds.length) return [];
   const supabase = await admin();
-  const { data, error } = await supabase
+  const FULL =
+    "id, request_id, document_type, file_name, file_size, uploaded_at, review_status, review_note, reviewed_at";
+  let { data, error } = await supabase
     .from("uploaded_documents")
-    .select("id, request_id, document_type, file_name, file_size, uploaded_at")
+    .select(FULL)
     .in("request_id", requestIds)
     .order("uploaded_at", { ascending: false });
+
+  if (error) {
+    // Fallback while the document-verification migration has not been run.
+    const legacy = await supabase
+      .from("uploaded_documents")
+      .select("id, request_id, document_type, file_name, file_size, uploaded_at")
+      .in("request_id", requestIds)
+      .order("uploaded_at", { ascending: false });
+    data = legacy.data as typeof data;
+    error = legacy.error;
+  }
   if (error) {
     console.error("[account] documents", error.message);
     return [];
   }
-  return (data ?? []).map((row) => ({
-    id: String(row["id"]),
-    request_id: String(row["request_id"]),
-    request_reference: referenceById.get(String(row["request_id"])) ?? "",
-    document_type: String(row["document_type"] ?? "Document"),
-    file_name: (row["file_name"] as string | null) ?? null,
-    file_size: (row["file_size"] as number | null) ?? null,
-    uploaded_at: String(row["uploaded_at"] ?? ""),
-  }));
+  return (data ?? []).map((entry) => {
+    const row = entry as Record<string, unknown>;
+    return {
+      id: String(row["id"]),
+      request_id: String(row["request_id"]),
+      request_reference: referenceById.get(String(row["request_id"])) ?? "",
+      document_type: String(row["document_type"] ?? "Document"),
+      file_name: (row["file_name"] as string | null) ?? null,
+      file_size: (row["file_size"] as number | null) ?? null,
+      uploaded_at: String(row["uploaded_at"] ?? ""),
+      review_status: String(row["review_status"] ?? "pending"),
+      review_note: (row["review_note"] as string | null) ?? null,
+      reviewed_at: (row["reviewed_at"] as string | null) ?? null,
+    };
+  });
 }
 
 async function fetchNotifications(user: SessionUser): Promise<AccountNotification[]> {
