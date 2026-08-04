@@ -556,6 +556,18 @@ export async function changeRequestStatus(
   if (!REQUEST_STATUSES.includes(status as RequestStatus)) {
     return { ok: false, message: "That status is not part of the workflow." };
   }
+
+  // Unpaid requests cannot be moved into the working stages.
+  if (["processing", "approved", "completed"].includes(status)) {
+    const paid = await isRequestPaid(requestId);
+    if (!paid) {
+      return {
+        ok: false,
+        message: "This request has not been paid yet. Payment must be received before processing.",
+      };
+    }
+  }
+
   const supabase = await admin();
 
   // Log the activity first so the database trigger does not duplicate it.
