@@ -60,6 +60,10 @@ function shape(row: RawRequest, documentCount: number): AccountRequest {
       row["agreed_fee"] === null || row["agreed_fee"] === undefined
         ? null
         : Number(row["agreed_fee"]),
+    amount: num(row["amount"]) ?? num(row["quoted_amount"]),
+    currency: get("currency") ?? "NGN",
+    catalogue_id: get("catalogue_id"),
+    requires_quote: row["requires_quote"] === true,
     document_count: documentCount,
     airline: get("airline"),
     airline_logo_url: get("airline_logo_url"),
