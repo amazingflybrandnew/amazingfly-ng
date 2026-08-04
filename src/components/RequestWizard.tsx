@@ -555,12 +555,18 @@ export function RequestWizard({
             <Button type="button" size="lg" disabled={submitting} onClick={handleSubmit}>
               {submitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                  {payableService ? "Preparing payment…" : "Submitting…"}
+                </>
+              ) : payableService ? (
+                <>
+                  Continue to Payment <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               ) : (
                 "Submit Travel Request"
               )}
             </Button>
+
           )}
         </div>
       </div>
