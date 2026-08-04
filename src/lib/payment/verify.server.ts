@@ -112,7 +112,13 @@ function safeProviderResponse(data: PaystackVerifyPayload, stage: string) {
   };
 }
 
-/** Marks the booking confirmed and records provider booking references. */
+/**
+ * Marks the request paid.
+ *
+ * Flights and hotels are *bookings* — they become `confirmed`. Every other
+ * travel service (visas, police character certificate, future paid documents)
+ * enters `processing` because a specialist now starts the work.
+ */
 async function confirmBooking(requestId: string) {
   const supabase = await admin();
 
@@ -123,10 +129,21 @@ async function confirmBooking(requestId: string) {
     .maybeSingle();
   const row = (data as Record<string, unknown> | null) ?? {};
 
+  const category = String(row["service_category"] ?? "").toLowerCase();
+  const serviceType = String(row["service_type"] ?? "").toLowerCase();
+  const isBooking =
+    category === "flights" ||
+    category === "hotels" ||
+    serviceType.includes("flight") ||
+    serviceType.includes("hotel");
+
+  const paidAt = new Date().toISOString();
   const patch: Record<string, unknown> = {
     payment_status: "payment_received",
-    booking_status: "confirmed",
+    booking_status: isBooking ? "confirmed" : "processing",
+    paid_at: paidAt,
   };
+  if (!isBooking) patch["request_status"] = "processing";
 
   // Carry any provider reference we already hold forward into the booking
   // reference column so confirmation surfaces show something meaningful.
@@ -139,6 +156,7 @@ async function confirmBooking(requestId: string) {
 
   let { error } = await supabase.from("service_requests").update(patch).eq("id", requestId);
   if (error?.code === "42703" || error?.code === "PGRST204") {
+    // Lean schema (migration not applied yet) — keep the payment status.
     ({ error } = await supabase
       .from("service_requests")
       .update({ payment_status: "payment_received" })
@@ -148,8 +166,10 @@ async function confirmBooking(requestId: string) {
 
   await supabase.from("request_updates").insert({
     request_id: requestId,
-    status: "confirmed",
-    message: "Payment received and booking confirmed.",
+    status: isBooking ? "confirmed" : "processing",
+    message: isBooking
+      ? "Payment received and booking confirmed."
+      : "Payment received. Amazingfly Travels has started processing your request.",
   });
 }
 
