@@ -10,11 +10,12 @@ import { getAdminRequests } from "@/lib/admin.functions";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
 import {
-  WORKFLOW_LABELS,
-  WORKFLOW_STATUSES,
-  deriveWorkflowStatus,
-  workflowTone,
-} from "@/lib/workflow-status";
+  ADMIN_STAGES,
+  ADMIN_STAGE_LABELS,
+  adminStageTone,
+  deriveAdminStage,
+} from "@/lib/admin-workflow";
+
 
 export const Route = createFileRoute("/admin/requests/")({
   head: () => ({
