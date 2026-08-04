@@ -86,6 +86,22 @@ function RequestDetailPage() {
           </p>
         </div>
       ) : (
+        (() => {
+          const workflow = deriveWorkflowStatus({
+            ...data.request,
+            document_count: data.documents.length,
+          });
+          const paidState =
+            workflow === "payment_successful" ||
+            workflow === "processing" ||
+            workflow === "completed";
+          const catalogueItem = findCatalogueItem(data.request.catalogue_id);
+          const paymentLabel = paidState
+            ? "Paid"
+            : workflow === "quotation_pending"
+              ? "Awaiting quotation"
+              : "Payment pending";
+          return (
         <div className="space-y-6">
           <section className="glass-card rounded-3xl p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -102,16 +118,38 @@ function RequestDetailPage() {
               </div>
               <span
                 className={`rounded-full border px-4 py-1.5 text-xs font-bold ${workflowTone(
-                  deriveWorkflowStatus(data.request),
+                  workflow,
                 )}`}
               >
-                {WORKFLOW_LABELS[deriveWorkflowStatus(data.request)]}
+                {WORKFLOW_LABELS[workflow]}
               </span>
             </div>
 
             <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Detail label="From" value={data.request.origin_country ?? ""} />
-              <Detail label="To" value={data.request.destination_country ?? ""} />
+              <Detail label="Service" value={data.request.service_type ?? ""} />
+              <Detail
+                label="Destination"
+                value={data.request.destination_country ?? data.request.origin_country ?? ""}
+              />
+              <Detail label="Reference" value={data.request.request_reference} />
+              <Detail label="Current status" value={WORKFLOW_LABELS[workflow]} />
+              <Detail label="Payment status" value={paymentLabel} />
+              <Detail
+                label="Amount paid"
+                value={
+                  paidState && data.request.paid_amount
+                    ? formatMoney(data.request.paid_amount, data.request.paid_currency ?? "NGN")
+                    : "Not paid yet"
+                }
+              />
+              <Detail
+                label="Transaction reference"
+                value={data.request.transaction_reference ?? "—"}
+              />
+              <Detail
+                label="Processing time"
+                value={catalogueItem?.processingTime ?? "Confirmed by our specialists"}
+              />
               <Detail label="Travel date" value={formatDate(data.request.travel_date)} />
               <Detail label="Return date" value={formatDate(data.request.return_date)} />
               <Detail label="Full name" value={data.request.full_name ?? ""} />
@@ -134,7 +172,8 @@ function RequestDetailPage() {
 
           <section className="glass-card rounded-3xl p-6 md:p-8">
             <h2 className="mb-6 text-xl font-extrabold text-navy">Progress</h2>
-            <RequestTimeline status={data.request.request_status} />
+            <WorkflowTimeline status={workflow} />
+
 
             {data.updates.length ? (
               <ul className="mt-8 space-y-3 border-t border-border pt-6">
