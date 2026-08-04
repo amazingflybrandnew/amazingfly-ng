@@ -106,18 +106,40 @@ function MyRequestsPage() {
                   <p className="text-lg font-extrabold leading-snug text-navy">
                     {request.service_type ?? "Travel request"}
                   </p>
-                  <span
-                    className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${workflowTone(
-                      deriveWorkflowStatus(request),
-                    )}`}
-                  >
-                    {WORKFLOW_LABELS[deriveWorkflowStatus(request)]}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-bold ${workflowTone(
+                        deriveWorkflowStatus(request),
+                      )}`}
+                    >
+                      {WORKFLOW_LABELS[deriveWorkflowStatus(request)]}
+                    </span>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                        ["payment_successful", "processing", "completed"].includes(
+                          deriveWorkflowStatus(request),
+                        )
+                          ? "border-mint/50 bg-mint-tint text-navy"
+                          : deriveWorkflowStatus(request) === "quotation_pending"
+                            ? "border-coral/40 bg-peach-tint text-navy"
+                            : "border-orange/40 bg-peach-tint text-navy"
+                      }`}
+                    >
+                      {["payment_successful", "processing", "completed"].includes(
+                        deriveWorkflowStatus(request),
+                      )
+                        ? "Paid"
+                        : deriveWorkflowStatus(request) === "quotation_pending"
+                          ? "Awaiting quotation"
+                          : "Awaiting payment"}
+                    </span>
+                  </div>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {request.origin_country ?? "Nigeria"} →{" "}
                   {request.destination_country ?? "Destination"}
                 </p>
+
 
                 <dl className="mt-5 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
                   <div>
