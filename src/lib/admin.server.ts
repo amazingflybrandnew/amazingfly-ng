@@ -169,7 +169,12 @@ export type AdminStats = {
   completed: number;
   underReview: number;
   cancelled: number;
+  awaitingDocuments: number;
+  awaitingPayment: number;
+  readyForProcessing: number;
+  additionalDocuments: number;
 };
+
 
 export type AdminRequestRow = {
   id: string;
