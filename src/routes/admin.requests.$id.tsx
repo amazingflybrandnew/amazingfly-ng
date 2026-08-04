@@ -314,13 +314,15 @@ function AdminRequestDetailPage() {
               <Field label="Name" value={request.full_name} />
               <Field label="Email" value={request.email} />
               <Field label="Phone" value={request.phone} />
+              <Field label="WhatsApp" value={request.whatsapp} />
               <Field label="Nationality" value={request.nationality} />
               <Field label="Country of residence" value={request.country_of_residence} />
               <Field label="Preferred contact" value={request.preferred_contact} />
+              <Field label="Submitted" value={formatDate(request.created_at)} />
             </div>
           </Panel>
 
-          <Panel title="Travel information">
+          <Panel title="Service & travel information">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Origin" value={request.origin_country} />
               <Field label="Destination" value={request.destination_country} />
@@ -328,10 +330,16 @@ function AdminRequestDetailPage() {
                 label="Service type"
                 value={request.service_type || request.service_category}
               />
+              <Field label="Service selected" value={catalogueItem?.name ?? "—"} />
+              <Field
+                label="Expected processing time"
+                value={catalogueItem?.processingTime ?? "Confirmed by our specialists"}
+              />
               <Field label="Purpose" value={request.travel_purpose} />
               <Field label="Travel date" value={formatDate(request.travel_date)} />
               <Field label="Return date" value={formatDate(request.return_date)} />
             </div>
+
             {request.request_details ? (
               <p className="mt-5 whitespace-pre-line rounded-2xl bg-white/70 p-4 text-sm leading-relaxed text-navy-soft">
                 {request.request_details}
