@@ -177,6 +177,11 @@ function AdminRequestDetailPage() {
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteNote, setQuoteNote] = useState("");
   const [cancelReason, setCancelReason] = useState("");
+  const [reviewTarget, setReviewTarget] = useState<{
+    id: string;
+    mode: Extract<DocumentReviewStatus, "rejected" | "replacement_required">;
+  } | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
 
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>) =>
