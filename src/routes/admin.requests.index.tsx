@@ -9,6 +9,12 @@ import { Input } from "@/components/ui/input";
 import { getAdminRequests } from "@/lib/admin.functions";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
 import { REQUEST_STATUSES, STATUS_LABELS, formatDate, statusTone } from "@/lib/request-status";
+import {
+  WORKFLOW_LABELS,
+  WORKFLOW_STATUSES,
+  deriveWorkflowStatus,
+  workflowTone,
+} from "@/lib/workflow-status";
 
 export const Route = createFileRoute("/admin/requests/")({
   head: () => ({
@@ -36,6 +42,7 @@ const FILTERS = ["all", ...REQUEST_STATUSES] as const;
 
 function AdminRequestsPage() {
   const [status, setStatus] = useState<string>("all");
+  const [workflow, setWorkflow] = useState<string>("all");
   const [search, setSearch] = useState("");
 
   const fetchRequests = useServerFn(getAdminRequests);
@@ -44,7 +51,9 @@ function AdminRequestsPage() {
     queryFn: () => fetchRequests({ data: { status, search } }),
   });
 
-  const rows = data?.rows ?? [];
+  const rows = (data?.rows ?? []).filter(
+    (row) => workflow === "all" || deriveWorkflowStatus(row) === workflow,
+  );
 
   return (
     <AdminShell
@@ -84,6 +93,24 @@ function AdminRequestsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-white/60 pt-4">
+          {(["all", ...WORKFLOW_STATUSES] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setWorkflow(value)}
+              aria-pressed={workflow === value}
+              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                workflow === value
+                  ? "border-transparent bg-orange text-white"
+                  : "border-white/70 bg-white/70 text-navy-soft hover:bg-white"
+              }`}
+            >
+              {value === "all" ? "All stages" : WORKFLOW_LABELS[value]}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -197,6 +224,13 @@ function AdminRequestsPage() {
                         className={`inline-block rounded-full border px-3 py-1 text-xs font-bold ${statusTone(row.request_status)}`}
                       >
                         {STATUS_LABELS[row.request_status] ?? row.request_status}
+                      </span>
+                      <span
+                        className={`mt-1 inline-block rounded-full border px-2.5 py-1 text-[11px] font-bold ${workflowTone(
+                          deriveWorkflowStatus(row),
+                        )}`}
+                      >
+                        {WORKFLOW_LABELS[deriveWorkflowStatus(row)]}
                       </span>
                     </td>
                     <td className="px-5 py-4">
