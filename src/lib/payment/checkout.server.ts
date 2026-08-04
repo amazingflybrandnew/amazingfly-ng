@@ -194,6 +194,15 @@ export async function prepareCheckout(
   const review = await loadBookingReview(user, requestId);
   if (!review) return { ok: false, message: "We could not find that booking on your account." };
 
+  // Services priced by a specialist cannot be paid until a price is set.
+  if (!review.amount || review.amount <= 0) {
+    return {
+      ok: false,
+      message:
+        "Your requested service requires a personalised quotation. Our visa specialist will review your request and provide pricing.",
+    };
+  }
+
   const existingPending =
     review.transaction && review.transaction.status === "pending" ? review.transaction : null;
 
