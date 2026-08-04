@@ -334,7 +334,6 @@ export async function loadRequestDetail(
   }));
 
   const transactions = await fetchTransactionSummaries([requestId]);
-  console.error("[dbg] detail", JSON.stringify({ keys: Object.keys(row).length, amount: row["amount"], requires_quote: row["requires_quote"], tx: transactions.get(requestId) }));
   return {
     request: shape(row, documents.length, transactions.get(requestId)),
     documents,
