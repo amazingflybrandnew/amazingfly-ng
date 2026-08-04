@@ -53,8 +53,11 @@ function AdminRequestsPage() {
   });
 
   const rows = (data?.rows ?? []).filter(
-    (row) => workflow === "all" || deriveWorkflowStatus(row) === workflow,
+    (row) => workflow === "all" || deriveAdminStage(row) === workflow,
   );
+  const stageCount = (value: string) =>
+    (data?.rows ?? []).filter((row) => deriveAdminStage(row) === value).length;
+
 
   return (
     <AdminShell
