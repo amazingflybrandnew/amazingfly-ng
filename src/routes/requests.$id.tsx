@@ -8,7 +8,7 @@ import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { DocumentList } from "@/components/DocumentList";
 import { DocumentRequestList } from "@/components/DocumentRequestList";
 
-import { RequestTimeline } from "@/components/RequestTimeline";
+import { WorkflowTimeline } from "@/components/WorkflowTimeline";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
