@@ -47,6 +47,12 @@ import {
   transactionTone,
 } from "@/lib/payment/types";
 import { formatMoney, paymentStatusLabel, paymentTone } from "@/lib/payment-status";
+import {
+  documentStatusLabel,
+  documentStatusTone,
+  summariseDocuments,
+  type DocumentReviewStatus,
+} from "@/lib/document-status";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 
 
