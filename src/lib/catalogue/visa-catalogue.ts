@@ -393,13 +393,33 @@ export function catalogueDisplayPrice(item: CatalogueItem): string {
   return `${item.priceFrom ? "From " : ""}${formatNaira(item.price)}`;
 }
 
-/** Stay durations longer than 6 months always need a personalised quotation. */
-export const LONG_STAY_OPTIONS = ["6–12 months", "Over a year"];
-
 export const LONG_STAY_QUOTE_MESSAGE =
-  "Your requested visa duration requires a personalised quotation. Our visa specialist will review your request and provide pricing.";
+  "Your application requires a quotation review. Our specialist will review your request and provide the applicable fee before payment.";
+
+/**
+ * Quotation detection is based only on the customer's duration-of-stay answer.
+ * Entry type (including multiple entry) and ordinary tourist, visit or business
+ * categories never influence this decision.
+ */
+export function isLongStayDuration(durationOfStay?: string): boolean {
+  const duration = (durationOfStay ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[–—]/g, "-");
+  if (!duration) return false;
+
+  if (/\b(residence|residency|long[ -]?stay)\b/.test(duration)) return true;
+  if (/\b(over|more than|longer than)\s+(six|6)\s+months?\b/.test(duration)) return true;
+  if (/\b(?:[7-9]|1[0-9]|[2-9][0-9])\s*(?:\+\s*)?months?\b/.test(duration)) return true;
+  if (/\b(?:1|2|3|4|5|6|7|8|9|one|two|three|four|five)\s*(?:\+\s*)?years?\b/.test(duration)) {
+    return true;
+  }
+
+  // The current form's range option spans beyond the six-month threshold.
+  return /\b6\s*-\s*12\s*months?\b/.test(duration) || /\bover\s+(?:a|one|1)\s+year\b/.test(duration);
+}
 
 export function needsCustomQuote(item: CatalogueItem | undefined, durationOfStay?: string) {
   if (item?.requiresQuote) return true;
-  return LONG_STAY_OPTIONS.includes((durationOfStay ?? "").trim());
+  return item?.category === "visa" && isLongStayDuration(durationOfStay);
 }
