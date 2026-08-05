@@ -123,6 +123,11 @@ export function RequestWizard({
     return undefined;
   }, [answers]);
   const requiresQuote = needsCustomQuote(catalogueItem, answers["duration_of_stay"]);
+console.log("QUOTE CHECK", {
+  catalogueItem,
+  duration: answers["duration_of_stay"],
+  requiresQuote,
+});
   const sections: Section[] = useMemo(() => (category ? buildSections(category) : []), [category]);
   const documents = useMemo(
     () => (category ? category.documents.filter((d) => isVisible(d, answers)) : []),
