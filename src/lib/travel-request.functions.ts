@@ -109,6 +109,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submissionSchema.parse(data))
   .handler(async ({ data }): Promise<SubmitResult> => {
     const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
+    const { isLongStayDuration } = await import("./catalogue/visa-catalogue");
     const supabase = createExternalSupabaseAdmin();
 
     const { data: service, error: serviceError } = await supabase
@@ -184,15 +185,22 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       consent_to_contact: true,
     };
 
+    // Quotation mode is derived server-side from the visa stay duration only.
+    // Multiple entry and normal tourist/visit/business answers remain payable.
+    const durationOfStay = data.answers.find((answer) => answer.id === "duration_of_stay")?.answer;
+    const requiresQuote =
+      data.service_category === "visa" && isLongStayDuration(durationOfStay);
+    const requestAmount = requiresQuote ? null : (data.amount ?? null);
+
     const dynamicRow = {
       ...baseRow,
       service_category: data.service_category,
       answers: data.answers,
       catalogue_id: data.catalogue_id ?? null,
-      amount: data.amount ?? null,
+      amount: requestAmount,
       currency: data.currency ?? "NGN",
-      requires_quote: data.requires_quote ?? false,
-      payment_status: data.requires_quote ? "awaiting_quote" : "pending_payment",
+      requires_quote: requiresQuote,
+      payment_status: requiresQuote ? "awaiting_quote" : "pending_payment",
     };
 
     let { data: request, error: requestError } = await supabase
@@ -223,13 +231,13 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
     // Paystack transaction as soon as the application exists, so the request
     // detail page can show "Pay now" with a reference immediately. Requests
     // needing a specialist quotation are skipped until an admin prices them.
-    const serviceAmount = data.amount ?? null;
+    const serviceAmount = requestAmount;
     let payable = false;
     if (
       data.catalogue_id &&
       serviceAmount &&
       serviceAmount > 0 &&
-      !data.requires_quote &&
+      !requiresQuote &&
       !/flight|hotel/i.test(`${data.service_category} ${data.service_type}`)
     ) {
       const { createPendingTransaction } = await import("./payment/transactions.server");
