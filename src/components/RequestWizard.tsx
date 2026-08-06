@@ -493,7 +493,7 @@ export function RequestWizard({
                           ["Selected", catalogueItem.name],
                           [
                             "Price",
-                            requiresQuote ? "Personalised quotation" : catalogueDisplayPrice(catalogueItem),
+                             catalogueDisplayPrice(catalogueItem),
                           ],
                           ["Processing time", catalogueItem.processingTime],
                         ] as Array<[string, string]>)
