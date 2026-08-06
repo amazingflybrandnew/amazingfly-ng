@@ -428,7 +428,7 @@ export async function loadAdminPayments(filters: {
 }): Promise<{ rows: AdminPaymentRow[]; totals: Record<string, number>; revenue: number }> {
   const supabase = await admin();
   let query = supabase
-    .from("payment_transactions")
+    .from("payments")
     .select(
       "id, request_id, email, amount, currency, payment_provider, transaction_reference, status, created_at",
     )
