@@ -192,8 +192,9 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
         answer.id.toLowerCase() === "duration_of_stay" ||
         answer.question.toLowerCase() === "duration of stay",
     )?.answer;
-    const requiresQuote = data.service_category === "visa" && isLongStayDuration(durationOfStay);
-    const requestAmount = requiresQuote ? null : (data.amount ?? null);
+    const requiresQuote = false;
+
+const requestAmount = data.amount ?? null;
 
     const dynamicRow = {
       ...baseRow,
