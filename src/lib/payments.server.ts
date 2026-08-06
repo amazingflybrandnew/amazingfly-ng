@@ -9,7 +9,12 @@
  * will send payment instructions.
  */
 import type { SessionUser } from "./auth.server";
-import { normalizePaymentStatus, type PaymentStatus } from "./payment-status";
+import {
+  normalizePaymentStatus,
+  TRANSACTION_STATUS_FOR_PAYMENT_STATUS,
+  type PaymentStatus,
+} from "./payment-status";
+
 
 export type PaymentProviderId = "paystack" | "flutterwave" | "offline";
 
