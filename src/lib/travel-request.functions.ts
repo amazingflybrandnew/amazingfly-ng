@@ -200,8 +200,7 @@ const requestAmount = data.amount ?? null;
       amount: requestAmount,
       currency: data.currency ?? "NGN",
       requires_quote: requiresQuote,
-      payment_status: requiresQuote ? "awaiting_quote" : "pending_payment",
-    };
+      payment_status: "pending_payment",
 
     let { data: request, error: requestError } = await supabase
       .from("service_requests")
