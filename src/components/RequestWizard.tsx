@@ -295,6 +295,7 @@ console.log("QUOTE CHECK", {
         .filter((entry) => entry.answer);
 
       const contactChoice = answers["preferred_contact"] ?? "WhatsApp";
+      console.log("CATEGORY CHECK", category);
       console.log("SUBMIT ANSWERS", answers);
       const result = await sendRequest({
         data: {
