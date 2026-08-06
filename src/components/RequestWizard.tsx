@@ -123,11 +123,6 @@ export function RequestWizard({
     return undefined;
   }, [answers]);
   const requiresQuote = needsCustomQuote(catalogueItem, answers["duration_of_stay"]);
-console.log("QUOTE CHECK", {
-  catalogueItem,
-  duration: answers["duration_of_stay"],
-  requiresQuote,
-});
   const sections: Section[] = useMemo(() => (category ? buildSections(category) : []), [category]);
   const documents = useMemo(
     () => (category ? category.documents.filter((d) => isVisible(d, answers)) : []),
@@ -287,6 +282,7 @@ console.log("QUOTE CHECK", {
         .flatMap((section) => section.questions)
         .filter((question) => isVisible(question, answers))
         .filter((question) => !isCoreField(question.id))
+        .filter((question) => question.id !== "duration_of_stay")
         .map((question) => ({
           id: question.id,
           question: question.label,
@@ -294,13 +290,17 @@ console.log("QUOTE CHECK", {
         }))
         .filter((entry) => entry.answer);
 
+      const durationOfStay = (answers["duration_of_stay"] ?? "").trim();
+      if (category.id === "visa" && durationOfStay) {
+        dynamicAnswers.push({
+          id: "duration_of_stay",
+          question: "Duration of stay",
+          answer: durationOfStay,
+        });
+      }
+
       const contactChoice = answers["preferred_contact"] ?? "WhatsApp";
-      console.log("CATEGORY CHECK", category);
-      console.log("SUBMIT ANSWERS", answers);
-      console.log("SEND DATA", {
-  service_category: category.id,
-  duration_of_stay: answers["duration_of_stay"],
-});      const result = await sendRequest({
+      const result = await sendRequest({
         data: {
           request_reference: reference,
           service_type: catalogueItem?.name ?? category.name,
