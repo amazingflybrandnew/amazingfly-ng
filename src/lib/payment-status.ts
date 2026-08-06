@@ -22,14 +22,31 @@ export const PAYMENT_STATUS_LABELS: Record<string, string> = {
   refund_completed: "Refund Completed",
 };
 
-/** Older Stage-2 values still present on historic rows. */
+/**
+ * Older Stage-2 values still present on historic rows, plus the
+ * `payment_transactions.status` vocabulary (TRANSACTION_STATUSES) so admin
+ * views can describe a Paystack transaction with the same labels.
+ */
 const LEGACY: Record<string, PaymentStatus> = {
   unpaid: "pending_payment",
   pending: "pending_payment",
   paid: "payment_received",
+  successful: "payment_received",
   failed: "payment_failed",
+  cancelled: "payment_failed",
+  canceled: "payment_failed",
   refunded: "refund_completed",
 };
+
+/** Transaction-status values that map onto a given customer-facing status. */
+export const TRANSACTION_STATUS_FOR_PAYMENT_STATUS: Record<PaymentStatus, string[]> = {
+  pending_payment: ["pending"],
+  payment_received: ["successful"],
+  payment_failed: ["failed", "cancelled"],
+  refund_requested: ["refund_requested"],
+  refund_completed: ["refunded", "refund_completed"],
+};
+
 
 export function normalizePaymentStatus(value: unknown): PaymentStatus {
   const raw = typeof value === "string" ? value.trim().toLowerCase() : "";

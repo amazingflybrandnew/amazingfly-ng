@@ -9,7 +9,12 @@
  * will send payment instructions.
  */
 import type { SessionUser } from "./auth.server";
-import { normalizePaymentStatus, type PaymentStatus } from "./payment-status";
+import {
+  normalizePaymentStatus,
+  TRANSACTION_STATUS_FOR_PAYMENT_STATUS,
+  type PaymentStatus,
+} from "./payment-status";
+
 
 export type PaymentProviderId = "paystack" | "flutterwave" | "offline";
 
@@ -435,7 +440,13 @@ export async function loadAdminPayments(filters: {
     .order("created_at", { ascending: false })
     .limit(300);
 
-  if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
+  if (filters.status && filters.status !== "all") {
+    // Filter chips speak PAYMENT_STATUSES, the column stores TRANSACTION_STATUSES.
+    const wanted = normalizePaymentStatus(filters.status);
+    const underlying = TRANSACTION_STATUS_FOR_PAYMENT_STATUS[wanted] ?? [];
+    query = query.in("status", underlying.length ? underlying : [filters.status]);
+  }
+
   if (filters.search) {
     const term = `%${filters.search.trim()}%`;
     query = query.or(`transaction_reference.ilike.${term},email.ilike.${term}`);
