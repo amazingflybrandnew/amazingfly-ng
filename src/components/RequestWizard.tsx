@@ -297,7 +297,10 @@ console.log("QUOTE CHECK", {
       const contactChoice = answers["preferred_contact"] ?? "WhatsApp";
       console.log("CATEGORY CHECK", category);
       console.log("SUBMIT ANSWERS", answers);
-      const result = await sendRequest({
+      console.log("SEND DATA", {
+  service_category: category.id,
+  duration_of_stay: answers["duration_of_stay"],
+});      const result = await sendRequest({
         data: {
           request_reference: reference,
           service_type: catalogueItem?.name ?? category.name,
