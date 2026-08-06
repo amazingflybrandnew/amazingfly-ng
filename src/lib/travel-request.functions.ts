@@ -187,9 +187,12 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
 
     // Quotation mode is derived server-side from the visa stay duration only.
     // Multiple entry and normal tourist/visit/business answers remain payable.
-    const durationOfStay = data.answers.find((answer) => answer.id === "duration_of_stay")?.answer;
-    const requiresQuote =
-      data.service_category === "visa" && isLongStayDuration(durationOfStay);
+    const durationOfStay = data.answers.find(
+      (answer) =>
+        answer.id.toLowerCase() === "duration_of_stay" ||
+        answer.question.toLowerCase() === "duration of stay",
+    )?.answer;
+    const requiresQuote = data.service_category === "visa" && isLongStayDuration(durationOfStay);
     const requestAmount = requiresQuote ? null : (data.amount ?? null);
 
     const dynamicRow = {
