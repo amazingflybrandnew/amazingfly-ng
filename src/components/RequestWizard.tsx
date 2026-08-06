@@ -122,7 +122,7 @@ export function RequestWizard({
     }
     return undefined;
   }, [answers]);
-  const requiresQuote = needsCustomQuote(catalogueItem, answers["duration_of_stay"]);
+  const requiresQuote = false;
   const sections: Section[] = useMemo(() => (category ? buildSections(category) : []), [category]);
   const documents = useMemo(
     () => (category ? category.documents.filter((d) => isVisible(d, answers)) : []),
@@ -131,8 +131,8 @@ export function RequestWizard({
 
   // Fixed-price catalogue services continue into a payment step after review.
   const payableService = Boolean(
-    catalogueItem && !requiresQuote && (catalogueItem.price ?? 0) > 0,
-  );
+  catalogueItem && (catalogueItem.price ?? 0) > 0
+);
 
   const stepLabels = useMemo(
     () => ["Service", ...sections.map((s) => s.title), "Documents", "Review"],
