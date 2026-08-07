@@ -55,7 +55,10 @@ export const saveServicePackage = createServerFn({ method: "POST" })
       ...data,
       serviceType: data.serviceType ?? "Service",
     });
-    if (result.ok) await logAdminAction(who, `Saved service package ${data.name}`);
+    if (result.ok) await logAdminAction(who, `Saved service package ${data.name}`, {
+        type: "service_package",
+        id: result.ok ? (data.id ?? null) : null,
+      });
     return result;
   });
 
@@ -69,7 +72,10 @@ export const toggleServicePackage = createServerFn({ method: "POST" })
     const { setPackageActive } = await import("./packages.server");
     const result = await setPackageActive(data.id, data.active);
     if (result.ok) {
-      await logAdminAction(who, `${data.active ? "Activated" : "Deactivated"} package ${data.id}`);
+      await logAdminAction(who, `${data.active ? "Activated" : "Deactivated"} package ${data.id}`, {
+        type: "service_package",
+        id: data.id,
+      });
     }
     return result;
   });
@@ -83,6 +89,9 @@ export const deleteServicePackage = createServerFn({ method: "POST" })
     const who = await requireAdmin("manage_services");
     const { deletePackage } = await import("./packages.server");
     const result = await deletePackage(data.id);
-    if (result.ok) await logAdminAction(who, `Removed package ${data.id}`);
+    if (result.ok) await logAdminAction(who, `Removed package ${data.id}`, {
+      type: "service_package",
+      id: data.id,
+    });
     return result;
   });
