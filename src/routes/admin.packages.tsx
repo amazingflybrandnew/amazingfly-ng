@@ -169,7 +169,7 @@ function AdminPackagesPage() {
   });
 
   return (
-    <AdminShell title="Service packages" description="Define the packages customers can choose.">
+    <AdminShell title="Service packages" subtitle="Define the packages customers can choose.">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button
           type="button"
