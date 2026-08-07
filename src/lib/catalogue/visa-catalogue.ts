@@ -468,6 +468,42 @@ export function catalogueGroups(category?: CatalogueCategory) {
   return Array.from(groups.entries()).map(([country, options]) => ({ country, options }));
 }
 
+/**
+ * Destinations (countries) that have at least one active package inside a
+ * category. Used by the customer flow: category → destination → package.
+ */
+export function packageDestinations(
+  category: CatalogueCategory,
+  items: CatalogueItem[] = ACTIVE_CATALOGUE,
+): Array<{ country: string; flag?: string; count: number }> {
+  const map = new Map<string, { country: string; flag?: string; count: number }>();
+  for (const item of items) {
+    if (!item.active || item.category !== category) continue;
+    const current = map.get(item.country);
+    map.set(item.country, {
+      country: item.country,
+      ...(item.flag ? { flag: item.flag } : current?.flag ? { flag: current.flag } : {}),
+      count: (current?.count ?? 0) + 1,
+    });
+  }
+  return Array.from(map.values()).sort((a, b) => a.country.localeCompare(b.country));
+}
+
+/** Active packages inside a category, optionally narrowed to one destination. */
+export function packagesFor(
+  category: CatalogueCategory,
+  country?: string | undefined,
+  items: CatalogueItem[] = ACTIVE_CATALOGUE,
+): CatalogueItem[] {
+  return items.filter(
+    (item) =>
+      item.active &&
+      item.category === category &&
+      (!country || item.country.toLowerCase() === country.toLowerCase()),
+  );
+}
+
+
 export function formatNaira(amount: number): string {
   return new Intl.NumberFormat("en-NG", {
     style: "currency",
