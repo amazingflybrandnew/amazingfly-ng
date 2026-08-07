@@ -35,6 +35,15 @@ export type Question = {
   showIf?: { id: string; equals: string[] };
   min?: number;
   max?: number;
+  /** For `catalogue` questions: which service category's packages to offer. */
+  catalogueCategory?:
+    | "visa"
+    | "flights"
+    | "hotels"
+    | "proof-of-funds"
+    | "police-character-certificate"
+    | "yellow-fever-card"
+    | "travel-insurance";
 };
 
 export type Section = {
@@ -118,8 +127,9 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
         questions: [
           {
             id: "catalogue_id",
-            label: "Visa service required",
+            label: "Visa package",
             type: "catalogue",
+            catalogueCategory: "visa",
             required: true,
           },
           {
@@ -465,6 +475,7 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
             options: [
               "Police character certificate",
               "Proof of funds",
+              "Yellow fever card",
               "Travel insurance",
               "Other documents",
             ],
