@@ -9,7 +9,14 @@
  * must price the request first (long-stay visas, bespoke work).
  */
 
-export type CatalogueCategory = "visa" | "document";
+export type CatalogueCategory =
+  | "visa"
+  | "flights"
+  | "hotels"
+  | "proof-of-funds"
+  | "police-character-certificate"
+  | "yellow-fever-card"
+  | "travel-insurance";
 
 export type CatalogueItem = {
   id: string;
@@ -19,6 +26,8 @@ export type CatalogueItem = {
   flag?: string;
   /** Customer-facing name. */
   name: string;
+  /** Customer-friendly explanation of what the package covers. */
+  description?: string;
   /** Visa/service type wording. */
   serviceType: string;
   price: number;
@@ -35,6 +44,7 @@ export type CatalogueItem = {
   requiresQuote?: boolean;
   active: boolean;
 };
+
 
 /** Shown wherever a flight or hotel itinerary is listed as supporting evidence. */
 export const ITINERARY_NOTE =
