@@ -33,15 +33,20 @@ import {
 } from "@/lib/service-forms";
 import { createDocumentUploadUrl, submitTravelRequest } from "@/lib/travel-request.functions";
 import {
+  ACTIVE_CATALOGUE,
   ITINERARY_NOTE,
   LONG_STAY_QUOTE_MESSAGE,
   PROCESSING_FAQ,
   catalogueDisplayPrice,
-  catalogueGroups,
-  findCatalogueItem,
   needsCustomQuote,
+  packageDestinations,
+  packagesFor,
+  type CatalogueCategory,
   type CatalogueItem,
 } from "@/lib/catalogue/visa-catalogue";
+import { findCategoryGroup } from "@/lib/catalogue/service-categories";
+import { getPublicPackages } from "@/lib/packages.functions";
+import { useQuery } from "@tanstack/react-query";
 
 type UploadedDoc = {
   id: string;
