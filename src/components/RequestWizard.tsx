@@ -479,6 +479,7 @@ export function RequestWizard({
                   answers={answers}
                   errors={errors}
                   onChange={set}
+                  packages={packages}
                 />
                 {catalogueItem ? (
                   <CataloguePanel item={catalogueItem} requiresQuote={requiresQuote} />
@@ -623,11 +624,13 @@ function QuestionGrid({
   answers,
   errors,
   onChange,
+  packages,
 }: {
   questions: Question[];
   answers: Answers;
   errors: Record<string, string>;
   onChange: (id: string, value: string) => void;
+  packages: CatalogueItem[];
 }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -638,6 +641,7 @@ function QuestionGrid({
             value={answers[question.id] ?? ""}
             error={errors[question.id]}
             onChange={onChange}
+            packages={packages}
           />
         </div>
       ))}
@@ -650,11 +654,13 @@ function QuestionField({
   value,
   error,
   onChange,
+  packages,
 }: {
   question: Question;
   value: string;
   error?: string | undefined;
   onChange: (id: string, value: string) => void;
+  packages: CatalogueItem[];
 }) {
   const common = {
     value,
@@ -707,22 +713,12 @@ function QuestionField({
           ))}
         </select>
       ) : question.type === "catalogue" ? (
-        <select
-          className={selectClass}
+        <PackagePicker
+          packages={packages}
+          category={question.catalogueCategory ?? "visa"}
           value={value}
-          onChange={(e) => onChange(question.id, e.target.value)}
-        >
-          <option value="">Select a service</option>
-          {catalogueGroups("visa").map((group) => (
-            <optgroup key={group.country} label={group.country}>
-              {group.options.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} — {catalogueDisplayPrice(item)}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+          onChange={(next) => onChange(question.id, next)}
+        />
       ) : question.type === "country" ? (
         <select
           className={selectClass}
@@ -1057,6 +1053,103 @@ function CataloguePanel({
           ))}
         </div>
       </details>
+    </div>
+  );
+}
+
+/**
+ * Customer package selection: destination first, then the packages available
+ * for that destination. Purely presentational — it only reports the selected
+ * package id back to the wizard.
+ */
+function PackagePicker({
+  packages,
+  category,
+  value,
+  onChange,
+}: {
+  packages: CatalogueItem[];
+  category: CatalogueCategory;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const group = findCategoryGroup(category);
+  const destinations = useMemo(
+    () => packageDestinations(category, packages),
+    [category, packages],
+  );
+  const selected = packages.find((item) => item.id === value);
+  const [destination, setDestination] = useState<string>(selected?.country ?? "");
+  const options = useMemo(
+    () => (destination ? packagesFor(category, destination, packages) : []),
+    [category, destination, packages],
+  );
+
+  return (
+    <div className="space-y-4">
+      {group ? <p className="text-sm text-muted-foreground">{group.explanation}</p> : null}
+
+      <select
+        className={selectClass}
+        value={destination}
+        onChange={(event) => {
+          setDestination(event.target.value);
+          onChange("");
+        }}
+        aria-label="Destination"
+      >
+        <option value="">Select destination</option>
+        {destinations.map((entry) => (
+          <option key={entry.country} value={entry.country}>
+            {entry.flag ? `${entry.flag} ` : ""}
+            {entry.country} ({entry.count})
+          </option>
+        ))}
+      </select>
+
+      {destination ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {options.map((item) => {
+            const active = item.id === value;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onChange(item.id)}
+                className={`rounded-2xl border p-4 text-left transition ${
+                  active
+                    ? "border-coral bg-peach-tint shadow-card"
+                    : "border-border/70 bg-white/70 hover:border-sky/60"
+                }`}
+              >
+                <span className="flex items-start justify-between gap-3">
+                  <span className="text-sm font-bold text-navy">{item.name}</span>
+                  {active ? <Check className="h-4 w-4 shrink-0 text-coral" /> : null}
+                </span>
+                {item.description ? (
+                  <span className="mt-1.5 block text-xs leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </span>
+                ) : null}
+                <span className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy-soft">
+                  <span className="font-extrabold text-navy">
+                    {item.requiresQuote || item.price <= 0
+                      ? "Quotation"
+                      : catalogueDisplayPrice(item)}
+                  </span>
+                  {item.processingTime ? <span>{item.processingTime}</span> : null}
+                </span>
+              </button>
+            );
+          })}
+          {options.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No packages are published for this destination yet — pick another destination or
+              contact our specialists.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
