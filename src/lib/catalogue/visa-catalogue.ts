@@ -9,7 +9,14 @@
  * must price the request first (long-stay visas, bespoke work).
  */
 
-export type CatalogueCategory = "visa" | "document";
+export type CatalogueCategory =
+  | "visa"
+  | "flights"
+  | "hotels"
+  | "proof-of-funds"
+  | "police-character-certificate"
+  | "yellow-fever-card"
+  | "travel-insurance";
 
 export type CatalogueItem = {
   id: string;
@@ -19,6 +26,8 @@ export type CatalogueItem = {
   flag?: string;
   /** Customer-facing name. */
   name: string;
+  /** Customer-friendly explanation of what the package covers. */
+  description?: string;
   /** Visa/service type wording. */
   serviceType: string;
   price: number;
@@ -35,6 +44,7 @@ export type CatalogueItem = {
   requiresQuote?: boolean;
   active: boolean;
 };
+
 
 /** Shown wherever a flight or hotel itinerary is listed as supporting evidence. */
 export const ITINERARY_NOTE =
@@ -349,11 +359,42 @@ export const CATALOGUE: CatalogueItem[] = [
   },
   ...SCHENGEN_ITEMS,
   {
+    id: "uae-tourist-30-days",
+    category: "visa",
+    country: "United Arab Emirates",
+    flag: "🇦🇪",
+    name: "UAE Tourist Visa — 30 Days",
+    description: "Single entry tourist visa for a stay of up to 30 days in the UAE.",
+    serviceType: "Tourist",
+    price: 300_000,
+    currency: "NGN",
+    processingTime: "5 – 7 working days",
+    validity: "30 days",
+    requirements: [...PASSPORT_BASICS],
+    active: true,
+  },
+  {
+    id: "uae-multiple-entry",
+    category: "visa",
+    country: "United Arab Emirates",
+    flag: "🇦🇪",
+    name: "UAE Multiple Entry Visa",
+    description: "Multiple entry visa for travellers making more than one trip to the UAE.",
+    serviceType: "Tourist",
+    price: 500_000,
+    currency: "NGN",
+    processingTime: "7 – 10 working days",
+    requirements: [...PASSPORT_BASICS],
+    active: true,
+  },
+  {
     id: "police-character-certificate",
-    category: "document",
+    category: "police-character-certificate",
     country: "Nigeria",
     flag: "🇳🇬",
     name: "Police Character Certificate",
+    description:
+      "Nigerian police character certificate, processed after your biometric capturing appointment.",
     serviceType: "Travel document",
     price: 50_000,
     currency: "NGN",
@@ -361,6 +402,52 @@ export const CATALOGUE: CatalogueItem[] = [
     requirements: [...PASSPORT_BASICS],
     active: true,
   },
+  {
+    id: "proof-of-funds-support",
+    category: "proof-of-funds",
+    country: "Nigeria",
+    flag: "🇳🇬",
+    name: "Proof of Funds Support",
+    description:
+      "Guidance on the financial evidence your embassy expects, and help assembling it correctly.",
+    serviceType: "Travel document",
+    price: 0,
+    currency: "NGN",
+    processingTime: "Confirmed with your specialist",
+    requirements: [...PASSPORT_BASICS, "Bank statement"],
+    requiresQuote: true,
+    active: true,
+  },
+  {
+    id: "yellow-fever-card-support",
+    category: "yellow-fever-card",
+    country: "Nigeria",
+    flag: "🇳🇬",
+    name: "Yellow Fever Card Assistance",
+    description: "Assistance obtaining the yellow fever vaccination card required by many destinations.",
+    serviceType: "Travel document",
+    price: 0,
+    currency: "NGN",
+    processingTime: "Confirmed with your specialist",
+    requirements: [...PASSPORT_BASICS],
+    requiresQuote: true,
+    active: true,
+  },
+  {
+    id: "travel-insurance-cover",
+    category: "travel-insurance",
+    country: "Worldwide",
+    name: "Travel Medical Insurance",
+    description: "Embassy-accepted travel medical insurance for the length of your trip.",
+    serviceType: "Insurance",
+    price: 0,
+    currency: "NGN",
+    processingTime: "Confirmed with your specialist",
+    requirements: [...PASSPORT_BASICS],
+    requiresQuote: true,
+    active: true,
+  },
+
 ];
 
 export const ACTIVE_CATALOGUE = CATALOGUE.filter((item) => item.active);
@@ -380,6 +467,42 @@ export function catalogueGroups(category?: CatalogueCategory) {
   }
   return Array.from(groups.entries()).map(([country, options]) => ({ country, options }));
 }
+
+/**
+ * Destinations (countries) that have at least one active package inside a
+ * category. Used by the customer flow: category → destination → package.
+ */
+export function packageDestinations(
+  category: CatalogueCategory,
+  items: CatalogueItem[] = ACTIVE_CATALOGUE,
+): Array<{ country: string; flag?: string; count: number }> {
+  const map = new Map<string, { country: string; flag?: string; count: number }>();
+  for (const item of items) {
+    if (!item.active || item.category !== category) continue;
+    const current = map.get(item.country);
+    map.set(item.country, {
+      country: item.country,
+      ...(item.flag ? { flag: item.flag } : current?.flag ? { flag: current.flag } : {}),
+      count: (current?.count ?? 0) + 1,
+    });
+  }
+  return Array.from(map.values()).sort((a, b) => a.country.localeCompare(b.country));
+}
+
+/** Active packages inside a category, optionally narrowed to one destination. */
+export function packagesFor(
+  category: CatalogueCategory,
+  country?: string | undefined,
+  items: CatalogueItem[] = ACTIVE_CATALOGUE,
+): CatalogueItem[] {
+  return items.filter(
+    (item) =>
+      item.active &&
+      item.category === category &&
+      (!country || item.country.toLowerCase() === country.toLowerCase()),
+  );
+}
+
 
 export function formatNaira(amount: number): string {
   return new Intl.NumberFormat("en-NG", {

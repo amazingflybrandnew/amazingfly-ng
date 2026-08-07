@@ -34,6 +34,7 @@ import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
+import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
@@ -178,6 +179,11 @@ const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
   path: '/admin/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPackagesRoute = AdminPackagesRouteImport.update({
+  id: '/admin/packages',
+  path: '/admin/packages',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
   id: '/admin/payments',
   path: '/admin/payments',
@@ -296,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -341,6 +348,7 @@ export interface FileRoutesByTo {
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -387,6 +395,7 @@ export interface FileRoutesById {
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
+  '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -434,6 +443,7 @@ export interface FileRouteTypes {
     | '/admin/destinations'
     | '/admin/messages'
     | '/admin/notifications'
+    | '/admin/packages'
     | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
@@ -479,6 +489,7 @@ export interface FileRouteTypes {
     | '/admin/destinations'
     | '/admin/messages'
     | '/admin/notifications'
+    | '/admin/packages'
     | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
@@ -524,6 +535,7 @@ export interface FileRouteTypes {
     | '/admin/destinations'
     | '/admin/messages'
     | '/admin/notifications'
+    | '/admin/packages'
     | '/admin/payments'
     | '/admin/services'
     | '/admin/services-content'
@@ -570,6 +582,7 @@ export interface RootRouteChildren {
   AdminDestinationsRoute: typeof AdminDestinationsRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminPackagesRoute: typeof AdminPackagesRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
@@ -768,6 +781,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/packages': {
+      id: '/admin/packages'
+      path: '/admin/packages'
+      fullPath: '/admin/packages'
+      preLoaderRoute: typeof AdminPackagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/payments': {
       id: '/admin/payments'
       path: '/admin/payments'
@@ -922,6 +942,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminDestinationsRoute: AdminDestinationsRoute,
   AdminMessagesRoute: AdminMessagesRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminPackagesRoute: AdminPackagesRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
@@ -945,13 +966,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
