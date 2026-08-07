@@ -119,14 +119,34 @@ export function RequestWizard({
   }, [initialFrom, initialTo, initialService]);
 
   const category = useMemo(() => findCategory(categoryId), [categoryId]);
+
+  // Packages come from the admin-managed catalogue; the bundled list is the
+  // fallback so the wizard still works if the table is unreachable.
+  const fetchPackages = useServerFn(getPublicPackages);
+  const packagesQuery = useQuery({
+    queryKey: ["packages", "public"],
+    queryFn: () => fetchPackages(),
+    staleTime: 5 * 60_000,
+  });
+  const packages = useMemo<CatalogueItem[]>(
+    () => (packagesQuery.data && packagesQuery.data.length ? packagesQuery.data : ACTIVE_CATALOGUE),
+    [packagesQuery.data],
+  );
+
   const catalogueItem = useMemo<CatalogueItem | undefined>(() => {
-    const direct = findCatalogueItem(answers["catalogue_id"]);
+    const direct = packages.find((item) => item.id === answers["catalogue_id"]);
     if (direct) return direct;
-    if ((answers["document_service"] ?? "") === "Police character certificate") {
-      return findCatalogueItem("police-character-certificate");
-    }
-    return undefined;
-  }, [answers]);
+    const documentService = answers["document_service"] ?? "";
+    const byDocument: Record<string, string> = {
+      "Police character certificate": "police-character-certificate",
+      "Proof of funds": "proof-of-funds-support",
+      "Travel insurance": "travel-insurance-cover",
+      "Yellow fever card": "yellow-fever-card-support",
+    };
+    const mapped = byDocument[documentService];
+    return mapped ? packages.find((item) => item.id === mapped) : undefined;
+  }, [answers, packages]);
+
   const requiresQuote = false;
   const sections: Section[] = useMemo(() => (category ? buildSections(category) : []), [category]);
   const documents = useMemo(
