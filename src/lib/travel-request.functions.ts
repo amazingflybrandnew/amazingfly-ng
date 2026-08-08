@@ -212,6 +212,16 @@ const requestAmount = data.amount ?? null;
       .maybeSingle();
 
     // 42703 = column does not exist (dynamic columns not migrated yet).
+    // First drop only the newest column (package_name), then fall back fully.
+    if (requestError?.code === "42703" || requestError?.code === "PGRST204") {
+      const { package_name: _omit, ...withoutPackageName } = dynamicRow;
+      ({ data: request, error: requestError } = await supabase
+        .from("service_requests")
+        .insert(withoutPackageName)
+        .select("id")
+        .maybeSingle());
+    }
+
     if (requestError?.code === "42703" || requestError?.code === "PGRST204") {
       ({ data: request, error: requestError } = await supabase
         .from("service_requests")
