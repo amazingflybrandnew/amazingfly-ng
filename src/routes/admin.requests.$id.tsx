@@ -409,7 +409,6 @@ function AdminRequestDetailPage() {
                 value={request.service_type || request.service_category}
               />
               <Field label="Purpose" value={request.travel_purpose} />
-              <Field label="Purpose" value={request.travel_purpose} />
               <Field label="Travel date" value={formatDate(request.travel_date)} />
               <Field label="Return date" value={formatDate(request.return_date)} />
             </div>
