@@ -346,6 +346,60 @@ function AdminRequestDetailPage() {
             </div>
           </Panel>
 
+          <Panel title="Selected package">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Package" value={packageName ?? "—"} />
+              <Field
+                label="Package price"
+                value={
+                  selectedPackage?.price
+                    ? formatMoney(selectedPackage.price, selectedPackage.currency || "NGN")
+                    : "Confirmed by our specialists"
+                }
+              />
+              <Field label="Destination" value={selectedPackage?.destination || request.destination_country} />
+              <Field label="Service category" value={selectedPackage?.category || request.service_category} />
+              <Field
+                label="Processing time"
+                value={packageProcessing || "Confirmed by our specialists"}
+              />
+              <Field label="Package ID" value={selectedPackage?.id ?? request.catalogue_id ?? "—"} />
+            </div>
+            {selectedPackage?.description ? (
+              <p className="mt-5 rounded-2xl bg-white/70 p-4 text-sm leading-relaxed text-navy-soft">
+                {selectedPackage.description}
+              </p>
+            ) : null}
+            {selectedPackage && (selectedPackage.requirements.length || selectedPackage.optionalDocuments.length) ? (
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                {selectedPackage.requirements.length ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-navy-soft">
+                      Required documents
+                    </p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-navy">
+                      {selectedPackage.requirements.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {selectedPackage.optionalDocuments.length ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-navy-soft">
+                      Optional documents
+                    </p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-navy">
+                      {selectedPackage.optionalDocuments.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </Panel>
+
           <Panel title="Service & travel information">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Origin" value={request.origin_country} />
@@ -354,11 +408,7 @@ function AdminRequestDetailPage() {
                 label="Service type"
                 value={request.service_type || request.service_category}
               />
-              <Field label="Service selected" value={catalogueItem?.name ?? "—"} />
-              <Field
-                label="Expected processing time"
-                value={catalogueItem?.processingTime ?? "Confirmed by our specialists"}
-              />
+              <Field label="Purpose" value={request.travel_purpose} />
               <Field label="Purpose" value={request.travel_purpose} />
               <Field label="Travel date" value={formatDate(request.travel_date)} />
               <Field label="Return date" value={formatDate(request.return_date)} />
