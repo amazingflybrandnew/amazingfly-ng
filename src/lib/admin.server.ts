@@ -474,6 +474,19 @@ export type AdminActivity = {
   created_at: string;
 };
 
+export type AdminSelectedPackage = {
+  id: string | null;
+  name: string;
+  category: string;
+  destination: string;
+  price: number | null;
+  currency: string;
+  processingTime: string;
+  description: string;
+  requirements: string[];
+  optionalDocuments: string[];
+};
+
 export type AdminRequestDetail = {
   request: AdminRequestRow & {
     nationality: string;
@@ -485,12 +498,73 @@ export type AdminRequestDetail = {
     request_details: string;
     answers: { label: string; value: string }[];
   };
+  selectedPackage: AdminSelectedPackage | null;
   documents: AdminDocument[];
   documentRequests: AdminDocumentRequest[];
   notes: AdminNote[];
   activity: AdminActivity[];
   staff: { id: string; full_name: string; role: AdminRole }[];
 };
+
+/** Snapshot of the package the customer selected, from the live catalogue when
+ * it still exists, otherwise from the values stored on the request itself. */
+async function loadSelectedPackage(
+  record: Record<string, unknown>,
+): Promise<AdminSelectedPackage | null> {
+  const catalogueId = record["catalogue_id"] ? String(record["catalogue_id"]) : null;
+  const storedName = record["package_name"] ? String(record["package_name"]) : "";
+  const storedPrice = record["amount"] === null || record["amount"] === undefined
+    ? null
+    : Number(record["amount"]);
+  const currency = str(record, "currency", "NGN") || "NGN";
+  const destination = str(record, "destination_country");
+  const category = str(record, "service_category");
+
+  if (catalogueId) {
+    try {
+      const supabase = await admin();
+      const { data } = await supabase
+        .from("service_catalogue")
+        .select("*")
+        .eq("id", catalogueId)
+        .maybeSingle();
+      if (data) {
+        const row = data as Record<string, unknown>;
+        const arr = (key: string) =>
+          Array.isArray(row[key]) ? (row[key] as unknown[]).map(String).filter(Boolean) : [];
+        return {
+          id: catalogueId,
+          name: str(row, "name", storedName || catalogueId),
+          category: str(row, "category", category),
+          destination: str(row, "country", destination),
+          price: storedPrice ?? (row["price"] === null ? null : Number(row["price"] ?? 0)),
+          currency: str(row, "currency", currency) || currency,
+          processingTime: str(row, "processing_time"),
+          description: str(row, "description"),
+          requirements: arr("requirements"),
+          optionalDocuments: arr("optional_documents"),
+        };
+      }
+    } catch (error) {
+      console.error("[admin] selected package lookup", error);
+    }
+  }
+
+  if (!catalogueId && !storedName) return null;
+
+  return {
+    id: catalogueId,
+    name: storedName || catalogueId || "Package",
+    category,
+    destination,
+    price: storedPrice,
+    currency,
+    processingTime: "",
+    description: "",
+    requirements: [],
+    optionalDocuments: [],
+  };
+}
 
 function readAnswers(row: Record<string, unknown>): { label: string; value: string }[] {
   const raw = row["answers"];
@@ -634,6 +708,8 @@ export async function loadAdminRequestDetail(
     if (payment.amount) shaped.payment_amount = payment.amount;
   }
 
+  const selectedPackage = await loadSelectedPackage(record);
+
   return {
     request: {
       ...shaped,
@@ -646,6 +722,7 @@ export async function loadAdminRequestDetail(
       request_details: str(record, "request_details"),
       answers: readAnswers(record),
     },
+    selectedPackage,
     documents,
     documentRequests,
     notes,

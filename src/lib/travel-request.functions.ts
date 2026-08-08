@@ -49,6 +49,7 @@ const submissionSchema = z
     passport_issue_date: dateish,
     passport_expiry_date: dateish,
     catalogue_id: z.string().trim().max(80).nullable().optional(),
+    package_name: z.string().trim().max(200).nullable().optional(),
     amount: z.number().nonnegative().max(1_000_000_000).nullable().optional(),
     currency: z.string().trim().max(8).optional(),
     requires_quote: z.boolean().optional(),
@@ -197,6 +198,7 @@ const requestAmount = data.amount ?? null;
       service_category: data.service_category,
       answers: data.answers,
       catalogue_id: data.catalogue_id ?? null,
+      package_name: data.package_name ?? null,
       amount: requestAmount,
       currency: data.currency ?? "NGN",
       requires_quote: requiresQuote,
@@ -210,6 +212,16 @@ const requestAmount = data.amount ?? null;
       .maybeSingle();
 
     // 42703 = column does not exist (dynamic columns not migrated yet).
+    // First drop only the newest column (package_name), then fall back fully.
+    if (requestError?.code === "42703" || requestError?.code === "PGRST204") {
+      const { package_name: _omit, ...withoutPackageName } = dynamicRow;
+      ({ data: request, error: requestError } = await supabase
+        .from("service_requests")
+        .insert(withoutPackageName)
+        .select("id")
+        .maybeSingle());
+    }
+
     if (requestError?.code === "42703" || requestError?.code === "PGRST204") {
       ({ data: request, error: requestError } = await supabase
         .from("service_requests")
