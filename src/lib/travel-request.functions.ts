@@ -198,6 +198,7 @@ const requestAmount = data.amount ?? null;
       service_category: data.service_category,
       answers: data.answers,
       catalogue_id: data.catalogue_id ?? null,
+      package_name: data.package_name ?? null,
       amount: requestAmount,
       currency: data.currency ?? "NGN",
       requires_quote: requiresQuote,
