@@ -49,6 +49,7 @@ const submissionSchema = z
     passport_issue_date: dateish,
     passport_expiry_date: dateish,
     catalogue_id: z.string().trim().max(80).nullable().optional(),
+    package_name: z.string().trim().max(200).nullable().optional(),
     amount: z.number().nonnegative().max(1_000_000_000).nullable().optional(),
     currency: z.string().trim().max(8).optional(),
     requires_quote: z.boolean().optional(),

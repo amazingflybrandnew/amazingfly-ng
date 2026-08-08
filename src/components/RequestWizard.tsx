@@ -360,6 +360,7 @@ export function RequestWizard({
               file_size: d.fileSize,
             })),
           catalogue_id: catalogueItem?.id ?? null,
+          package_name: catalogueItem?.name ?? null,
           amount: catalogueItem && !requiresQuote ? catalogueItem.price : null,
           currency: "NGN",
           requires_quote: requiresQuote,
