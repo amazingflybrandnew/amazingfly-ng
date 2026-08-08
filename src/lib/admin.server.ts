@@ -708,6 +708,8 @@ export async function loadAdminRequestDetail(
     if (payment.amount) shaped.payment_amount = payment.amount;
   }
 
+  const selectedPackage = await loadSelectedPackage(record);
+
   return {
     request: {
       ...shaped,
