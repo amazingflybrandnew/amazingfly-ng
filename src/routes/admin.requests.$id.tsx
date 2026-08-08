@@ -296,7 +296,7 @@ function AdminRequestDetailPage() {
     );
   }
 
-  const { request, documents, documentRequests, notes, activity, staff } = data;
+  const { request, selectedPackage, documents, documentRequests, notes, activity, staff } = data;
   const docProgress = summariseDocuments(documents);
   const missing = documentRequests.filter(
     (item) => item.uploaded_status === "pending" || item.uploaded_status === "rejected",
@@ -307,6 +307,9 @@ function AdminRequestDetailPage() {
   const amountDue = request.payment_amount ?? 0;
   const canProcess = paid || amountDue <= 0;
   const catalogueItem = findCatalogueItem(request.catalogue_id);
+  const packageName = selectedPackage?.name ?? catalogueItem?.name ?? null;
+  const packageProcessing =
+    selectedPackage?.processingTime || catalogueItem?.processingTime || "";
 
 
   return (
