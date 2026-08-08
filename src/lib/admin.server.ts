@@ -722,6 +722,7 @@ export async function loadAdminRequestDetail(
       request_details: str(record, "request_details"),
       answers: readAnswers(record),
     },
+    selectedPackage,
     documents,
     documentRequests,
     notes,
