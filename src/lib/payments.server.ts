@@ -227,7 +227,7 @@ function shapePayment(row: Record<string, unknown>): PaymentRecord {
     request_id: String(row["request_id"] ?? ""),
     amount: row["amount"] === null || row["amount"] === undefined ? null : Number(row["amount"]),
     currency: String(row["currency"] ?? CURRENCY),
-    payment_provider: String(row["payment_provider"] ?? "offline"),
+    payment_provider: String(row["provider"] ?? row["payment_provider"] ?? "offline"),
     transaction_reference: String(row["transaction_reference"] ?? ""),
     status: normalizePaymentStatus(row["status"]),
     created_at: String(row["created_at"] ?? ""),
@@ -237,11 +237,14 @@ function shapePayment(row: Record<string, unknown>): PaymentRecord {
 async function paymentsForRequests(requestIds: string[]): Promise<PaymentRecord[]> {
   if (!requestIds.length) return [];
   const supabase = await admin();
+  // Live payments live in `payment_transactions` (the legacy `payments` table
+  // is unused), and the provider column there is called `provider`.
   const { data, error } = await supabase
-    .from("payments")
-    .select("id, request_id, amount, currency, payment_provider, transaction_reference, status, created_at")
+    .from("payment_transactions")
+    .select("id, request_id, amount, currency, provider, transaction_reference, status, created_at")
     .in("request_id", requestIds)
     .order("created_at", { ascending: false });
+
   if (error) {
     console.error("[payments] list", error.message);
     return [];
@@ -432,10 +435,24 @@ export async function loadAdminPayments(filters: {
   search?: string | undefined;
 }): Promise<{ rows: AdminPaymentRow[]; totals: Record<string, number>; revenue: number }> {
   const supabase = await admin();
+
+  // `payment_transactions` has no `email` column — the customer email lives on
+  // `service_requests`, so a search term is resolved to request ids first.
+  let searchRequestIds: string[] | null = null;
+  const term = filters.search?.trim() ?? "";
+  if (term) {
+    const { data: matches } = await supabase
+      .from("service_requests")
+      .select("id")
+      .or(`email.ilike.%${term}%,request_reference.ilike.%${term}%`)
+      .limit(300);
+    searchRequestIds = (matches ?? []).map((row) => String((row as Record<string, unknown>)["id"]));
+  }
+
   let query = supabase
     .from("payment_transactions")
     .select(
-      "id, request_id, email, amount, currency, payment_provider, transaction_reference, status, created_at",
+      "id, request_id, amount, currency, provider, transaction_reference, status, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(300);
@@ -447,9 +464,11 @@ export async function loadAdminPayments(filters: {
     query = query.in("status", underlying.length ? underlying : [filters.status]);
   }
 
-  if (filters.search) {
-    const term = `%${filters.search.trim()}%`;
-    query = query.or(`transaction_reference.ilike.${term},email.ilike.${term}`);
+  if (term) {
+    const ids = searchRequestIds ?? [];
+    query = ids.length
+      ? query.or(`transaction_reference.ilike.%${term}%,request_id.in.(${ids.join(",")})`)
+      : query.ilike("transaction_reference", `%${term}%`);
   }
 
   const { data, error } = await query;
@@ -465,7 +484,7 @@ export async function loadAdminPayments(filters: {
   if (requestIds.length) {
     const { data: requestRows } = await supabase
       .from("service_requests")
-      .select("id, request_reference, service_type, destination_country, payment_status")
+      .select("id, request_reference, service_type, destination_country, payment_status, email")
       .in("id", requestIds);
     (requestRows ?? []).forEach((row) => {
       requestsById.set(String((row as Record<string, unknown>)["id"]), row as Record<string, unknown>);
@@ -477,13 +496,15 @@ export async function loadAdminPayments(filters: {
     const request = requestsById.get(base.request_id);
     return {
       ...base,
-      email: String(row["email"] ?? ""),
+      email: String(request?.["email"] ?? ""),
       request_reference: String(request?.["request_reference"] ?? ""),
       service_type: (request?.["service_type"] as string | null) ?? null,
       destination_country: (request?.["destination_country"] as string | null) ?? null,
       request_payment_status: normalizePaymentStatus(request?.["payment_status"]),
     };
   });
+
+
 
   const totals: Record<string, number> = {};
   let revenue = 0;
