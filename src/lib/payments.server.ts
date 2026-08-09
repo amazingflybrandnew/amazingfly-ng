@@ -521,11 +521,17 @@ export async function adminSetPaymentStatus(
   status: PaymentStatus,
 ): Promise<{ ok: boolean; message?: string; request_id?: string }> {
   const supabase = await admin();
+  // The admin dropdown speaks PAYMENT_STATUSES; the column stores
+  // TRANSACTION_STATUSES, so translate before writing.
+  const transactionStatus = TRANSACTION_STATUS_FOR_PAYMENT_STATUS[status]?.[0] ?? "pending";
   const { data, error } = await supabase
-    .from("payments")
-    .update({ status })
+    .from("payment_transactions")
+    .update({
+      status: transactionStatus,
+      ...(status === "payment_received" ? { paid_at: new Date().toISOString() } : {}),
+    })
     .eq("id", paymentId)
-    .select("id, request_id, transaction_reference")
+    .select("id, request_id, transaction_reference, amount")
     .maybeSingle();
   if (error || !data) {
     return { ok: false, message: error?.message ?? "Payment not found." };
@@ -536,12 +542,8 @@ export async function adminSetPaymentStatus(
   if (requestId && status === "payment_received") {
     const { notifyPaymentReceived } = await import("./notifications.server");
     const { formatMoney } = await import("./payment-status");
-    const { data: paid } = await supabase
-      .from("payments")
-      .select("amount, currency")
-      .eq("id", paymentId)
-      .maybeSingle();
-    const amount = paid ? (paid as Record<string, unknown>)["amount"] : null;
+    const amount = row["amount"] ?? null;
+
     await notifyPaymentReceived({
       requestId,
       amountLabel: formatMoney(amount === null || amount === undefined ? null : Number(amount), CURRENCY),
