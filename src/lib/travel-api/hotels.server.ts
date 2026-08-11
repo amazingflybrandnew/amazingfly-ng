@@ -373,7 +373,7 @@ export async function getHotelDetails(
     rooms: [],
     amenities: Array.from(new Set(amenities)),
     price: 0,
-    currency: "NGN",
+    currency: "USD",
     availability: false,
     description: flatten(info.description_struct),
     policies: flatten(info.policy_struct),
