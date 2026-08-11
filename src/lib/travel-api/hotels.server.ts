@@ -2,19 +2,21 @@
  * Server-only RateHawk (Emerging Travel Group / WorldOTA B2B v3) hotel client.
  *
  * Kept out of the client bundle by the `.server.ts` naming convention.
- * Credentials are read inside function bodies from `process.env` and are never
- * exposed to the frontend. Provider-specific shapes stay inside this file —
- * callers only ever see the types from `hotel.types.ts`.
+ * All HTTP goes through the shared sandbox client in `@/lib/ratehawk.server`,
+ * which reads RATEHAWK_KEY_ID / RATEHAWK_API_TOKEN from project secrets.
  */
 
+import {
+  RateHawkApiError,
+  RateHawkAuthError,
+  ratehawkFetch,
+} from "@/lib/ratehawk.server";
 import type {
   CancellationPolicy,
   HotelResult,
   HotelSearchRequest,
   RoomResult,
 } from "./hotel.types";
-
-type RateHawkCredentials = { baseUrl: string; keyId: string; apiKey: string };
 
 export class HotelApiNotConfiguredError extends Error {
   constructor(missing: string[]) {
@@ -30,94 +32,43 @@ export class HotelApiError extends Error {
   }
 }
 
-const REQUEST_TIMEOUT_MS = 25_000;
+/** Currencies the RateHawk sandbox prices in. Anything else falls back to USD. */
+const SUPPORTED_CURRENCIES = new Set(["USD", "EUR", "GBP", "AED", "PLN", "RUB"]);
 
-/**
- * RateHawk authenticates with HTTP Basic auth: username = key id (contract
- * "KEY_ID"), password = API key. There is no token/session to refresh.
- */
-function readCredentials(): RateHawkCredentials {
-  const baseUrl =
-    process.env["RATEHAWK_API_BASE_URL"] ||
-    process.env["HOTEL_API_BASE_URL"] ||
-    "https://api.worldota.net/api/b2b/v3";
-  // Key id is the "username"; the API key is the "password".
-  const keyId = process.env["RATEHAWK_API_KEY"] || process.env["HOTEL_API_KEY"];
-  const apiKey =
-    process.env["RATEHAWK_API_SECRET"] || process.env["HOTEL_API_SECRET"];
+/** Max rates shown per hotel at this stage. */
+const MAX_RATES_PER_HOTEL = 2;
 
-  const missing = [
-    ...(keyId ? [] : ["RATEHAWK_API_KEY"]),
-    ...(apiKey ? [] : ["RATEHAWK_API_SECRET"]),
-  ];
-  if (missing.length) throw new HotelApiNotConfiguredError(missing);
+/** How many hotels we enrich with static content (hotel/info is 30 req/min). */
+const MAX_HOTELS = 12;
 
-  return { baseUrl: baseUrl.replace(/\/$/, ""), keyId: keyId!, apiKey: apiKey! };
+function providerCurrency(requested: string | undefined): string {
+  const code = (requested ?? "USD").toUpperCase();
+  return SUPPORTED_CURRENCIES.has(code) ? code : "USD";
 }
 
-function basicAuthHeader(keyId: string, apiKey: string): string {
-  const raw = `${keyId}:${apiKey}`;
-  const encoded =
-    typeof btoa === "function"
-      ? btoa(raw)
-      : Buffer.from(raw, "utf8").toString("base64");
-  return `Basic ${encoded}`;
-}
-
-type RateHawkEnvelope<T> = {
-  status?: string;
-  data?: T | null;
-  error?: string | null;
-  debug?: unknown;
-};
-
-/** POST helper with auth, timeout and consistent, user-friendly error surfacing. */
+/** POST helper delegating to the shared sandbox client, with friendly errors. */
 async function rateHawkFetch<T>(path: string, body: unknown): Promise<T | null> {
-  const { baseUrl, keyId, apiKey } = readCredentials();
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  let response: Response;
   try {
-    response = await fetch(`${baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        Authorization: basicAuthHeader(keyId, apiKey),
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body ?? {}),
-      signal: controller.signal,
-    });
+    return await ratehawkFetch<T>(`/api/b2b/v3${path}`, body);
   } catch (error) {
-    if ((error as { name?: string }).name === "AbortError") {
-      throw new HotelApiError(
-        "The hotel provider took too long to respond. Please try again.",
-      );
+    if (error instanceof RateHawkAuthError) {
+      throw new HotelApiNotConfiguredError(["RATEHAWK_KEY_ID", "RATEHAWK_API_TOKEN"]);
+    }
+    if (error instanceof RateHawkApiError) {
+      if (error.status === 401 || error.status === 403) {
+        throw new HotelApiError(
+          "Hotel provider rejected our credentials. Please contact support.",
+        );
+      }
+      if (error.status === 429) {
+        throw new HotelApiError(
+          "Too many hotel searches right now. Please retry shortly.",
+        );
+      }
+      throw new HotelApiError(friendlyProviderError(error.message, error.status));
     }
     throw new HotelApiError("Could not reach the hotel provider. Please try again.");
-  } finally {
-    clearTimeout(timer);
   }
-
-  const payload = (await response
-    .json()
-    .catch(() => null)) as RateHawkEnvelope<T> | null;
-
-  if (response.status === 401 || response.status === 403) {
-    throw new HotelApiError(
-      "Hotel provider rejected our credentials. Please contact support.",
-    );
-  }
-  if (response.status === 429) {
-    throw new HotelApiError("Too many hotel searches right now. Please retry shortly.");
-  }
-  if (!response.ok || payload?.status === "error") {
-    throw new HotelApiError(friendlyProviderError(payload?.error, response.status));
-  }
-
-  return payload?.data ?? null;
 }
 
 /** Translates RateHawk error codes into copy we can show a traveller. */
@@ -139,6 +90,7 @@ function friendlyProviderError(code: string | null | undefined, status: number):
       return `Hotel search failed (${code ?? status}). Please try again.`;
   }
 }
+
 
 /** Number of nights between two ISO dates; 0 when invalid. */
 export function nightsBetween(checkIn: string, checkOut: string): number {
