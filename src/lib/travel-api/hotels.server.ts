@@ -387,18 +387,21 @@ export async function getHotelRooms(
 ): Promise<RoomResult[]> {
   assertValidStay(request);
 
+  const currency = providerCurrency(request.currency);
   const data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/search/hp/", {
     id: hotelId,
     checkin: request.checkInDate,
     checkout: request.checkOutDate,
     guests: buildGuests(request),
-    residency: (request.nationality ?? "ng").toLowerCase(),
-    currency: request.currency ?? "NGN",
+    residency: (request.nationality ?? "gb").toLowerCase(),
+    currency,
     language: "en",
   });
 
   const rates = data?.hotels?.[0]?.rates ?? [];
   return rates
-    .map((rate) => mapRate(rate, request.currency ?? "NGN"))
-    .sort((a, b) => a.price - b.price);
+    .map((rate) => mapRate(rate, currency))
+    .sort((a, b) => a.price - b.price)
+    .slice(0, MAX_RATES_PER_HOTEL);
+
 }
