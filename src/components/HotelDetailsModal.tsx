@@ -288,9 +288,9 @@ export function HotelDetailsModal({
             </p>
           ) : (
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-              {rooms.map((room) => (
+              {rooms.map((room, i) => (
                 <RoomCard
-                  key={room.roomId}
+                  key={`${room.roomId}-${i}`}
                   room={room}
                   nights={nights}
                   onSelect={() => onSelect(hotel, room)}
