@@ -313,13 +313,16 @@ export async function searchHotels(
       checkin: request.checkInDate,
       checkout: request.checkOutDate,
       guests: buildGuests(request),
-      residency: (request.nationality ?? "ng").toLowerCase(),
-      currency: request.currency ?? "NGN",
+      residency: (request.nationality ?? "gb").toLowerCase(),
+      currency: providerCurrency(request.currency),
       language: "en",
+      hotels_limit: MAX_HOTELS,
     },
   );
 
-  const hotels = (data?.hotels ?? []).filter((h) => (h.rates ?? []).length > 0).slice(0, 30);
+  const hotels = (data?.hotels ?? [])
+    .filter((h) => (h.rates ?? []).length > 0)
+    .slice(0, MAX_HOTELS);
   if (!hotels.length) return [];
 
   const ids = hotels.map((h) => h.id ?? String(h.hid ?? "")).filter(Boolean);
@@ -330,6 +333,7 @@ export async function searchHotels(
       mapHotel(hotel, info.get(hotel.id ?? String(hotel.hid ?? "")), request, nights),
     )
     .sort((a, b) => a.price - b.price);
+
 }
 
 export type HotelStaticDetails = {
