@@ -274,14 +274,21 @@ export function HotelDetailsModal({
         <section>
           <h3 className="text-sm font-bold uppercase tracking-wide text-navy">
             Compare room options
+            {rooms.length ? (
+              <span className="ml-2 font-medium normal-case text-muted-foreground">
+                {rooms.length} rate{rooms.length > 1 ? "s" : ""} available
+              </span>
+            ) : null}
           </h3>
           {rooms.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              Room options will be confirmed by our team for these dates.
+              {details.isPending
+                ? "Loading live rates for these dates…"
+                : "Room options will be confirmed by our team for these dates."}
             </p>
           ) : (
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-              {rooms.slice(0, 10).map((room) => (
+              {rooms.map((room) => (
                 <RoomCard
                   key={room.roomId}
                   room={room}
