@@ -380,7 +380,12 @@ export async function getHotelDetails(
   };
 }
 
-/** Fetch bookable rooms for a hotel and stay (RateHawk hotel page search). */
+/**
+ * Retrieve hotelpage (RateHawk `/api/b2b/v3/search/hp/`).
+ *
+ * Returns every available rate for the hotel and stay, de-duplicated by
+ * booking hash and sorted cheapest first.
+ */
 export async function getHotelRooms(
   hotelId: string,
   request: HotelSearchRequest,
@@ -399,9 +404,14 @@ export async function getHotelRooms(
   });
 
   const rates = data?.hotels?.[0]?.rates ?? [];
-  return rates
-    .map((rate) => mapRate(rate, currency))
-    .sort((a, b) => a.price - b.price)
-    .slice(0, MAX_RATES_PER_HOTEL);
-
+  const seen = new Set<string>();
+  const rooms: RoomResult[] = [];
+  for (const rate of rates) {
+    const room = mapRate(rate, currency);
+    const key = `${room.roomId}|${room.price}|${room.boardType ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rooms.push(room);
+  }
+  return rooms.sort((a, b) => a.price - b.price);
 }
