@@ -230,12 +230,13 @@ function mapHotel(
   request: HotelSearchRequest,
   nights: number,
 ): HotelResult {
-  const currency = request.currency ?? "NGN";
-  const rooms = (serp.rates ?? []).map((rate) => mapRate(rate, currency));
-  const cheapest = rooms.reduce<RoomResult | null>(
-    (min, room) => (!min || room.price < min.price ? room : min),
-    null,
-  );
+  const currency = providerCurrency(request.currency);
+  const rooms = (serp.rates ?? [])
+    .map((rate) => mapRate(rate, currency))
+    .sort((a, b) => a.price - b.price)
+    .slice(0, MAX_RATES_PER_HOTEL);
+  const cheapest = rooms[0] ?? null;
+
   const images = (info?.images ?? []).map((i) => imageUrl(i)).filter(Boolean) as string[];
   const amenities = (info?.amenity_groups ?? []).flatMap((g) => g.amenities ?? []);
   const hotelId = serp.id ?? info?.id ?? String(serp.hid ?? info?.hid ?? "");
