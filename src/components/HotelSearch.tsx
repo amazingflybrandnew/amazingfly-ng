@@ -367,11 +367,26 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   };
 
   const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
+    const chosen = room ?? hotel.rooms[0] ?? null;
     setSelected(hotel);
-    setSelectedRoom(room ?? hotel.rooms[0] ?? null);
+    setSelectedRoom(chosen);
     setDetailHotel(null);
-    if (submittedStay) createRequest.mutate({ hotel, room: room ?? hotel.rooms[0] ?? null });
+    createRequest.reset();
+    prebook.reset();
+    if (!submittedStay) return;
+    if (!chosen?.roomId) {
+      createRequest.mutate({ hotel, room: chosen });
+      return;
+    }
+    prebook.mutate({ hotel, room: chosen });
   };
+
+  const confirmNewPrice = () => {
+    if (!selected || !selectedRoom) return;
+    createRequest.mutate({ hotel: selected, room: selectedRoom });
+  };
+
+
 
 
   return (
