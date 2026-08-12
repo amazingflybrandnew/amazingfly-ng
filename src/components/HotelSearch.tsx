@@ -641,6 +641,8 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                 Change room
               </Button>
             </div>
+            )}
+
 
             {createRequest.data?.ok ? (
               <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
