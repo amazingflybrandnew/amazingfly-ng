@@ -553,7 +553,53 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       {selected ? (
         <HotelConfirmation hotel={selected} room={selectedRoom} stay={submittedStay}>
           <div className="space-y-3">
+            {prebook.isPending ? (
+              <p className="flex items-center gap-2 rounded-2xl bg-sky-tint px-4 py-3 text-sm font-semibold text-navy">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Confirming this rate with the hotel…
+              </p>
+            ) : null}
+
+            {prebook.data && !prebook.data.result.ok ? (
+              <p className="flex gap-2 rounded-2xl border border-orange/30 bg-orange-tint px-4 py-3 text-sm text-navy">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                {prebook.data.result.error}
+              </p>
+            ) : null}
+
+            {prebook.data?.result.ok && prebook.data.result.status === "price_changed" ? (
+              <div className="space-y-3 rounded-2xl border border-orange/30 bg-peach-tint px-4 py-3 text-sm text-navy">
+                <p>
+                  The hotel updated this rate while you were choosing. New total:{" "}
+                  <strong>
+                    {formatHotelPrice(
+                      prebook.data.result.room.price,
+                      prebook.data.result.room.currency,
+                    )}
+                  </strong>{" "}
+                  (was {formatHotelPrice(prebook.data.result.previousPrice, selected.currency)}).
+                </p>
+                {!createRequest.data && !createRequest.isPending ? (
+                  <div className="flex flex-wrap gap-3">
+                    <Button size="sm" className="btn-gradient border-0 text-white" onClick={confirmNewPrice}>
+                      Accept new price
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setDetailHotel(selected)}>
+                      Choose another room
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {prebook.isPending ||
+            (prebook.data && !prebook.data.result.ok) ||
+            (prebook.data?.result.ok &&
+              prebook.data.result.status === "price_changed" &&
+              !createRequest.data &&
+              !createRequest.isPending) ? null : (
             <div className="flex flex-wrap gap-3">
+
               {createRequest.isPending ? (
                 <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
