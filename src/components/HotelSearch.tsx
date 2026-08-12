@@ -27,7 +27,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { HotelDetailsModal } from "@/components/HotelDetailsModal";
-import { searchHotelStays } from "@/lib/travel-api/hotels.functions";
+import {
+  prebookHotelStayRate,
+  searchHotelStays,
+} from "@/lib/travel-api/hotels.functions";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
 import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
 import { createHotelRequest } from "@/lib/hotel-request.functions";
