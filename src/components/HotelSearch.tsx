@@ -27,7 +27,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { HotelDetailsModal } from "@/components/HotelDetailsModal";
-import { searchHotelStays } from "@/lib/travel-api/hotels.functions";
+import {
+  prebookHotelStayRate,
+  searchHotelStays,
+} from "@/lib/travel-api/hotels.functions";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
 import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
 import { createHotelRequest } from "@/lib/hotel-request.functions";
@@ -277,6 +280,29 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     },
   });
 
+  const prebookFn = useServerFn(prebookHotelStayRate);
+  const prebook = useMutation({
+    mutationFn: async ({ hotel, room }: { hotel: HotelResult; room: RoomResult }) => {
+      const result = await prebookFn({
+        data: {
+          bookHash: room.roomId,
+          expectedPrice: room.price,
+          expectedCurrency: room.currency,
+        },
+      });
+      return { result, hotel, room };
+    },
+    onSuccess: ({ result, hotel, room }) => {
+      if (!result.ok) return;
+      setSelectedRoom(result.room);
+      if (result.status === "available") {
+        createRequest.mutate({ hotel, room: result.room ?? room });
+      }
+    },
+  });
+
+
+
   function validate(): string | null {
     const today = todayISO();
     if (!destination.trim()) return "Please tell us where you would like to stay.";
@@ -367,11 +393,26 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   };
 
   const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
+    const chosen = room ?? hotel.rooms[0] ?? null;
     setSelected(hotel);
-    setSelectedRoom(room ?? hotel.rooms[0] ?? null);
+    setSelectedRoom(chosen);
     setDetailHotel(null);
-    if (submittedStay) createRequest.mutate({ hotel, room: room ?? hotel.rooms[0] ?? null });
+    createRequest.reset();
+    prebook.reset();
+    if (!submittedStay) return;
+    if (!chosen?.roomId) {
+      createRequest.mutate({ hotel, room: chosen });
+      return;
+    }
+    prebook.mutate({ hotel, room: chosen });
   };
+
+  const confirmNewPrice = () => {
+    if (!selected || !selectedRoom) return;
+    createRequest.mutate({ hotel: selected, room: selectedRoom });
+  };
+
+
 
 
   return (
@@ -512,7 +553,53 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       {selected ? (
         <HotelConfirmation hotel={selected} room={selectedRoom} stay={submittedStay}>
           <div className="space-y-3">
+            {prebook.isPending ? (
+              <p className="flex items-center gap-2 rounded-2xl bg-sky-tint px-4 py-3 text-sm font-semibold text-navy">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Confirming this rate with the hotel…
+              </p>
+            ) : null}
+
+            {prebook.data && !prebook.data.result.ok ? (
+              <p className="flex gap-2 rounded-2xl border border-orange/30 bg-orange-tint px-4 py-3 text-sm text-navy">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                {prebook.data.result.error}
+              </p>
+            ) : null}
+
+            {prebook.data?.result.ok && prebook.data.result.status === "price_changed" ? (
+              <div className="space-y-3 rounded-2xl border border-orange/30 bg-peach-tint px-4 py-3 text-sm text-navy">
+                <p>
+                  The hotel updated this rate while you were choosing. New total:{" "}
+                  <strong>
+                    {formatHotelPrice(
+                      prebook.data.result.room.price,
+                      prebook.data.result.room.currency,
+                    )}
+                  </strong>{" "}
+                  (was {formatHotelPrice(prebook.data.result.previousPrice, selected.currency)}).
+                </p>
+                {!createRequest.data && !createRequest.isPending ? (
+                  <div className="flex flex-wrap gap-3">
+                    <Button size="sm" className="btn-gradient border-0 text-white" onClick={confirmNewPrice}>
+                      Accept new price
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setDetailHotel(selected)}>
+                      Choose another room
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {prebook.isPending ||
+            (prebook.data && !prebook.data.result.ok) ||
+            (prebook.data?.result.ok &&
+              prebook.data.result.status === "price_changed" &&
+              !createRequest.data &&
+              !createRequest.isPending) ? null : (
             <div className="flex flex-wrap gap-3">
+
               {createRequest.isPending ? (
                 <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -554,6 +641,8 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                 Change room
               </Button>
             </div>
+            )}
+
 
             {createRequest.data?.ok ? (
               <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">

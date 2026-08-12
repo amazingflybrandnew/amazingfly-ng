@@ -415,3 +415,63 @@ export async function getHotelRooms(
   }
   return rooms.sort((a, b) => a.price - b.price);
 }
+
+/* -------------------------------------------------------------------------- */
+/* Prebook                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export type PrebookOutcome =
+  | { status: "available"; room: RoomResult }
+  | { status: "price_changed"; room: RoomResult; previousPrice: number }
+  | { status: "unavailable"; message: string };
+
+/**
+ * Prebook a rate selected from the hotelpage (`/api/b2b/v3/hotel/prebook/`).
+ *
+ * Confirms the rate is still bookable and returns the live price so the caller
+ * can ask the traveller to confirm when it has moved.
+ */
+export async function prebookHotelRate(
+  bookHash: string,
+  expectedPrice: number,
+  expectedCurrency: string,
+): Promise<PrebookOutcome> {
+  const currency = providerCurrency(expectedCurrency);
+
+  let data: { hotels?: RhSerpHotel[] } | null = null;
+  try {
+    data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/hotel/prebook/", {
+      hash: bookHash,
+      price_increase_percent: 100,
+    });
+  } catch (error) {
+    const message =
+      error instanceof HotelApiError
+        ? error.message
+        : "This rate could not be confirmed. Please pick another room.";
+    return { status: "unavailable", message };
+  }
+
+  const rate = data?.hotels?.[0]?.rates?.[0];
+  if (!rate) {
+    return {
+      status: "unavailable",
+      message: "This rate has just sold out. Please choose another room.",
+    };
+  }
+
+  const room = mapRate(rate, currency);
+  if (!room.price) {
+    return {
+      status: "unavailable",
+      message: "This rate is no longer priced by the hotel. Please choose another room.",
+    };
+  }
+
+  const moved =
+    Math.abs(room.price - expectedPrice) > 0.01 || room.currency !== expectedCurrency;
+
+  return moved
+    ? { status: "price_changed", room, previousPrice: expectedPrice }
+    : { status: "available", room };
+}

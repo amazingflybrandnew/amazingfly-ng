@@ -65,3 +65,46 @@ export const getHotelStayDetails = createServerFn({ method: "POST" })
       return { ok: false, error: message };
     }
   });
+
+const prebookInput = z
+  .object({
+    bookHash: z.string().trim().min(1).max(2000),
+    expectedPrice: z.number().nonnegative(),
+    expectedCurrency: z.string().trim().min(3).max(3),
+  })
+  .strict();
+
+export type HotelPrebookPayload =
+  | { ok: true; status: "available"; room: RoomResult }
+  | { ok: true; status: "price_changed"; room: RoomResult; previousPrice: number }
+  | { ok: false; error: string };
+
+export const prebookHotelStayRate = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => prebookInput.parse(data))
+  .handler(async ({ data }): Promise<HotelPrebookPayload> => {
+    const { prebookHotelRate } = await import("./hotels.server");
+    try {
+      const outcome = await prebookHotelRate(
+        data.bookHash,
+        data.expectedPrice,
+        data.expectedCurrency,
+      );
+      if (outcome.status === "unavailable") {
+        return { ok: false, error: outcome.message };
+      }
+      if (outcome.status === "price_changed") {
+        return {
+          ok: true,
+          status: "price_changed",
+          room: outcome.room,
+          previousPrice: outcome.previousPrice,
+        };
+      }
+      return { ok: true, status: "available", room: outcome.room };
+    } catch (error) {
+      console.error("[Hotels] prebook failed", error);
+      const message =
+        error instanceof Error ? error.message : "We could not confirm this rate.";
+      return { ok: false, error: message };
+    }
+  });
