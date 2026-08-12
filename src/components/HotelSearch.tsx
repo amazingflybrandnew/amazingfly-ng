@@ -277,6 +277,29 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     },
   });
 
+  const prebookFn = useServerFn(prebookHotelStayRate);
+  const prebook = useMutation({
+    mutationFn: async ({ hotel, room }: { hotel: HotelResult; room: RoomResult }) => {
+      const result = await prebookFn({
+        data: {
+          bookHash: room.roomId,
+          expectedPrice: room.price,
+          expectedCurrency: room.currency,
+        },
+      });
+      return { result, hotel, room };
+    },
+    onSuccess: ({ result, hotel, room }) => {
+      if (!result.ok) return;
+      setSelectedRoom(result.room);
+      if (result.status === "available") {
+        createRequest.mutate({ hotel, room: result.room ?? room });
+      }
+    },
+  });
+
+
+
   function validate(): string | null {
     const today = todayISO();
     if (!destination.trim()) return "Please tell us where you would like to stay.";
