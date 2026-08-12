@@ -82,9 +82,10 @@ export type BookingRecord = {
 };
 
 async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
+  const { createExternalSupabaseAdmin } = await import("@/lib/external-supabase.server");
+  return createExternalSupabaseAdmin();
 }
+
 
 async function upsertBooking(row: Record<string, unknown>): Promise<void> {
   const db = await admin();
