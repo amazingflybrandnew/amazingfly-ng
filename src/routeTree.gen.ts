@@ -52,6 +52,7 @@ import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
 import { Route as AdminRequestsIndexRouteImport } from './routes/admin.requests.index'
 import { Route as AdminRequestsIdRouteImport } from './routes/admin.requests.$id'
+import { Route as ApiPublicHotelsRatehawkWebhookRouteImport } from './routes/api/public/hotels/ratehawk/webhook'
 import { Route as ApiPublicPaymentsPaystackWebhookRouteImport } from './routes/api/public/payments/paystack/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -270,6 +271,12 @@ const AdminRequestsIdRoute = AdminRequestsIdRouteImport.update({
   path: '/admin/requests/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHotelsRatehawkWebhookRoute =
+  ApiPublicHotelsRatehawkWebhookRouteImport.update({
+    id: '/api/public/hotels/ratehawk/webhook',
+    path: '/api/public/hotels/ratehawk/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPaymentsPaystackWebhookRoute =
   ApiPublicPaymentsPaystackWebhookRouteImport.update({
     id: '/api/public/payments/paystack/webhook',
@@ -321,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/services/': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
+  '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
   '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -367,6 +375,7 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests': typeof AdminRequestsIndexRoute
+  '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
   '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRoutesById {
@@ -414,6 +423,7 @@ export interface FileRoutesById {
   '/services/': typeof ServicesIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
+  '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
   '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 export interface FileRouteTypes {
@@ -462,6 +472,7 @@ export interface FileRouteTypes {
     | '/services/'
     | '/admin/requests/$id'
     | '/admin/requests/'
+    | '/api/public/hotels/ratehawk/webhook'
     | '/api/public/payments/paystack/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -508,6 +519,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/admin/requests/$id'
     | '/admin/requests'
+    | '/api/public/hotels/ratehawk/webhook'
     | '/api/public/payments/paystack/webhook'
   id:
     | '__root__'
@@ -554,6 +566,7 @@ export interface FileRouteTypes {
     | '/services/'
     | '/admin/requests/$id'
     | '/admin/requests/'
+    | '/api/public/hotels/ratehawk/webhook'
     | '/api/public/payments/paystack/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -601,6 +614,7 @@ export interface RootRouteChildren {
   ServicesIndexRoute: typeof ServicesIndexRoute
   AdminRequestsIdRoute: typeof AdminRequestsIdRoute
   AdminRequestsIndexRoute: typeof AdminRequestsIndexRoute
+  ApiPublicHotelsRatehawkWebhookRoute: typeof ApiPublicHotelsRatehawkWebhookRoute
   ApiPublicPaymentsPaystackWebhookRoute: typeof ApiPublicPaymentsPaystackWebhookRoute
 }
 
@@ -907,6 +921,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRequestsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hotels/ratehawk/webhook': {
+      id: '/api/public/hotels/ratehawk/webhook'
+      path: '/api/public/hotels/ratehawk/webhook'
+      fullPath: '/api/public/hotels/ratehawk/webhook'
+      preLoaderRoute: typeof ApiPublicHotelsRatehawkWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/paystack/webhook': {
       id: '/api/public/payments/paystack/webhook'
       path: '/api/public/payments/paystack/webhook'
@@ -961,6 +982,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServicesIndexRoute: ServicesIndexRoute,
   AdminRequestsIdRoute: AdminRequestsIdRoute,
   AdminRequestsIndexRoute: AdminRequestsIndexRoute,
+  ApiPublicHotelsRatehawkWebhookRoute: ApiPublicHotelsRatehawkWebhookRoute,
   ApiPublicPaymentsPaystackWebhookRoute: ApiPublicPaymentsPaystackWebhookRoute,
 }
 export const routeTree = rootRouteImport
