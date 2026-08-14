@@ -25,6 +25,7 @@ const hotelInput = z
     cancellationPolicy: z.string().trim().max(400).nullable(),
     price: z.number().nonnegative(),
     currency: z.string().trim().min(3).max(6),
+    bookHash: z.string().trim().max(600).nullable().optional(),
   })
   .strict();
 
