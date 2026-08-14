@@ -25,11 +25,13 @@ const startInput = z
     guests: z.array(guestSchema).min(1).max(10),
     amount: z.number().nonnegative(),
     currency: z.string().trim().min(3).max(3),
+    paymentType: z.enum(["deposit", "hotel"]),
     comment: z.string().trim().max(500).optional(),
   })
   .strict();
 
 const checkInput = z.object({ partnerOrderId: z.string().trim().uuid() }).strict();
+const requestInput = z.object({ request_id: z.string().uuid() }).strict();
 
 export type CreateBookingPayload =
   | { ok: true; partnerOrderId: string; orderId: string; itemId: string | null }
@@ -47,11 +49,20 @@ export type CheckBookingPayload =
     }
   | { ok: false; error: string };
 
+export type StoredHotelBookingPayload =
+  | {
+      ok: true;
+      status: "created" | "started" | "processing" | "ok" | "failed";
+      partnerOrderId: string;
+      orderId: string | null;
+    }
+  | { ok: false; error: string };
+
 function toMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-/** Step 1 — create booking process (retried up to 10 times server-side). */
+/** Legacy step 1 wrapper retained for existing internal/manual tooling. */
 export const createHotelBooking = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => createInput.parse(data))
   .handler(async ({ data }): Promise<CreateBookingPayload> => {
@@ -73,7 +84,7 @@ export const createHotelBooking = createServerFn({ method: "POST" })
     }
   });
 
-/** Step 2 — start booking process. */
+/** Legacy step 2 wrapper retained for existing internal/manual tooling. */
 export const startHotelBooking = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => startInput.parse(data))
   .handler(async ({ data }): Promise<SimpleBookingPayload> => {
@@ -86,6 +97,7 @@ export const startHotelBooking = createServerFn({ method: "POST" })
         guests: data.guests,
         amount: data.amount,
         currency: data.currency,
+        paymentType: data.paymentType,
         comment: data.comment ?? "",
       });
       return { ok: true };
@@ -95,7 +107,6 @@ export const startHotelBooking = createServerFn({ method: "POST" })
     }
   });
 
-/** Step 3 — check booking process (polls until ok or a final failure). */
 export const checkHotelBooking = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => checkInput.parse(data))
   .handler(async ({ data }): Promise<CheckBookingPayload> => {
@@ -104,9 +115,10 @@ export const checkHotelBooking = createServerFn({ method: "POST" })
       const result = await checkBookingProcess(data.partnerOrderId);
       return {
         ok: true,
-        status: result.status === "created" || result.status === "started"
-          ? "processing"
-          : result.status,
+        status:
+          result.status === "created" || result.status === "started"
+            ? "processing"
+            : result.status,
         providerStatus: result.providerStatus,
         percent: result.percent,
         message: result.message,
@@ -114,5 +126,45 @@ export const checkHotelBooking = createServerFn({ method: "POST" })
     } catch (error) {
       console.error("[Hotels] check booking failed", error);
       return { ok: false, error: toMessage(error, "We could not read the booking status.") };
+    }
+  });
+
+/**
+ * Customer action for a RateHawk `hotel` payment type (reserve now / pay at property).
+ * All sensitive booking values are reloaded server-side from service_requests.
+ */
+export const reserveHotelAtProperty = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => requestInput.parse(data))
+  .handler(async ({ data }): Promise<StoredHotelBookingPayload> => {
+    const { requireUser } = await import("../auth.server");
+    const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
+    const { bookStoredHotelRequest } = await import("./hotel-booking.server");
+    const { user } = await requireUser();
+    const db = createExternalSupabaseAdmin();
+
+    const { data: request } = await db
+      .from("service_requests")
+      .select("user_id")
+      .eq("id", data.request_id)
+      .maybeSingle();
+
+    if (!request || String((request as Record<string, unknown>)["user_id"] ?? "") !== user.id) {
+      return { ok: false, error: "We could not find that hotel booking on your account." };
+    }
+
+    try {
+      const result = await bookStoredHotelRequest(data.request_id, "hotel");
+      return {
+        ok: true,
+        status: result.status,
+        partnerOrderId: result.partnerOrderId,
+        orderId: result.orderId,
+      };
+    } catch (error) {
+      console.error("[Hotels] pay-at-property booking failed", error);
+      return {
+        ok: false,
+        error: toMessage(error, "We could not reserve this hotel at the property rate."),
+      };
     }
   });
