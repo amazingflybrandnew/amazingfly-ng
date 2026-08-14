@@ -26,6 +26,11 @@ const hotelInput = z
     price: z.number().nonnegative(),
     currency: z.string().trim().min(3).max(6),
     bookHash: z.string().trim().max(600).nullable().optional(),
+    paymentType: z.enum(["deposit", "hotel", "now"]),
+    paymentRequiresCard: z.boolean(),
+    paymentRequiresCvc: z.boolean(),
+    providerPaymentAmount: z.number().nonnegative(),
+    providerPaymentCurrency: z.string().trim().min(3).max(6),
   })
   .strict();
 
@@ -75,6 +80,13 @@ export const createHotelRequest = createServerFn({ method: "POST" })
       .select("id")
       .maybeSingle();
 
+    const paymentLabel =
+      data.paymentType === "hotel"
+        ? "Reserve now — pay at property"
+        : data.paymentType === "deposit"
+          ? "Pay now"
+          : "Provider card payment";
+
     const summary = [
       data.hotelName,
       [data.location, data.address].filter(Boolean).join(" · "),
@@ -83,6 +95,7 @@ export const createHotelRequest = createServerFn({ method: "POST" })
       data.roomType ? `Room: ${data.roomType}` : "",
       data.boardType ? `Board: ${data.boardType}` : "",
       data.cancellationPolicy ? `Cancellation: ${data.cancellationPolicy}` : "",
+      `Payment: ${paymentLabel}`,
       `${data.currency} ${data.price.toLocaleString()}`,
       `RateHawk hotel reference: ${data.hotelId}`,
     ]
@@ -128,6 +141,11 @@ export const createHotelRequest = createServerFn({ method: "POST" })
       hotel_price: data.price,
       hotel_currency: data.currency,
       hotel_book_hash: data.bookHash ?? null,
+      hotel_payment_type: data.paymentType,
+      hotel_payment_requires_card: data.paymentRequiresCard,
+      hotel_payment_requires_cvc: data.paymentRequiresCvc,
+      hotel_provider_payment_amount: data.providerPaymentAmount,
+      hotel_provider_payment_currency: data.providerPaymentCurrency,
       booking_status: "not_booked",
     };
 
@@ -161,7 +179,7 @@ export const createHotelRequest = createServerFn({ method: "POST" })
     await supabase.from("request_updates").insert({
       request_id: requestId,
       status: "new_request",
-      message: `Customer selected ${data.hotelName} hotel stay (${data.checkInDate} → ${data.checkOutDate})`,
+      message: `Customer selected ${data.hotelName} (${paymentLabel})`,
     });
 
     const { notifyRequestReceived } = await import("./notifications.server");
