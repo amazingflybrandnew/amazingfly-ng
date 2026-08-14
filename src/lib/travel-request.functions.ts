@@ -21,11 +21,16 @@ const answerSchema = z.object({
 });
 
 /** Customer-supplied fields only. Workflow columns (request_status,
- * payment_status, agreed_fee, staff_notes) are never accepted from the site. */
+ * payment_status, agreed_fee, staff_notes) are never accepted from the site.
+ *
+ * `amount`, `currency` and `requires_quote` are retained for backwards
+ * compatibility with existing clients, but are NEVER trusted for pricing.
+ * The server derives the actual payable amount below.
+ */
 const submissionSchema = z
   .object({
     request_reference: z.string().regex(/^AF-\d{8}-[A-Z0-9]{6}$/),
-    service_type: z.string().trim().min(1).max(60),
+    service_type: z.string().trim().min(1).max(160),
     service_slug: z.string().trim().min(1).max(80),
     service_category: z.string().trim().min(1).max(60),
     origin_country: z.string().trim().max(120),
@@ -48,7 +53,7 @@ const submissionSchema = z
     date_of_birth: dateish,
     passport_issue_date: dateish,
     passport_expiry_date: dateish,
-    catalogue_id: z.string().trim().max(80).nullable().optional(),
+    catalogue_id: z.string().trim().max(90).nullable().optional(),
     package_name: z.string().trim().max(200).nullable().optional(),
     amount: z.number().nonnegative().max(1_000_000_000).nullable().optional(),
     currency: z.string().trim().max(8).optional(),
@@ -75,6 +80,66 @@ const BUCKET = "request-documents";
 
 function safeName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
+}
+
+function answerValue(
+  answers: Array<{ id: string; question: string; answer: string }>,
+  id: string,
+): string {
+  return answers.find((entry) => entry.id === id)?.answer.trim() ?? "";
+}
+
+const DOCUMENT_CATALOGUE_IDS: Record<string, string> = {
+  "Police character certificate": "police-character-certificate",
+  "Proof of funds": "proof-of-funds-support",
+  "Yellow fever card": "yellow-fever-card-support",
+  "Travel insurance": "travel-insurance-cover",
+};
+
+type OfficialPackage = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  currency: string;
+  active: boolean;
+};
+
+async function loadOfficialPackage(
+  supabase: Awaited<ReturnType<typeof import("./external-supabase.server")["createExternalSupabaseAdmin"]>>,
+  catalogueId: string,
+): Promise<OfficialPackage | null> {
+  const { data, error } = await supabase
+    .from("service_catalogue")
+    .select("id, name, category, price, currency, active")
+    .eq("id", catalogueId)
+    .maybeSingle();
+
+  if (!error && data && data["active"] !== false) {
+    return {
+      id: String(data["id"]),
+      name: String(data["name"] ?? "Travel service"),
+      category: String(data["category"] ?? ""),
+      price: Number(data["price"] ?? 0),
+      currency: String(data["currency"] ?? "NGN"),
+      active: true,
+    };
+  }
+
+  // Bundled catalogue fallback keeps checkout working if the catalogue table
+  // is temporarily unavailable. It is still server-side and cannot be altered
+  // by the browser.
+  const { findCatalogueItem } = await import("./catalogue/visa-catalogue");
+  const fallback = findCatalogueItem(catalogueId);
+  if (!fallback?.active) return null;
+  return {
+    id: fallback.id,
+    name: fallback.name,
+    category: fallback.category,
+    price: Number(fallback.price ?? 0),
+    currency: fallback.currency ?? "NGN",
+    active: true,
+  };
 }
 
 /** Returns a short-lived signed upload URL so the browser can upload directly
@@ -110,7 +175,10 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submissionSchema.parse(data))
   .handler(async ({ data }): Promise<SubmitResult> => {
     const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
-    const { isLongStayDuration } = await import("./catalogue/visa-catalogue");
+    const {
+      calculateProofOfFundsFee,
+      YELLOW_FEVER_CARD_PRICE_NGN,
+    } = await import("./catalogue/service-pricing");
     const supabase = createExternalSupabaseAdmin();
 
     const { data: service, error: serviceError } = await supabase
@@ -120,6 +188,92 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       .maybeSingle();
     if (serviceError || !service) {
       return { ok: false, message: "That service is not available right now." };
+    }
+
+    const documentService = answerValue(data.answers, "document_service");
+    const inferredCatalogueId = DOCUMENT_CATALOGUE_IDS[documentService] ?? null;
+    const catalogueId = data.catalogue_id ?? inferredCatalogueId;
+    const packageItem = catalogueId ? await loadOfficialPackage(supabase, catalogueId) : null;
+
+    const normalizedCategory = data.service_category.trim().toLowerCase();
+    const isFlightOrHotel = /flight|hotel/.test(
+      `${normalizedCategory} ${data.service_type}`.toLowerCase(),
+    );
+
+    let serviceAmount: number | null = null;
+    let serviceCurrency = "NGN";
+    let serviceType = packageItem?.name ?? data.service_type;
+    let packageName = packageItem?.name ?? data.package_name ?? null;
+    let storedAnswers = [...data.answers];
+
+    // Proof of Funds is calculated solely from server-owned bank rates.
+    if (catalogueId === "proof-of-funds-support" || documentService === "Proof of funds") {
+      const bank = answerValue(data.answers, "pof_bank");
+      const requestedAmount = Number(answerValue(data.answers, "pof_amount"));
+      const calculation = calculateProofOfFundsFee(requestedAmount, bank);
+      if (!calculation) {
+        return {
+          ok: false,
+          message: "Please choose a supported Proof of Funds bank and enter a valid amount.",
+        };
+      }
+
+      serviceType = "Proof of Funds Support";
+      packageName = "Proof of Funds Support";
+      serviceAmount = calculation.fee;
+      serviceCurrency = "NGN";
+      storedAnswers = [
+        ...storedAnswers.filter((entry) => !["pof_rate", "pof_fee"].includes(entry.id)),
+        {
+          id: "pof_rate",
+          question: "Proof of Funds bank rate",
+          answer: `${calculation.rate}%`,
+        },
+        {
+          id: "pof_fee",
+          question: "Calculated Proof of Funds service fee",
+          answer: `NGN ${calculation.fee.toFixed(2)}`,
+        },
+      ];
+    } else if (
+      catalogueId === "yellow-fever-card-support" ||
+      documentService === "Yellow fever card"
+    ) {
+      // Fixed business rule supplied by Amazingfly: ₦25,000.
+      serviceType = "Yellow Fever Card Assistance";
+      packageName = "Yellow Fever Card Assistance";
+      serviceAmount = YELLOW_FEVER_CARD_PRICE_NGN;
+      serviceCurrency = "NGN";
+    } else if (
+      catalogueId === "travel-insurance-cover" ||
+      normalizedCategory === "insurance" ||
+      documentService === "Travel insurance"
+    ) {
+      // Allianz will be the price authority once the insurance API is supplied.
+      // Do not accept a browser-entered/manual insurance amount in the meantime.
+      return {
+        ok: false,
+        message:
+          "Travel insurance online pricing is being connected to Allianz. Please try again once live pricing is available.",
+      };
+    } else if (!isFlightOrHotel && packageItem) {
+      if (!Number.isFinite(packageItem.price) || packageItem.price <= 0) {
+        return {
+          ok: false,
+          message: "This service does not yet have an online payment price configured.",
+        };
+      }
+      serviceAmount = packageItem.price;
+      serviceCurrency = packageItem.currency || "NGN";
+    }
+
+    // The generic flight/hotel request wizard remains request-only; live
+    // supplier search/booking flows own their own fare/rate pricing.
+    if (!isFlightOrHotel && (!serviceAmount || serviceAmount <= 0)) {
+      return {
+        ok: false,
+        message: "This service does not yet have an online payment price configured.",
+      };
     }
 
     // Customer record (one per email, refreshed with the latest details).
@@ -148,7 +302,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
 
     // Every answer is also folded into request_details so nothing is lost even
     // if the dynamic columns have not been added to the database yet.
-    const answerText = data.answers
+    const answerText = storedAnswers
       .filter((a) => a.answer)
       .map((a) => `${a.question}: ${a.answer}`)
       .join("\n");
@@ -164,10 +318,10 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       request_reference: data.request_reference,
       service_id: service.id,
       customer_id: customer?.id ?? null,
-      service_type: data.service_type,
+      service_type: serviceType,
       origin_country: data.origin_country || null,
       destination_country: data.destination_country || null,
-      destination: data.destination_country || data.service_type,
+      destination: data.destination_country || serviceType,
       travel_purpose: data.travel_purpose,
       travel_date: data.travel_date,
       return_date: data.return_date,
@@ -186,21 +340,18 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       consent_to_contact: true,
     };
 
-    // Quotation mode is derived server-side from the visa stay duration only.
-    // Multiple entry and normal tourist/visit/business answers remain payable.
-    
+    // Amazingfly's customer-service rule is Review -> Payment. There is no
+    // quotation-only path for a service whose price can be calculated here.
     const requiresQuote = false;
-
-const requestAmount = data.amount ?? null;
 
     const dynamicRow = {
       ...baseRow,
       service_category: data.service_category,
-      answers: data.answers,
-      catalogue_id: data.catalogue_id ?? null,
-      package_name: data.package_name ?? null,
-      amount: requestAmount,
-      currency: data.currency ?? "NGN",
+      answers: storedAnswers,
+      catalogue_id: catalogueId,
+      package_name: packageName,
+      amount: serviceAmount,
+      currency: serviceCurrency,
       requires_quote: requiresQuote,
       payment_status: "pending_payment",
     };
@@ -238,32 +389,26 @@ const requestAmount = data.amount ?? null;
       };
     }
 
-
-    // Universal (non-flight/non-hotel) priced services get their pending
-    // Paystack transaction as soon as the application exists, so the request
-    // detail page can show "Pay now" with a reference immediately. Requests
-    // needing a specialist quotation are skipped until an admin prices them.
-    const serviceAmount = requestAmount;
-    let payable = false;
-    if (
-      data.catalogue_id &&
-      serviceAmount &&
-      serviceAmount > 0 &&
-      !requiresQuote &&
-      !/flight|hotel/i.test(`${data.service_category} ${data.service_type}`)
-    ) {
+    let payable = Boolean(!isFlightOrHotel && serviceAmount && serviceAmount > 0);
+    if (payable && serviceAmount) {
       const { createPendingTransaction } = await import("./payment/transactions.server");
       const { paymentTypeForService } = await import("./payment/types");
       const created = await createPendingTransaction({
         user_id: null,
         request_id: request.id,
         amount: serviceAmount,
-        currency: data.currency ?? "NGN",
+        currency: serviceCurrency,
         provider: "paystack",
-        payment_type: paymentTypeForService(data.service_type),
+        payment_type: paymentTypeForService(serviceType),
       });
-      if (!created.ok) console.error("[service-payment] pending transaction", created.message);
-      payable = created.ok;
+
+      // Keep payable=true even if the first transaction insert temporarily
+      // fails. The authenticated request page calls prepareCheckout(), which
+      // can safely create the missing pending transaction from the server-owned
+      // amount stored on service_requests.
+      if (!created.ok) {
+        console.error("[service-payment] pending transaction", created.message);
+      }
     }
 
     if (data.documents.length) {
@@ -284,7 +429,7 @@ const requestAmount = data.amount ?? null;
       reference: data.request_reference,
       fullName: data.full_name,
       email: data.email,
-      serviceLabel: data.service_type,
+      serviceLabel: serviceType,
       originCountry: data.origin_country,
       destinationCountry: data.destination_country,
       travelDate: data.travel_date,
