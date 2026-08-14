@@ -8,6 +8,7 @@
  * Question ids listed in CORE_FIELD_IDS are mapped onto dedicated
  * service_requests columns; every other answer is stored dynamically.
  */
+import { PROOF_OF_FUNDS_BANKS } from "./catalogue/service-pricing";
 
 export type FieldType =
   | "text"
@@ -479,6 +480,25 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
               "Travel insurance",
               "Other documents",
             ],
+          },
+          {
+            id: "pof_bank",
+            label: "Proof of Funds bank",
+            type: "select",
+            required: true,
+            options: [...PROOF_OF_FUNDS_BANKS],
+            half: true,
+            showIf: { id: "document_service", equals: ["Proof of funds"] },
+          },
+          {
+            id: "pof_amount",
+            label: "Proof of Funds amount required (₦)",
+            type: "number",
+            required: true,
+            min: 1,
+            half: true,
+            hint: "Enter the amount you need shown as Proof of Funds. Your service fee is calculated from the selected bank's rate.",
+            showIf: { id: "document_service", equals: ["Proof of funds"] },
           },
           {
             id: "document_details",
