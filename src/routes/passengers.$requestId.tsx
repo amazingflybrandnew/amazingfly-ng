@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getBookingReview } from "@/lib/payment/checkout.functions";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
+import { reserveHotelAtProperty } from "@/lib/travel-api/hotel-booking.functions";
 import {
   contactSchema,
   emptyPassenger,
@@ -80,6 +81,7 @@ function PassengerDetailsPage() {
   const fetchPassengers = useServerFn(getBookingPassengers);
   const fetchOfferInfo = useServerFn(getFlightOfferInfo);
   const save = useServerFn(saveBookingPassengers);
+  const reserveHotel = useServerFn(reserveHotelAtProperty);
 
   const review = useQuery({
     queryKey: ["booking-review", requestId],
@@ -101,11 +103,11 @@ function PassengerDetailsPage() {
   });
 
   const isHotel = review.data?.kind === "hotel";
+  const isPayAtProperty = isHotel && review.data?.hotel?.paymentType === "hotel";
   const passportRequired = review.data?.kind === "flight" && offer.data?.ok
     ? offer.data.info.passportRequired
     : false;
-  const count =
-    review.data?.flight?.passengers ?? review.data?.hotel?.guests ?? 1;
+  const count = review.data?.flight?.passengers ?? review.data?.hotel?.guests ?? 1;
 
   const [contact, setContact] = useState<BookingContact>({
     fullName: "",
@@ -136,17 +138,33 @@ function PassengerDetailsPage() {
 
   const ready = useMemo(() => passengers.length > 0, [passengers]);
 
+  const reserve = useMutation({
+    mutationFn: () => reserveHotel({ data: { request_id: requestId } }),
+    onSuccess: (result) => {
+      if (result.ok) {
+        void navigate({ to: "/booking-confirmation/$requestId", params: { requestId } });
+      } else {
+        setError(result.error);
+      }
+    },
+    onError: () => setError("We could not submit this hotel reservation. Please try again."),
+  });
+
   const submit = useMutation({
     mutationFn: () =>
       save({
         data: { request_id: requestId, contact, passengers, passportRequired },
       }),
     onSuccess: (result) => {
-      if (result.ok) {
-        void navigate({ to: "/booking-review/$requestId", params: { requestId } });
-      } else {
+      if (!result.ok) {
         setError(result.message);
+        return;
       }
+      if (isPayAtProperty) {
+        reserve.mutate();
+        return;
+      }
+      void navigate({ to: "/booking-review/$requestId", params: { requestId } });
     },
   });
 
@@ -175,6 +193,8 @@ function PassengerDetailsPage() {
     }
     submit.mutate();
   };
+
+  const busy = submit.isPending || reserve.isPending;
 
   return (
     <AccountShell
@@ -293,11 +313,13 @@ function PassengerDetailsPage() {
           <div className="glass-card flex flex-col gap-4 rounded-3xl p-6 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
               <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Traveller details are stored securely against your booking and shared only with the relevant travel provider.
+              {isPayAtProperty
+                ? "After saving these details, we will submit the reservation to the property. No online payment will be taken."
+                : "Traveller details are stored securely against your booking and shared only with the relevant travel provider."}
             </p>
-            <Button type="submit" size="lg" className="btn-gradient text-white" disabled={submit.isPending || !ready}>
-              {submit.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="mr-2 h-4 w-4" aria-hidden="true" />}
-              Continue to review
+            <Button type="submit" size="lg" className="btn-gradient text-white" disabled={busy || !ready}>
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="mr-2 h-4 w-4" aria-hidden="true" />}
+              {isPayAtProperty ? "Reserve now" : "Continue to review"}
             </Button>
           </div>
         </form>
