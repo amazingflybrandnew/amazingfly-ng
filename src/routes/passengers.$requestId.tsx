@@ -33,12 +33,12 @@ export const Route = createFileRoute("/passengers/$requestId")({
       {
         name: "description",
         content:
-          "Add the booking contact and every traveller's personal and travel document details before reviewing your Amazingfly Travels booking.",
+          "Add the booking contact and traveller details required to complete your Amazingfly Travels booking.",
       },
       { property: "og:title", content: "Traveller Details | Amazingfly.ng" },
       {
         property: "og:description",
-        content: "Enter passenger details for your Amazingfly Travels flight booking.",
+        content: "Enter traveller details for your Amazingfly Travels booking.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -100,8 +100,12 @@ function PassengerDetailsPage() {
     enabled: Boolean(offerId),
   });
 
-  const passportRequired = offer.data?.ok ? offer.data.info.passportRequired : false;
-  const count = review.data?.flight?.passengers ?? 1;
+  const isHotel = review.data?.kind === "hotel";
+  const passportRequired = review.data?.kind === "flight" && offer.data?.ok
+    ? offer.data.info.passportRequired
+    : false;
+  const count =
+    review.data?.flight?.passengers ?? review.data?.hotel?.guests ?? 1;
 
   const [contact, setContact] = useState<BookingContact>({
     fullName: "",
@@ -112,7 +116,6 @@ function PassengerDetailsPage() {
   const [passengers, setPassengers] = useState<BookingPassenger[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Pre-fill from the customer profile / previously saved travellers.
   useEffect(() => {
     const bundle = saved.data;
     if (!bundle) return;
@@ -166,13 +169,21 @@ function PassengerDetailsPage() {
       setError(invalid);
       return;
     }
+    if (passengers.length !== Math.max(1, count)) {
+      setError(`Please provide details for all ${Math.max(1, count)} traveller(s).`);
+      return;
+    }
     submit.mutate();
   };
 
   return (
     <AccountShell
       title="Traveller details"
-      subtitle="Names must match the passport or ID used to travel. Nothing is charged at this step."
+      subtitle={
+        isHotel
+          ? "Add the booking contact and every hotel guest exactly as their name should appear on the reservation."
+          : "Names must match the passport or ID used to travel. Nothing is charged at this step."
+      }
     >
       {review.isPending || saved.isPending ? (
         <div className="glass-card flex items-center justify-center rounded-3xl p-16">
@@ -195,41 +206,20 @@ function PassengerDetailsPage() {
             </span>
             <h2 className="mt-4 text-xl font-extrabold text-navy">Booking contact</h2>
             <p className="text-sm text-muted-foreground">
-              We send your reference, reservation and ticket updates here.
+              We send your booking reference and status updates here.
             </p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Field label="Full name">
-                <Input
-                  value={contact.fullName}
-                  onChange={(event) => setContact({ ...contact, fullName: event.target.value })}
-                  maxLength={120}
-                  required
-                />
+                <Input value={contact.fullName} onChange={(event) => setContact({ ...contact, fullName: event.target.value })} maxLength={120} required />
               </Field>
               <Field label="Email">
-                <Input
-                  type="email"
-                  value={contact.email}
-                  onChange={(event) => setContact({ ...contact, email: event.target.value })}
-                  maxLength={255}
-                  required
-                />
+                <Input type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} maxLength={255} required />
               </Field>
               <Field label="Phone number">
-                <Input
-                  value={contact.phone}
-                  onChange={(event) => setContact({ ...contact, phone: event.target.value })}
-                  maxLength={32}
-                  required
-                />
+                <Input value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} maxLength={32} required />
               </Field>
               <Field label="Country / nationality">
-                <Input
-                  value={contact.country}
-                  onChange={(event) => setContact({ ...contact, country: event.target.value })}
-                  maxLength={80}
-                  required
-                />
+                <Input value={contact.country} onChange={(event) => setContact({ ...contact, country: event.target.value })} maxLength={80} required />
               </Field>
             </div>
           </section>
@@ -242,144 +232,71 @@ function PassengerDetailsPage() {
               Travellers ({passengers.length})
             </h2>
             <p className="text-sm text-muted-foreground">
-              {passportRequired
-                ? "This airline requires passport details for every traveller."
-                : "Passport details are optional for this fare — add them if you already have them."}
+              {isHotel
+                ? "RateHawk requires the first and last name of every guest included in this hotel reservation."
+                : passportRequired
+                  ? "This airline requires passport details for every traveller."
+                  : "Passport details are optional for this fare — add them if you already have them."}
             </p>
 
             <div className="mt-6 space-y-6">
               {passengers.map((passenger, index) => (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-white/70 bg-white/60 p-4 md:p-5"
-                >
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-navy-soft">
-                    Traveller {index + 1}
-                  </p>
+                <div key={index} className="rounded-2xl border border-white/70 bg-white/60 p-4 md:p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-navy-soft">Traveller {index + 1}</p>
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <Field label="Title">
-                      <select
-                        className={selectClass}
-                        value={passenger.title}
-                        onChange={(event) =>
-                          update(index, {
-                            title: event.target.value as BookingPassenger["title"],
-                          })
-                        }
-                      >
-                        {PASSENGER_TITLES.map((title) => (
-                          <option key={title} value={title}>
-                            {TITLE_LABELS[title]}
-                          </option>
-                        ))}
+                      <select className={selectClass} value={passenger.title} onChange={(event) => update(index, { title: event.target.value as BookingPassenger["title"] })}>
+                        {PASSENGER_TITLES.map((title) => <option key={title} value={title}>{TITLE_LABELS[title]}</option>)}
                       </select>
                     </Field>
                     <Field label="First name">
-                      <Input
-                        value={passenger.firstName}
-                        onChange={(event) => update(index, { firstName: event.target.value })}
-                        maxLength={80}
-                        required
-                      />
+                      <Input value={passenger.firstName} onChange={(event) => update(index, { firstName: event.target.value })} maxLength={80} required />
                     </Field>
                     <Field label="Middle name (optional)">
-                      <Input
-                        value={passenger.middleName ?? ""}
-                        onChange={(event) => update(index, { middleName: event.target.value })}
-                        maxLength={80}
-                      />
+                      <Input value={passenger.middleName ?? ""} onChange={(event) => update(index, { middleName: event.target.value })} maxLength={80} />
                     </Field>
                     <Field label="Last name">
-                      <Input
-                        value={passenger.lastName}
-                        onChange={(event) => update(index, { lastName: event.target.value })}
-                        maxLength={80}
-                        required
-                      />
+                      <Input value={passenger.lastName} onChange={(event) => update(index, { lastName: event.target.value })} maxLength={80} required />
                     </Field>
                     <Field label="Date of birth">
-                      <Input
-                        type="date"
-                        value={passenger.dateOfBirth}
-                        onChange={(event) => update(index, { dateOfBirth: event.target.value })}
-                        required
-                      />
+                      <Input type="date" value={passenger.dateOfBirth} onChange={(event) => update(index, { dateOfBirth: event.target.value })} required />
                     </Field>
                     <Field label="Gender">
-                      <select
-                        className={selectClass}
-                        value={passenger.gender}
-                        onChange={(event) =>
-                          update(index, {
-                            gender: event.target.value as BookingPassenger["gender"],
-                          })
-                        }
-                      >
-                        {PASSENGER_GENDERS.map((gender) => (
-                          <option key={gender} value={gender}>
-                            {GENDER_LABELS[gender]}
-                          </option>
-                        ))}
+                      <select className={selectClass} value={passenger.gender} onChange={(event) => update(index, { gender: event.target.value as BookingPassenger["gender"] })}>
+                        {PASSENGER_GENDERS.map((gender) => <option key={gender} value={gender}>{GENDER_LABELS[gender]}</option>)}
                       </select>
                     </Field>
                     <Field label="Nationality">
-                      <Input
-                        value={passenger.nationality}
-                        onChange={(event) => update(index, { nationality: event.target.value })}
-                        maxLength={80}
-                        required
-                      />
+                      <Input value={passenger.nationality} onChange={(event) => update(index, { nationality: event.target.value })} maxLength={80} required />
                     </Field>
-                    <Field label={`Passport number${passportRequired ? "" : " (optional)"}`}>
-                      <Input
-                        value={passenger.passportNumber ?? ""}
-                        onChange={(event) => update(index, { passportNumber: event.target.value })}
-                        maxLength={40}
-                      />
-                    </Field>
-                    <Field label={`Issuing country${passportRequired ? "" : " (optional)"}`}>
-                      <Input
-                        value={passenger.passportCountry ?? ""}
-                        onChange={(event) => update(index, { passportCountry: event.target.value })}
-                        maxLength={80}
-                      />
-                    </Field>
-                    <Field label={`Passport expiry${passportRequired ? "" : " (optional)"}`}>
-                      <Input
-                        type="date"
-                        value={passenger.passportExpiry ?? ""}
-                        onChange={(event) => update(index, { passportExpiry: event.target.value })}
-                      />
-                    </Field>
+                    {!isHotel ? (
+                      <>
+                        <Field label={`Passport number${passportRequired ? "" : " (optional)"}`}>
+                          <Input value={passenger.passportNumber ?? ""} onChange={(event) => update(index, { passportNumber: event.target.value })} maxLength={40} />
+                        </Field>
+                        <Field label={`Issuing country${passportRequired ? "" : " (optional)"}`}>
+                          <Input value={passenger.passportCountry ?? ""} onChange={(event) => update(index, { passportCountry: event.target.value })} maxLength={80} />
+                        </Field>
+                        <Field label={`Passport expiry${passportRequired ? "" : " (optional)"}`}>
+                          <Input type="date" value={passenger.passportExpiry ?? ""} onChange={(event) => update(index, { passportExpiry: event.target.value })} />
+                        </Field>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               ))}
             </div>
           </section>
 
-          {error ? (
-            <p className="rounded-2xl bg-coral-tint px-4 py-3 text-sm font-medium text-navy">
-              {error}
-            </p>
-          ) : null}
+          {error ? <p className="rounded-2xl bg-coral-tint px-4 py-3 text-sm font-medium text-navy">{error}</p> : null}
 
           <div className="glass-card flex flex-col gap-4 rounded-3xl p-6 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-start gap-2 text-xs text-muted-foreground">
               <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Traveller details are stored securely against your booking and only shared with the
-              airline.
+              Traveller details are stored securely against your booking and shared only with the relevant travel provider.
             </p>
-            <Button
-              type="submit"
-              size="lg"
-              className="btn-gradient text-white"
-              disabled={submit.isPending || !ready}
-            >
-              {submit.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <ArrowRight className="mr-2 h-4 w-4" aria-hidden="true" />
-              )}
+            <Button type="submit" size="lg" className="btn-gradient text-white" disabled={submit.isPending || !ready}>
+              {submit.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="mr-2 h-4 w-4" aria-hidden="true" />}
               Continue to review
             </Button>
           </div>
