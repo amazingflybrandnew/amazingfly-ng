@@ -40,6 +40,14 @@ export type StartBookingInput = {
   comment?: string;
 };
 
+export type BookingFormPaymentOption = {
+  type: string;
+  amount: string;
+  currencyCode: string;
+  requiresCard: boolean;
+  requiresCvc: boolean;
+};
+
 export class HotelBookingError extends Error {
   constructor(message: string) {
     super(message);
@@ -146,7 +154,6 @@ async function markRequestBookingStatus(partnerOrderId: string, status: string) 
   await db.from("service_requests").update({ booking_status: status }).eq("id", requestId);
 }
 
-/** Mirror a confirmed booking onto the linked service_request (hotel columns only). */
 async function markRequestBooked(partnerOrderId: string, orderId: string | null) {
   const db = await admin();
   const { data } = await db
@@ -174,9 +181,23 @@ export type CreateBookingResult = {
   partnerOrderId: string;
   orderId: string;
   itemId: string | null;
-  paymentTypes: unknown[];
+  paymentTypes: BookingFormPaymentOption[];
   attempts: number;
 };
+
+function mapBookingFormPaymentTypes(
+  values: Array<Record<string, unknown>> | undefined,
+): BookingFormPaymentOption[] {
+  return (values ?? [])
+    .map((value) => ({
+      type: String(value["type"] ?? ""),
+      amount: String(value["amount"] ?? ""),
+      currencyCode: String(value["currency_code"] ?? ""),
+      requiresCard: Boolean(value["is_need_credit_card_data"]),
+      requiresCvc: Boolean(value["is_need_cvc"]),
+    }))
+    .filter((value) => value.type && value.amount && value.currencyCode);
+}
 
 export async function createBookingProcess(input: {
   bookHash: string;
@@ -200,7 +221,7 @@ export async function createBookingProcess(input: {
       const data = await bookingFetch<{
         order_id?: string | number;
         item_id?: string | number;
-        payment_types?: unknown[];
+        payment_types?: Array<Record<string, unknown>>;
       }>("/hotel/order/booking/form/", {
         partner_order_id: partnerOrderId,
         book_hash: input.bookHash,
@@ -214,7 +235,7 @@ export async function createBookingProcess(input: {
         partnerOrderId,
         orderId: String(data.order_id),
         itemId: data.item_id != null ? String(data.item_id) : null,
-        paymentTypes: data.payment_types ?? [],
+        paymentTypes: mapBookingFormPaymentTypes(data.payment_types),
         attempts: attempt,
       };
 
@@ -369,8 +390,6 @@ export async function runBookingSequence(input: {
   email: string;
   phone: string;
   guests: BookingGuest[];
-  amount: number;
-  currency: string;
   paymentType: HotelBookingPaymentType;
   comment?: string;
 }): Promise<{ partnerOrderId: string; orderId: string; result: CheckBookingResult }> {
@@ -380,16 +399,58 @@ export async function runBookingSequence(input: {
     userIp: input.userIp ?? "",
   });
 
-  await startBookingProcess({
-    partnerOrderId: created.partnerOrderId,
-    email: input.email,
-    phone: input.phone,
-    guests: input.guests,
-    amount: input.amount,
-    currency: input.currency,
-    paymentType: input.paymentType,
-    comment: input.comment ?? "",
-  });
+  const payment = created.paymentTypes.find((option) => option.type === input.paymentType);
+  if (!payment) {
+    const message = "The selected hotel payment method is no longer available. Please choose the rate again.";
+    await applyBookingStatus({
+      partnerOrderId: created.partnerOrderId,
+      status: "failed",
+      errorMessage: message,
+    });
+    throw new HotelBookingError(message);
+  }
+  if (payment.requiresCard || payment.requiresCvc) {
+    const message =
+      "This hotel payment method now requires a card guarantee. Secure card tokenization is not enabled yet.";
+    await applyBookingStatus({
+      partnerOrderId: created.partnerOrderId,
+      status: "failed",
+      errorMessage: message,
+    });
+    throw new HotelBookingError(message);
+  }
+
+  const amount = Number(payment.amount);
+  if (!Number.isFinite(amount) || amount < 0 || payment.currencyCode.length !== 3) {
+    const message = "The hotel provider returned an invalid booking payment amount.";
+    await applyBookingStatus({
+      partnerOrderId: created.partnerOrderId,
+      status: "failed",
+      errorMessage: message,
+    });
+    throw new HotelBookingError(message);
+  }
+
+  try {
+    await startBookingProcess({
+      partnerOrderId: created.partnerOrderId,
+      email: input.email,
+      phone: input.phone,
+      guests: input.guests,
+      amount,
+      currency: payment.currencyCode,
+      paymentType: input.paymentType,
+      comment: input.comment ?? "",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The hotel provider could not start this booking.";
+    await applyBookingStatus({
+      partnerOrderId: created.partnerOrderId,
+      status: "failed",
+      errorMessage: message,
+    });
+    throw error;
+  }
 
   const result = await checkBookingProcess(created.partnerOrderId);
   return { partnerOrderId: created.partnerOrderId, orderId: created.orderId, result };
@@ -416,7 +477,11 @@ export async function bookStoredHotelRequest(
     .maybeSingle();
 
   if (existing) {
-    const row = existing as { partner_order_id: string; status: BookingStatus; order_id?: string | null };
+    const row = existing as {
+      partner_order_id: string;
+      status: BookingStatus;
+      order_id?: string | null;
+    };
     return {
       partnerOrderId: row.partner_order_id,
       orderId: row.order_id ?? null,
@@ -436,12 +501,17 @@ export async function bookStoredHotelRequest(
 
   const row = request as Record<string, unknown>;
   const category = String(row["service_category"] ?? "").toLowerCase();
-  if (category !== "hotels" && !String(row["service_type"] ?? "").toLowerCase().includes("hotel")) {
+  if (
+    category !== "hotels" &&
+    !String(row["service_type"] ?? "").toLowerCase().includes("hotel")
+  ) {
     throw new HotelBookingError("This request is not a hotel booking.");
   }
 
   const bookHash = String(row["hotel_book_hash"] ?? "").trim();
-  if (!bookHash) throw new HotelBookingError("This hotel rate no longer has a confirmed booking hash.");
+  if (!bookHash) {
+    throw new HotelBookingError("This hotel rate no longer has a confirmed booking hash.");
+  }
 
   const paymentType = String(row["hotel_payment_type"] ?? "");
   if (paymentType !== expectedPaymentType) {
@@ -461,14 +531,19 @@ export async function bookStoredHotelRequest(
     );
   }
 
-  const guestCount = Math.max(1, Number(row["hotel_guests"] ?? row["traveller_count"] ?? 1));
+  const guestCount = Math.max(
+    1,
+    Number(row["hotel_guests"] ?? row["traveller_count"] ?? 1),
+  );
   const { data: passengerRows, error: passengerError } = await db
     .from("booking_passengers")
     .select("first_name, last_name, created_at")
     .eq("request_id", requestId)
     .order("created_at", { ascending: true });
 
-  if (passengerError) throw new HotelBookingError("We could not load the hotel guest details.");
+  if (passengerError) {
+    throw new HotelBookingError("We could not load the hotel guest details.");
+  }
 
   const guests = ((passengerRows ?? []) as Record<string, unknown>[])
     .map((guest) => ({
@@ -489,12 +564,10 @@ export async function bookStoredHotelRequest(
     throw new HotelBookingError("A booking contact email and phone number are required.");
   }
 
-  const amount = Number(row["hotel_provider_payment_amount"] ?? row["hotel_price"] ?? 0);
-  const currency = String(
-    row["hotel_provider_payment_currency"] ?? row["hotel_currency"] ?? "USD",
-  ).trim();
-
-  await db.from("service_requests").update({ booking_status: "processing" }).eq("id", requestId);
+  await db
+    .from("service_requests")
+    .update({ booking_status: "processing" })
+    .eq("id", requestId);
 
   try {
     const booked = await runBookingSequence({
@@ -503,8 +576,6 @@ export async function bookStoredHotelRequest(
       email,
       phone,
       guests,
-      amount,
-      currency,
       paymentType: expectedPaymentType,
     });
     return {
@@ -513,7 +584,10 @@ export async function bookStoredHotelRequest(
       status: booked.result.status,
     };
   } catch (error) {
-    await db.from("service_requests").update({ booking_status: "failed" }).eq("id", requestId);
+    await db
+      .from("service_requests")
+      .update({ booking_status: "failed" })
+      .eq("id", requestId);
     throw error;
   }
 }
