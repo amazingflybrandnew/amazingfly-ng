@@ -131,7 +131,9 @@ export function HotelDetailsModal({
 
   const payload = details.data?.ok ? details.data : null;
   const full = payload?.hotel ?? null;
-  const rooms = payload?.rooms?.length ? payload.rooms : hotel.rooms;
+  // Only live hotelpage (/search/hp/) rates may be selected — never fall back
+  // to the SERP rates carried on the search result.
+  const rooms = (payload?.rooms ?? []).filter((room) => Boolean(room.bookHash));
   const images = (full?.images?.length ? full.images : (hotel.images ?? [])).filter(Boolean);
   const gallery = images.length ? images : hotel.hotelImage ? [hotel.hotelImage] : [];
   const amenities = full?.amenities?.length ? full.amenities : hotel.amenities;
@@ -284,7 +286,7 @@ export function HotelDetailsModal({
             <p className="mt-3 text-sm text-muted-foreground">
               {details.isPending
                 ? "Loading live rates for these dates…"
-                : "Room options will be confirmed by our team for these dates."}
+                : "No live rates are available for these dates right now. Please try different dates."}
             </p>
           ) : (
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -327,10 +329,11 @@ export function HotelDetailsModal({
           </div>
           <Button
             className="btn-gradient w-full border-0 text-white sm:w-auto"
-            onClick={() => onSelect(hotel)}
+            disabled={!lowest}
+            onClick={() => (lowest ? onSelect(hotel, lowest) : undefined)}
           >
             <BedDouble className="mr-2 h-4 w-4" aria-hidden="true" />
-            Select Hotel
+            {lowest ? "Select Hotel" : "Choose a live rate"}
           </Button>
         </div>
       </DialogContent>
