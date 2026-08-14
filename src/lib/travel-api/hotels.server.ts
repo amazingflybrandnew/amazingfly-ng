@@ -461,11 +461,17 @@ export async function prebookHotelRate(
     };
   }
 
-  // Keep the confirmed hash: prefer the one prebook returned, otherwise the
-  // hash we sent. Never fall back to match_hash or a room name.
+  // A successful prebook always returns its own book_hash. Never fall back to
+  // the hash we sent, match_hash, or a room name.
+  if (!rate.book_hash) {
+    return {
+      status: "unavailable",
+      message: "This rate could not be confirmed. Please choose another room.",
+    };
+  }
   const room: RoomResult = {
     ...mapRate(rate, currency),
-    bookHash: rate.book_hash ?? bookHash,
+    bookHash: rate.book_hash,
   };
   if (!room.price) {
     return {
