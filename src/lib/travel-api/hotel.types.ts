@@ -22,6 +22,23 @@ export type CancellationPolicy = {
   description?: string;
 };
 
+export type HotelPaymentType = "deposit" | "hotel" | "now";
+
+/**
+ * One payment method RateHawk exposes for a specific live rate.
+ * `amount/currency` are provider settlement values; `showAmount/showCurrency`
+ * are the traveller-facing values returned by RateHawk for this search.
+ */
+export type HotelPaymentOption = {
+  type: HotelPaymentType;
+  amount: number;
+  currency: string;
+  showAmount: number;
+  showCurrency: string;
+  requiresCard: boolean;
+  requiresCvc: boolean;
+};
+
 export type RoomResult = {
   roomId: string;
   /**
@@ -36,8 +53,10 @@ export type RoomResult = {
   capacity: number; // max guests per room
   cancellationPolicy: CancellationPolicy;
   boardType?: string; // e.g. "Room only", "Breakfast included"
-  price: number; // total for the stay
+  price: number; // default displayed total for the stay
   currency: string;
+  /** Payment methods are rate-specific and may change again at prebook. */
+  paymentOptions: HotelPaymentOption[];
 };
 
 export type HotelResult = {
