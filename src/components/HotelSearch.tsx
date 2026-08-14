@@ -5,7 +5,9 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   BedDouble,
+  Building2,
   Check,
+  CreditCard,
   Hotel,
   Loader2,
   MapPin,
@@ -32,7 +34,11 @@ import {
   searchHotelStays,
 } from "@/lib/travel-api/hotels.functions";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
-import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
+import type {
+  HotelPaymentOption,
+  HotelResult,
+  RoomResult,
+} from "@/lib/travel-api/hotel.types";
 import { createHotelRequest } from "@/lib/hotel-request.functions";
 import { HotelSearchSkeleton } from "@/components/HotelSearchSkeleton";
 import { HotelConfirmation } from "@/components/HotelConfirmation";
@@ -41,8 +47,6 @@ import {
   nightsBetween,
   perNightPrice,
 } from "@/lib/travel-api/hotel-format";
-
-
 
 type SortKey = "recommended" | "price" | "rating";
 
@@ -211,6 +215,24 @@ function HotelCard({
   );
 }
 
+function paymentLabel(option: HotelPaymentOption): string {
+  if (option.type === "hotel") return "Reserve now — pay at property";
+  if (option.type === "deposit") return "Pay now";
+  return "Pay now by card";
+}
+
+function paymentDescription(option: HotelPaymentOption): string {
+  if (option.type === "hotel") {
+    return option.requiresCard
+      ? "The property requires a card guarantee. Secure card tokenization is required before this option can be submitted."
+      : "Reserve the room now and pay the property according to the rate terms.";
+  }
+  if (option.type === "deposit") {
+    return "Pay securely through Amazingfly before we submit the confirmed hotel booking.";
+  }
+  return "This provider-card payment method is not used in the current sandbox flow.";
+}
+
 export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const search = useServerFn(searchHotelStays);
 
@@ -233,10 +255,20 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [detailHotel, setDetailHotel] = useState<HotelResult | null>(null);
   const [selected, setSelected] = useState<HotelResult | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<HotelPaymentOption | null>(null);
+  const [priceAccepted, setPriceAccepted] = useState(false);
 
   const createRequestFn = useServerFn(createHotelRequest);
   const createRequest = useMutation({
-    mutationFn: ({ hotel, room }: { hotel: HotelResult; room: RoomResult | null }) =>
+    mutationFn: ({
+      hotel,
+      room,
+      payment,
+    }: {
+      hotel: HotelResult;
+      room: RoomResult;
+      payment: HotelPaymentOption;
+    }) =>
       createRequestFn({
         data: {
           hotelId: hotel.hotelId,
@@ -251,24 +283,26 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           guests:
             (submittedStay?.guests.adults ?? 1) + (submittedStay?.guests.children ?? 0),
           rooms: submittedStay?.rooms ?? 1,
-          roomType: room?.roomName ?? null,
-          boardType: room?.boardType ?? null,
-          cancellationPolicy: room
-            ? room.cancellationPolicy.refundable
-              ? `Free cancellation${
-                  room.cancellationPolicy.freeCancellationUntil
-                    ? ` until ${room.cancellationPolicy.freeCancellationUntil}`
-                    : ""
-                }`
-              : "Non-refundable"
-            : null,
-          price: room?.price ?? hotel.price,
-          currency: room?.currency ?? hotel.currency,
-          bookHash: room?.bookHash ?? null,
+          roomType: room.roomName,
+          boardType: room.boardType ?? null,
+          cancellationPolicy: room.cancellationPolicy.refundable
+            ? `Free cancellation${
+                room.cancellationPolicy.freeCancellationUntil
+                  ? ` until ${room.cancellationPolicy.freeCancellationUntil}`
+                  : ""
+              }`
+            : "Non-refundable",
+          price: payment.showAmount || room.price,
+          currency: payment.showCurrency || room.currency,
+          bookHash: room.bookHash ?? null,
+          paymentType: payment.type,
+          paymentRequiresCard: payment.requiresCard,
+          paymentRequiresCvc: payment.requiresCvc,
+          providerPaymentAmount: payment.amount,
+          providerPaymentCurrency: payment.currency,
         },
       }),
   });
-
 
   const mutation = useMutation({
     mutationFn: (stay: StayInputShape) => search({ data: stay }),
@@ -286,7 +320,6 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     mutationFn: async ({ hotel, room }: { hotel: HotelResult; room: RoomResult }) => {
       const result = await prebookFn({
         data: {
-          // Only a hotelpage (/search/hp/) or prebook rate carries a bookable hash.
           bookHash: room.bookHash as string,
           expectedPrice: room.price,
           expectedCurrency: room.currency,
@@ -294,16 +327,13 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       });
       return { result, hotel, room };
     },
-    onSuccess: ({ result, hotel, room }) => {
+    onSuccess: ({ result }) => {
       if (!result.ok) return;
       setSelectedRoom(result.room);
-      if (result.status === "available") {
-        createRequest.mutate({ hotel, room: result.room ?? room });
-      }
+      setSelectedPayment(null);
+      setPriceAccepted(result.status === "available");
     },
   });
-
-
 
   function validate(): string | null {
     const today = todayISO();
@@ -332,6 +362,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       currency,
     };
     setSubmittedStay(stay);
+    setSelected(null);
+    setSelectedRoom(null);
+    setSelectedPayment(null);
+    setPriceAccepted(false);
     mutation.mutate(stay);
   };
 
@@ -395,16 +429,14 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   };
 
   const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
-    // A rate can only be prebooked when it came from the hotelpage
-    // (/search/hp/) call and carries a live RateHawk book_hash. Selecting a
-    // hotel from the SERP list opens the details modal so live rates load
-    // first — SERP rates are never sent to /hotel/prebook/.
     if (!room?.bookHash) {
       setDetailHotel(hotel);
       return;
     }
     setSelected(hotel);
     setSelectedRoom(room);
+    setSelectedPayment(null);
+    setPriceAccepted(false);
     setDetailHotel(null);
     createRequest.reset();
     prebook.reset();
@@ -412,13 +444,15 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     prebook.mutate({ hotel, room });
   };
 
-  const confirmNewPrice = () => {
-    if (!selected || !selectedRoom) return;
-    createRequest.mutate({ hotel: selected, room: selectedRoom });
+  const choosePayment = (payment: HotelPaymentOption) => {
+    if (!selected || !selectedRoom || !selectedRoom.bookHash) return;
+    if (payment.type === "now") return;
+    if (payment.type === "hotel" && payment.requiresCard) return;
+    setSelectedPayment(payment);
+    createRequest.mutate({ hotel: selected, room: selectedRoom, payment });
   };
 
-
-
+  const livePaymentOptions = selectedRoom?.paymentOptions ?? [];
 
   return (
     <div className="space-y-8">
@@ -461,14 +495,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           <div className="space-y-2">
             <Label htmlFor="hotel-adults">Guests</Label>
             <Select value={adults} onValueChange={setAdults}>
-              <SelectTrigger id="hotel-adults">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger id="hotel-adults"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} adult{n > 1 ? "s" : ""}
-                  </SelectItem>
+                  <SelectItem key={n} value={String(n)}>{n} adult{n > 1 ? "s" : ""}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -476,14 +506,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           <div className="space-y-2">
             <Label htmlFor="hotel-children">Children</Label>
             <Select value={children} onValueChange={setChildren}>
-              <SelectTrigger id="hotel-children">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger id="hotel-children"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[0, 1, 2, 3, 4].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} child{n === 1 ? "" : "ren"}
-                  </SelectItem>
+                  <SelectItem key={n} value={String(n)}>{n} child{n === 1 ? "" : "ren"}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -491,14 +517,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           <div className="space-y-2">
             <Label htmlFor="hotel-rooms">Rooms</Label>
             <Select value={rooms} onValueChange={setRooms}>
-              <SelectTrigger id="hotel-rooms">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger id="hotel-rooms"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} room{n > 1 ? "s" : ""}
-                  </SelectItem>
+                  <SelectItem key={n} value={String(n)}>{n} room{n > 1 ? "s" : ""}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -506,50 +528,29 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           <div className="space-y-2">
             <Label htmlFor="hotel-currency">Currency</Label>
             <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger id="hotel-currency">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger id="hotel-currency"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {CURRENCIES.map((code) => (
-                  <SelectItem key={code} value={code}>
-                    {code}
-                  </SelectItem>
-                ))}
+                {CURRENCIES.map((code) => <SelectItem key={code} value={code}>{code}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
         </div>
 
         {formError ? (
-          <p
-            role="alert"
-            className="mt-4 flex gap-2 rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm text-navy"
-          >
+          <p role="alert" className="mt-4 flex gap-2 rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm text-navy">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
             {formError}
           </p>
         ) : null}
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Button
-            type="submit"
-            size="lg"
-            className="btn-gradient border-0 text-white"
-            disabled={mutation.isPending}
-          >
-            {mutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Search className="mr-2 h-4 w-4" aria-hidden="true" />
-            )}
+          <Button type="submit" size="lg" className="btn-gradient border-0 text-white" disabled={mutation.isPending}>
+            {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-2 h-4 w-4" aria-hidden="true" />}
             Search Hotels
           </Button>
           {compact ? (
             <Button asChild variant="ghost" className="text-navy hover:text-orange">
-              <Link to="/hotels">
-                Open full hotel search
-                <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-              </Link>
+              <Link to="/hotels">Open full hotel search<ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" /></Link>
             </Button>
           ) : null}
         </div>
@@ -557,7 +558,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
 
       {selected ? (
         <HotelConfirmation hotel={selected} room={selectedRoom} stay={submittedStay}>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {prebook.isPending ? (
               <p className="flex items-center gap-2 rounded-2xl bg-sky-tint px-4 py-3 text-sm font-semibold text-navy">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -572,93 +573,102 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               </p>
             ) : null}
 
-            {prebook.data?.result.ok && prebook.data.result.status === "price_changed" ? (
+            {prebook.data?.result.ok && prebook.data.result.status === "price_changed" && !priceAccepted ? (
               <div className="space-y-3 rounded-2xl border border-orange/30 bg-peach-tint px-4 py-3 text-sm text-navy">
                 <p>
                   The hotel updated this rate while you were choosing. New total:{" "}
-                  <strong>
-                    {formatHotelPrice(
-                      prebook.data.result.room.price,
-                      prebook.data.result.room.currency,
-                    )}
-                  </strong>{" "}
+                  <strong>{formatHotelPrice(prebook.data.result.room.price, prebook.data.result.room.currency)}</strong>{" "}
                   (was {formatHotelPrice(prebook.data.result.previousPrice, selected.currency)}).
                 </p>
-                {!createRequest.data && !createRequest.isPending ? (
-                  <div className="flex flex-wrap gap-3">
-                    <Button size="sm" className="btn-gradient border-0 text-white" onClick={confirmNewPrice}>
-                      Accept new price
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={() => setDetailHotel(selected)}>
-                      Choose another room
-                    </Button>
-                  </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button size="sm" className="btn-gradient border-0 text-white" onClick={() => setPriceAccepted(true)}>
+                    Accept new price
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setDetailHotel(selected)}>
+                    Choose another room
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {prebook.data?.result.ok && priceAccepted && !createRequest.data ? (
+              <div className="rounded-2xl border border-white/70 bg-white/70 p-4">
+                <p className="text-sm font-extrabold text-navy">Choose how you want to book</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  These choices come from the live RateHawk prebook response for this exact room.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {livePaymentOptions.map((option, index) => {
+                    const blocked = option.type === "now" || (option.type === "hotel" && option.requiresCard);
+                    const Icon = option.type === "hotel" ? Building2 : CreditCard;
+                    return (
+                      <button
+                        key={`${option.type}-${index}`}
+                        type="button"
+                        disabled={blocked || createRequest.isPending}
+                        onClick={() => choosePayment(option)}
+                        className="rounded-2xl border border-white/80 bg-white p-4 text-left transition hover:border-orange/40 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <span className="flex items-center gap-2 text-sm font-extrabold text-navy">
+                          <Icon className="h-4 w-4 text-orange" aria-hidden="true" />
+                          {paymentLabel(option)}
+                        </span>
+                        <span className="mt-2 block text-lg font-extrabold text-navy">
+                          {formatHotelPrice(option.showAmount || selectedRoom?.price || 0, option.showCurrency || selectedRoom?.currency || "USD")}
+                        </span>
+                        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                          {paymentDescription(option)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {livePaymentOptions.length === 0 ? (
+                  <p className="mt-3 rounded-xl bg-peach-tint px-3 py-2 text-xs text-navy">
+                    This rate no longer exposes a supported payment method. Please choose another room.
+                  </p>
                 ) : null}
               </div>
             ) : null}
 
-            {prebook.isPending ||
-            (prebook.data && !prebook.data.result.ok) ||
-            (prebook.data?.result.ok &&
-              prebook.data.result.status === "price_changed" &&
-              !createRequest.data &&
-              !createRequest.isPending) ? null : (
-            <div className="flex flex-wrap gap-3">
-
-              {createRequest.isPending ? (
-                <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Saving this stay to your account…
-                </span>
-              ) : createRequest.data?.ok ? (
-                <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                  <Link
-                    to="/booking-review/$requestId"
-                    params={{ requestId: createRequest.data.requestId }}
-                  >
-                    Review booking
-                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
-
-              ) : createRequest.data &&
-                !createRequest.data.ok &&
-                createRequest.data.reason === "auth" ? (
-                <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                  <Link to="/auth" search={{ redirect: "/hotels" }}>
-                    Sign in to save this stay
-                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button asChild size="sm" className="btn-gradient border-0 text-white">
-                  <Link to="/request" search={{ service: "hotels", to: selected.location }}>
-                    Continue with this hotel
-                    <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                  </Link>
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setDetailHotel(selected)}
-              >
-                Change room
-              </Button>
-            </div>
-            )}
-
+            {createRequest.isPending ? (
+              <span className="flex items-center gap-2 text-sm font-semibold text-navy-soft">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Saving your selected booking method…
+              </span>
+            ) : null}
 
             {createRequest.data?.ok ? (
-              <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
-                Hotel request <strong>{createRequest.data.reference}</strong> created. Status: New
-                Request — our specialists will confirm availability and come back to you.
-              </p>
+              <div className="space-y-3">
+                <p className="rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
+                  Hotel booking <strong>{createRequest.data.reference}</strong> saved with{" "}
+                  <strong>{selectedPayment ? paymentLabel(selectedPayment) : "your selected payment method"}</strong>.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                    <Link to="/passengers/$requestId" params={{ requestId: createRequest.data.requestId }}>
+                      Add traveller details
+                      <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setDetailHotel(selected)}>
+                    Change room
+                  </Button>
+                </div>
+              </div>
             ) : null}
-            {createRequest.data && !createRequest.data.ok ? (
-              <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">
-                {createRequest.data.message}
-              </p>
+
+            {createRequest.data && !createRequest.data.ok && createRequest.data.reason === "auth" ? (
+              <Button asChild size="sm" className="btn-gradient border-0 text-white">
+                <Link to="/auth" search={{ redirect: "/hotels" }}>
+                  Sign in to save this stay
+                  <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : null}
+
+            {createRequest.data && !createRequest.data.ok && createRequest.data.reason !== "auth" ? (
+              <p className="rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">{createRequest.data.message}</p>
             ) : null}
           </div>
         </HotelConfirmation>
@@ -675,37 +685,23 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
 
       {result?.ok && results.length === 0 ? (
         <p className="rounded-2xl border border-white/70 bg-white/70 p-6 text-sm text-muted-foreground">
-          No stays matched this search. Try different dates or another destination — or send us a
-          request and our team will find options for you.
+          No stays matched this search. Try different dates or another destination — or send us a request and our team will find options for you.
         </p>
       ) : null}
 
       {results.length > 0 ? (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {visible.length} of {results.length} stays
-            </p>
+            <p className="text-sm text-muted-foreground">{visible.length} of {results.length} stays</p>
             <div className="flex flex-wrap items-center gap-3">
               <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-                <SelectTrigger className="w-52" aria-label="Sort hotels">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-52" aria-label="Sort hotels"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {SORT_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
+                  {SORT_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowFilters((prev) => !prev)}
-              >
-                <SlidersHorizontal className="mr-2 h-4 w-4" aria-hidden="true" />
-                Filters
+              <Button type="button" variant="secondary" onClick={() => setShowFilters((prev) => !prev)}>
+                <SlidersHorizontal className="mr-2 h-4 w-4" aria-hidden="true" />Filters
               </Button>
             </div>
           </div>
@@ -715,9 +711,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               <div className="space-y-3">
                 <Label>Star rating</Label>
                 <Select value={minRating} onValueChange={setMinRating}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">Any rating</SelectItem>
                     <SelectItem value="3">3 stars and above</SelectItem>
@@ -726,19 +720,13 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                   </SelectContent>
                 </Select>
                 <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={refundableOnly}
-                    onCheckedChange={(checked) => setRefundableOnly(checked === true)}
-                  />
+                  <Checkbox checked={refundableOnly} onCheckedChange={(checked) => setRefundableOnly(checked === true)} />
                   Free cancellation only
                 </label>
               </div>
 
               <div className="space-y-3">
-                <Label>
-                  Max total price:{" "}
-                  {formatPrice(maxPrice ?? priceBounds.max, results[0]?.currency ?? "NGN")}
-                </Label>
+                <Label>Max total price: {formatPrice(maxPrice ?? priceBounds.max, results[0]?.currency ?? "NGN")}</Label>
                 <Slider
                   min={priceBounds.min}
                   max={Math.max(priceBounds.max, priceBounds.min + 1)}
@@ -746,9 +734,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                   value={[maxPrice ?? priceBounds.max]}
                   onValueChange={(value) => setMaxPrice(value[0] ?? priceBounds.max)}
                 />
-                <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>
-                  Reset filters
-                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>Reset filters</Button>
               </div>
 
               <div className="space-y-3">
@@ -759,10 +745,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                   ) : (
                     amenities.map((amenity) => (
                       <label key={amenity} className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={amenityFilter.includes(amenity)}
-                          onCheckedChange={() => toggleAmenity(amenity)}
-                        />
+                        <Checkbox checked={amenityFilter.includes(amenity)} onCheckedChange={() => toggleAmenity(amenity)} />
                         {amenity}
                       </label>
                     ))
@@ -785,10 +768,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
             ))}
             {visible.length === 0 ? (
               <p className="rounded-2xl border border-white/70 bg-white/70 p-6 text-sm text-muted-foreground">
-                No stays match your filters.{" "}
-                <button type="button" className="font-semibold text-orange" onClick={resetFilters}>
-                  Reset filters
-                </button>
+                No stays match your filters. <button type="button" className="font-semibold text-orange" onClick={resetFilters}>Reset filters</button>
               </p>
             ) : null}
           </div>
