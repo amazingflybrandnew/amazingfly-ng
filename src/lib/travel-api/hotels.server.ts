@@ -208,6 +208,7 @@ function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
   const name = rate.room_name ?? "Standard room";
   return {
     roomId: rate.book_hash ?? rate.match_hash ?? name,
+    bookHash: rate.book_hash ?? null,
     roomName: name,
     roomType: name,
     bedType: rate.room_data_info?.types?.bedding_type ?? "Not specified",
@@ -460,7 +461,12 @@ export async function prebookHotelRate(
     };
   }
 
-  const room = mapRate(rate, currency);
+  // Keep the confirmed hash: prefer the one prebook returned, otherwise the
+  // hash we sent. Never fall back to match_hash or a room name.
+  const room: RoomResult = {
+    ...mapRate(rate, currency),
+    bookHash: rate.book_hash ?? bookHash,
+  };
   if (!room.price) {
     return {
       status: "unavailable",

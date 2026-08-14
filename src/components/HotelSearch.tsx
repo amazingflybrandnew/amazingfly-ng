@@ -285,7 +285,8 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     mutationFn: async ({ hotel, room }: { hotel: HotelResult; room: RoomResult }) => {
       const result = await prebookFn({
         data: {
-          bookHash: room.roomId,
+          // Only a hotelpage (/search/hp/) or prebook rate carries a bookable hash.
+          bookHash: room.bookHash as string,
           expectedPrice: room.price,
           expectedCurrency: room.currency,
         },
@@ -393,18 +394,21 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   };
 
   const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
-    const chosen = room ?? hotel.rooms[0] ?? null;
+    // A rate can only be prebooked when it came from the hotelpage
+    // (/search/hp/) call and carries a live RateHawk book_hash. Selecting a
+    // hotel from the SERP list opens the details modal so live rates load
+    // first — SERP rates are never sent to /hotel/prebook/.
+    if (!room?.bookHash) {
+      setDetailHotel(hotel);
+      return;
+    }
     setSelected(hotel);
-    setSelectedRoom(chosen);
+    setSelectedRoom(room);
     setDetailHotel(null);
     createRequest.reset();
     prebook.reset();
     if (!submittedStay) return;
-    if (!chosen?.roomId) {
-      createRequest.mutate({ hotel, room: chosen });
-      return;
-    }
-    prebook.mutate({ hotel, room: chosen });
+    prebook.mutate({ hotel, room });
   };
 
   const confirmNewPrice = () => {

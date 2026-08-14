@@ -24,6 +24,12 @@ export type CancellationPolicy = {
 
 export type RoomResult = {
   roomId: string;
+  /**
+   * RateHawk `book_hash` for this rate. Only rates returned by the hotelpage
+   * (`/search/hp/`) or `/hotel/prebook/` carry a bookable hash; SERP rates may
+   * not. Never substitute `match_hash` or a room name here.
+   */
+  bookHash?: string | null;
   roomName: string;
   roomType: string;
   bedType: string;

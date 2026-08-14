@@ -1,22 +1,42 @@
 /**
- * RateHawk booking-status webhook.
+ * RateHawk (ETG) booking-status webhook.
  *
  * Lives under /api/public/* so RateHawk can reach it without site auth.
- * Mirrors the Paystack webhook pattern: verify the caller, parse the payload,
- * hand off to the same idempotent finaliser the polling path uses.
  *
- * Authentication: if RATEHAWK_WEBHOOK_SECRET is set, the request must present
- * it as `x-ratehawk-token` (or `?token=`); RateHawk does not sign payloads.
- * The partner_order_id itself is an unguessable UUID and must already exist.
+ * GET  — health probe, always 200.
+ * POST — the real callback.
+ *
+ * Authentication follows the ETG webhook signature mechanism: the callback
+ * carries an HMAC-SHA256 of the raw request body, keyed with our server-side
+ * RateHawk API token (RATEHAWK_API_TOKEN, read from project secrets — never
+ * hardcoded and never echoed back). Both hex and base64 digests are accepted,
+ * compared in constant time.
+ *
+ * Status codes: malformed payload → 400, bad/missing signature → 401,
+ * successful processing → 200, internal failure → 500 so RateHawk retries.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
-function tokenMatches(provided: string | null, expected: string): boolean {
-  if (!provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+const SIGNATURE_HEADERS = [
+  "x-signature",
+  "signature",
+  "x-ratehawk-signature",
+  "x-etg-signature",
+];
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
+
+function verifySignature(rawBody: string, provided: string, token: string): boolean {
+  const value = provided.trim().replace(/^sha256=/i, "");
+  const mac = createHmac("sha256", token).update(rawBody, "utf8");
+  const hex = mac.digest("hex");
+  const base64 = createHmac("sha256", token).update(rawBody, "utf8").digest("base64");
+  return safeEqual(value.toLowerCase(), hex) || safeEqual(value, base64);
 }
 
 type RateHawkCallback = {
@@ -35,21 +55,28 @@ type RateHawkCallback = {
 export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
   server: {
     handlers: {
+      GET: async () => Response.json({ ok: true, service: "ratehawk-webhook" }),
+
       POST: async ({ request }) => {
-        const secret = process.env["RATEHAWK_WEBHOOK_SECRET"];
-        if (secret) {
-          const url = new URL(request.url);
-          const provided =
-            request.headers.get("x-ratehawk-token") ?? url.searchParams.get("token");
-          if (!tokenMatches(provided, secret)) {
-            return new Response("Unauthorized", { status: 401 });
-          }
+        const token = process.env["RATEHAWK_API_TOKEN"];
+        if (!token) {
+          console.error("[ratehawk-webhook] RATEHAWK_API_TOKEN is not configured");
+          return new Response("Webhook not configured", { status: 500 });
         }
 
         const rawBody = await request.text();
+
+        const provided = SIGNATURE_HEADERS.map((name) => request.headers.get(name)).find(
+          (value): value is string => Boolean(value),
+        );
+        if (!provided || !verifySignature(rawBody, provided, token)) {
+          console.error("[ratehawk-webhook] rejected: invalid or missing signature");
+          return new Response("Invalid signature", { status: 401 });
+        }
+
         let event: RateHawkCallback | null = null;
         try {
-          event = JSON.parse(rawBody);
+          event = JSON.parse(rawBody) as RateHawkCallback;
         } catch {
           return new Response("Invalid payload", { status: 400 });
         }
@@ -89,10 +116,11 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
             payload: event,
           });
         } catch (error) {
-          console.error("[ratehawk-webhook]", error);
+          // Genuine internal failure — non-200 so RateHawk retries.
+          console.error("[ratehawk-webhook] processing failed", error);
+          return new Response("Processing failed", { status: 500 });
         }
 
-        // Always 200 so RateHawk does not retry events we intentionally skip.
         return new Response("ok", { status: 200 });
       },
     },
