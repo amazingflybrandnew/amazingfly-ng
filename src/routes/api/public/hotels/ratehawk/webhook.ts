@@ -66,20 +66,18 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
 
         const rawBody = await request.text();
 
-        const provided = SIGNATURE_HEADERS.map((name) => request.headers.get(name)).find(
-          (value): value is string => Boolean(value),
-        );
-        if (!provided || !verifySignature(rawBody, provided, token)) {
-          console.error("[ratehawk-webhook] rejected: invalid or missing signature");
-          return new Response("Invalid signature", { status: 401 });
-        }
-
         let event: RateHawkCallback | null = null;
         try {
           event = JSON.parse(rawBody) as RateHawkCallback;
         } catch {
           return new Response("Invalid payload", { status: 400 });
         }
+
+        if (!verifySignature(event?.signature, token)) {
+          console.error("[ratehawk-webhook] rejected: invalid or missing signature");
+          return new Response("Invalid signature", { status: 401 });
+        }
+
 
         const body = event?.data ?? event ?? {};
         const partnerOrderId = body.partner_order_id ?? event?.partner_order_id;
