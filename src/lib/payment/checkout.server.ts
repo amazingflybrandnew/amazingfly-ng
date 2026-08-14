@@ -1,14 +1,12 @@
 /**
  * Server-only booking review + checkout preparation helpers.
- *
- * Reads the EXISTING `service_requests` row (flight and hotel columns added in
- * stage 7/8) and prepares a pending row in `payment_transactions`. No payment
- * provider is contacted here — Paystack/Flutterwave arrive in a later stage.
+ * Reads the existing service_requests row and prepares checkout data.
  */
 import type { SessionUser } from "../auth.server";
 import type { PaymentProvider, PaymentTransaction } from "./types";
 
 export type BookingReviewKind = "flight" | "hotel" | "other";
+export type HotelReviewPaymentType = "deposit" | "hotel" | "now";
 
 export type BookingReview = {
   requestId: string;
@@ -19,7 +17,6 @@ export type BookingReview = {
   kind: BookingReviewKind;
   amount: number;
   currency: string;
-  /** What the customer is charged through Paystack (converted when needed). */
   chargeAmount: number;
   chargeCurrency: string;
   chargeConverted: boolean;
@@ -58,6 +55,9 @@ export type BookingReview = {
     nights: number | null;
     guests: number | null;
     rooms: number | null;
+    paymentType: HotelReviewPaymentType | null;
+    paymentRequiresCard: boolean;
+    paymentRequiresCvc: boolean;
   } | null;
   transaction: PaymentTransaction | null;
 };
@@ -77,12 +77,10 @@ function num(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Loads the review payload for a request the signed-in customer owns.
- *
- * Flight and hotel requests always carry `user_id`. Universal service requests
- * (visa, police character certificate, …) are submitted through the public
- * wizard, which only records the customer's email — so ownership also matches
- * on email and the row is claimed for the account when it does. */
+function hotelPaymentType(value: unknown): HotelReviewPaymentType | null {
+  return value === "deposit" || value === "hotel" || value === "now" ? value : null;
+}
+
 export async function loadBookingReview(
   user: SessionUser,
   requestId: string,
@@ -112,7 +110,6 @@ export async function loadBookingReview(
       .eq("id", requestId)
       .is("user_id", null);
     if (claimError) console.error("[checkout] claim request", claimError.message);
-    // Transactions created at submission time (public wizard) have no owner yet.
     await supabase
       .from("payment_transactions")
       .update({ user_id: user.id })
@@ -120,12 +117,10 @@ export async function loadBookingReview(
       .is("user_id", null);
   }
 
-
   const row = data as Record<string, unknown>;
   const serviceType = String(row["service_type"] ?? "Travel service");
   const category = String(row["service_category"] ?? "").toLowerCase();
   const lowered = serviceType.toLowerCase();
-
   const isFlight = category === "flights" || lowered.includes("flight");
   const isHotel = category === "hotels" || lowered.includes("hotel");
   const kind: BookingReviewKind = isFlight ? "flight" : isHotel ? "hotel" : "other";
@@ -140,13 +135,9 @@ export async function loadBookingReview(
   const { listRequestTransactions } = await import("./transactions.server");
   const transactions = await listRequestTransactions(requestId);
 
-  // Paystack can only charge merchant-enabled currencies (NGN). Duffel and
-  // RateHawk fares stay in their own currency for the supplier booking.
   const { resolveCustomerCharge } = await import("./currency.server");
   const fx = await resolveCustomerCharge(amount, currency);
-  const charge = fx.ok
-    ? fx.conversion
-    : { amount, currency, converted: false };
+  const charge = fx.ok ? fx.conversion : { amount, currency, converted: false };
 
   const { count: passengerCount } = await supabase
     .from("booking_passengers")
@@ -203,16 +194,15 @@ export async function loadBookingReview(
           nights: num(row["hotel_nights"]),
           guests: num(row["hotel_guests"]) ?? num(row["traveller_count"]),
           rooms: num(row["hotel_rooms"]),
+          paymentType: hotelPaymentType(row["hotel_payment_type"]),
+          paymentRequiresCard: Boolean(row["hotel_payment_requires_card"]),
+          paymentRequiresCvc: Boolean(row["hotel_payment_requires_cvc"]),
         }
       : null,
     transaction: transactions[0] ?? null,
   };
 }
 
-/**
- * Creates (or reuses) the pending `manual` transaction for a request so the
- * customer can be taken to the payment preparation page.
- */
 export async function prepareCheckout(
   user: SessionUser,
   requestId: string,
@@ -223,23 +213,27 @@ export async function prepareCheckout(
   const review = await loadBookingReview(user, requestId);
   if (!review) return { ok: false, message: "We could not find that booking on your account." };
 
-  // Services priced by a specialist cannot be paid until a price is set.
+  if (review.kind === "hotel" && review.hotel?.paymentType === "hotel") {
+    return {
+      ok: false,
+      message: "This hotel rate is reserved directly and paid at the property; online payment is not required.",
+    };
+  }
+
   if (review.requiresQuote || !review.amount || review.amount <= 0) {
     return {
       ok: false,
       message:
-        "Your requested service requires a personalised quotation. Our visa specialist will review your request and provide pricing.",
+        "Your requested service requires a personalised quotation. Our specialist will review your request and provide pricing.",
     };
   }
 
   const existingPending =
     review.transaction && review.transaction.status === "pending" ? review.transaction : null;
-
   if (existingPending) return { ok: true, review, transaction: existingPending };
 
   const { createPendingTransaction } = await import("./transactions.server");
   const { paymentTypeForService } = await import("./types");
-
   const created = await createPendingTransaction({
     user_id: user.id,
     request_id: requestId,
