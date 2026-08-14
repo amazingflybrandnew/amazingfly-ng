@@ -127,6 +127,7 @@ export const createHotelRequest = createServerFn({ method: "POST" })
       hotel_cancellation_policy: data.cancellationPolicy,
       hotel_price: data.price,
       hotel_currency: data.currency,
+      hotel_book_hash: data.bookHash ?? null,
       booking_status: "not_booked",
     };
 
