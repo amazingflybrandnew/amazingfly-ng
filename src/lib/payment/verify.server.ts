@@ -1,15 +1,6 @@
 /**
- * Server-only Paystack VERIFICATION for Amazingfly Travels (Payment Part 3B).
- *
- * Initialization lives in `paystack.server.ts`. This module owns the other half
- * of the handshake: it asks Paystack whether a reference really was paid, then
- * completes the transaction and confirms the booking.
- *
- * Rules honoured here:
- *  - PAYSTACK_SECRET_KEY is read on the server only.
- *  - A payment is only marked successful when Paystack says `status: "success"`
- *    AND the amount + currency match what we asked for.
- *  - Re-running the same reference is safe (idempotent) — no duplicate rows.
+ * Server-only Paystack verification for Amazingfly Travels.
+ * Payment success is persisted before any supplier-booking action is attempted.
  */
 import type { TransactionStatus } from "./types";
 
@@ -48,7 +39,6 @@ function expectedSubunits(amount: number, currency: string): number {
   return Math.round(amount * factor);
 }
 
-/** Calls Paystack's verify endpoint. Never called from the browser. */
 export async function verifyPaystackTransaction(
   reference: string,
 ): Promise<{ ok: true; data: PaystackVerifyPayload } | { ok: false; message: string }> {
@@ -65,11 +55,7 @@ export async function verifyPaystackTransaction(
     );
 
     const payload = (await response.json().catch(() => null)) as
-      | {
-          status?: boolean;
-          message?: string;
-          data?: Record<string, unknown>;
-        }
+      | { status?: boolean; message?: string; data?: Record<string, unknown> }
       | null;
 
     if (!response.ok || !payload?.status || !payload.data) {
@@ -96,7 +82,6 @@ export async function verifyPaystackTransaction(
   }
 }
 
-/** Only non-sensitive fields are persisted in `provider_response`. */
 function safeProviderResponse(data: PaystackVerifyPayload, stage: string) {
   return {
     stage,
@@ -113,15 +98,11 @@ function safeProviderResponse(data: PaystackVerifyPayload, stage: string) {
 }
 
 /**
- * Marks the request paid.
- *
- * Flights and hotels are *bookings* — they become `confirmed`. Every other
- * travel service (visas, police character certificate, future paid documents)
- * enters `processing` because a specialist now starts the work.
+ * Marks payment received. Flights retain their existing confirmed behaviour;
+ * RateHawk hotels move to processing until the supplier confirms the booking.
  */
 async function confirmBooking(requestId: string) {
   const supabase = await admin();
-
   const { data } = await supabase
     .from("service_requests")
     .select("*")
@@ -131,22 +112,18 @@ async function confirmBooking(requestId: string) {
 
   const category = String(row["service_category"] ?? "").toLowerCase();
   const serviceType = String(row["service_type"] ?? "").toLowerCase();
-  const isBooking =
-    category === "flights" ||
-    category === "hotels" ||
-    serviceType.includes("flight") ||
-    serviceType.includes("hotel");
+  const isFlight = category === "flights" || serviceType.includes("flight");
+  const isHotel = category === "hotels" || serviceType.includes("hotel");
+  const isBooking = isFlight || isHotel;
 
   const paidAt = new Date().toISOString();
   const patch: Record<string, unknown> = {
     payment_status: "payment_received",
-    booking_status: isBooking ? "confirmed" : "processing",
+    booking_status: isHotel ? "processing" : isFlight ? "confirmed" : "processing",
     paid_at: paidAt,
   };
   if (!isBooking) patch["request_status"] = "processing";
 
-  // Carry any provider reference we already hold forward into the booking
-  // reference column so confirmation surfaces show something meaningful.
   const pnr = row["pnr"] ?? row["booking_reference"] ?? null;
   if (pnr) {
     patch["booking_reference"] = String(pnr);
@@ -156,7 +133,6 @@ async function confirmBooking(requestId: string) {
 
   let { error } = await supabase.from("service_requests").update(patch).eq("id", requestId);
   if (error?.code === "42703" || error?.code === "PGRST204") {
-    // Lean schema (migration not applied yet) — keep the payment status.
     ({ error } = await supabase
       .from("service_requests")
       .update({ payment_status: "payment_received" })
@@ -164,13 +140,45 @@ async function confirmBooking(requestId: string) {
   }
   if (error) console.error("[paystack] confirmBooking", error.message);
 
-  await supabase.from("request_updates").insert({
-    request_id: requestId,
-    status: isBooking ? "confirmed" : "processing",
-    message: isBooking
+  const status = isHotel ? "processing" : isBooking ? "confirmed" : "processing";
+  const message = isHotel
+    ? "Payment received. Hotel confirmation is now processing with the accommodation provider."
+    : isBooking
       ? "Payment received and booking confirmed."
-      : "Payment received. Amazingfly Travels has started processing your request.",
-  });
+      : "Payment received. Amazingfly Travels has started processing your request.";
+
+  await supabase.from("request_updates").insert({ request_id: requestId, status, message });
+
+  return {
+    isHotel,
+    hotelPaymentType: String(row["hotel_payment_type"] ?? ""),
+  };
+}
+
+/**
+ * Idempotently starts the supplier booking for a successfully paid RateHawk
+ * `deposit` rate. A supplier failure never reverses a verified customer payment.
+ */
+async function ensurePaidHotelBooking(requestId: string): Promise<void> {
+  const supabase = await admin();
+  const { data } = await supabase
+    .from("service_requests")
+    .select("service_category, service_type, hotel_payment_type")
+    .eq("id", requestId)
+    .maybeSingle();
+  const row = (data as Record<string, unknown> | null) ?? {};
+  const isHotel =
+    String(row["service_category"] ?? "").toLowerCase() === "hotels" ||
+    String(row["service_type"] ?? "").toLowerCase().includes("hotel");
+  if (!isHotel || String(row["hotel_payment_type"] ?? "") !== "deposit") return;
+
+  try {
+    const { bookStoredHotelRequest } = await import("../travel-api/hotel-booking.server");
+    await bookStoredHotelRequest(requestId, "deposit");
+  } catch (error) {
+    // Payment remains successful; booking status/error is handled by hotel booking persistence.
+    console.error("[paystack] paid hotel supplier booking failed", error);
+  }
 }
 
 async function markRequestPaymentFailed(requestId: string) {
@@ -182,12 +190,6 @@ async function markRequestPaymentFailed(requestId: string) {
   if (error) console.error("[paystack] markRequestPaymentFailed", error.message);
 }
 
-/**
- * Verifies a Paystack reference and completes the matching transaction.
- *
- * `ownerUserId` (optional) enforces that the signed-in customer owns the
- * transaction. The webhook path omits it because Paystack is the caller.
- */
 export async function finalizePaystackPayment(input: {
   reference: string;
   ownerUserId?: string | null;
@@ -196,7 +198,6 @@ export async function finalizePaystackPayment(input: {
   if (!reference) return { ok: false, message: "Missing payment reference." };
 
   const supabase = await admin();
-
   const { data: txRow, error: txError } = await supabase
     .from("payment_transactions")
     .select("*")
@@ -218,8 +219,9 @@ export async function finalizePaystackPayment(input: {
   const amount = Number(tx["amount"] ?? 0);
   const currency = String(tx["currency"] ?? "NGN");
 
-  // Idempotency — a refreshed callback page must not re-process anything.
+  // A callback refresh can safely re-enter here; supplier booking is also idempotent by request_id.
   if (currentStatus === "successful") {
+    if (requestId) await ensurePaidHotelBooking(requestId);
     return {
       ok: true,
       status: "successful",
@@ -255,7 +257,6 @@ export async function finalizePaystackPayment(input: {
     };
   }
 
-  // Amount + currency must match what we asked Paystack to charge.
   const expected = expectedSubunits(amount, currency);
   const currencyMatches = data.currency.toUpperCase() === currency.toUpperCase();
   if (!currencyMatches || data.amount < expected) {
@@ -289,7 +290,11 @@ export async function finalizePaystackPayment(input: {
   }
 
   if (requestId) {
-    await confirmBooking(requestId);
+    const booking = await confirmBooking(requestId);
+    if (booking.isHotel && booking.hotelPaymentType === "deposit") {
+      await ensurePaidHotelBooking(requestId);
+    }
+
     try {
       const { notifyPaymentReceived, notifyAdminPaidRequest } = await import(
         "../notifications.server"
