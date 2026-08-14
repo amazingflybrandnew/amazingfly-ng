@@ -6,13 +6,8 @@
  *   2. Start booking process   — /api/b2b/v3/hotel/order/booking/finish/
  *   3. Check booking process   — /api/b2b/v3/hotel/order/booking/finish/status/
  *
- * Step 1 is retried up to 10 times (RateHawk documents transient failures
- * there). Step 3 is polled until the provider reports `ok` or a final failure.
- * A webhook (see src/routes/api/public/hotels/ratehawk/webhook.ts) can deliver
- * the same final status without polling; both paths write through
- * `applyBookingStatus`, which is idempotent.
- *
- * Hotels only — flights, visas, travel documents and Paystack are untouched.
+ * A webhook can deliver the same final status without polling; both paths
+ * write through applyBookingStatus(), which is idempotent.
  */
 
 import {
@@ -24,9 +19,10 @@ import {
 export const MAX_CREATE_ATTEMPTS = 10;
 const CREATE_RETRY_DELAY_MS = 1000;
 const CHECK_POLL_DELAY_MS = 2000;
-const MAX_CHECK_ATTEMPTS = 40; // ~80s ceiling before we hand over to the webhook
+const MAX_CHECK_ATTEMPTS = 40;
 
 export type BookingStatus = "created" | "started" | "processing" | "ok" | "failed";
+export type HotelBookingPaymentType = "deposit" | "hotel";
 
 export type BookingGuest = {
   firstName: string;
@@ -40,6 +36,7 @@ export type StartBookingInput = {
   guests: BookingGuest[];
   amount: number;
   currency: string;
+  paymentType: HotelBookingPaymentType;
   comment?: string;
 };
 
@@ -68,10 +65,6 @@ async function bookingFetch<T>(path: string, body: unknown): Promise<T | null> {
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Persistence                                                                 */
-/* -------------------------------------------------------------------------- */
-
 export type BookingRecord = {
   partnerOrderId: string;
   status: BookingStatus;
@@ -86,21 +79,17 @@ async function admin() {
   return createExternalSupabaseAdmin();
 }
 
-
 async function upsertBooking(row: Record<string, unknown>): Promise<void> {
   const db = await admin();
   const { error } = await db
     .from("hotel_bookings")
-    .upsert({ ...row, updated_at: new Date().toISOString() }, {
-      onConflict: "partner_order_id",
-    });
+    .upsert(
+      { ...row, updated_at: new Date().toISOString() },
+      { onConflict: "partner_order_id" },
+    );
   if (error) console.error("[hotel-booking] persist failed", error.message);
 }
 
-/**
- * Idempotent status writer shared by polling and the webhook.
- * Never downgrades a booking that already reached a final state.
- */
 export async function applyBookingStatus(input: {
   partnerOrderId: string;
   status: BookingStatus;
@@ -126,9 +115,7 @@ export async function applyBookingStatus(input: {
   };
   if (input.providerStatus !== undefined) patch["provider_status"] = input.providerStatus;
   if (input.orderId !== undefined && input.orderId !== null) patch["order_id"] = input.orderId;
-  if (input.providerReference !== undefined) {
-    patch["provider_reference"] = input.providerReference;
-  }
+  if (input.providerReference !== undefined) patch["provider_reference"] = input.providerReference;
   if (input.errorMessage !== undefined) patch["error_message"] = input.errorMessage;
   if (input.payload !== undefined) patch["payload"] = input.payload as never;
 
@@ -138,7 +125,25 @@ export async function applyBookingStatus(input: {
     .eq("partner_order_id", input.partnerOrderId);
   if (error) console.error("[hotel-booking] status write failed", error.message);
 
-  if (input.status === "ok") await markRequestBooked(input.partnerOrderId, input.orderId ?? null);
+  if (input.status === "ok") {
+    await markRequestBooked(input.partnerOrderId, input.orderId ?? null);
+  } else if (input.status === "failed") {
+    await markRequestBookingStatus(input.partnerOrderId, "failed");
+  } else {
+    await markRequestBookingStatus(input.partnerOrderId, "processing");
+  }
+}
+
+async function markRequestBookingStatus(partnerOrderId: string, status: string) {
+  const db = await admin();
+  const { data } = await db
+    .from("hotel_bookings")
+    .select("request_id")
+    .eq("partner_order_id", partnerOrderId)
+    .maybeSingle();
+  const requestId = (data as { request_id?: string | null } | null)?.request_id;
+  if (!requestId) return;
+  await db.from("service_requests").update({ booking_status: status }).eq("id", requestId);
 }
 
 /** Mirror a confirmed booking onto the linked service_request (hotel columns only). */
@@ -156,15 +161,14 @@ async function markRequestBooked(partnerOrderId: string, orderId: string | null)
   await db
     .from("service_requests")
     .update({
+      booking_status: "confirmed",
       hotel_booking_reference: orderId ?? row.order_id ?? partnerOrderId,
+      booking_reference: orderId ?? row.order_id ?? partnerOrderId,
+      pnr: orderId ?? row.order_id ?? partnerOrderId,
       hotel_booked_at: new Date().toISOString(),
     })
     .eq("id", row.request_id);
 }
-
-/* -------------------------------------------------------------------------- */
-/* 1. Create booking process (retried, max 10 attempts)                        */
-/* -------------------------------------------------------------------------- */
 
 export type CreateBookingResult = {
   partnerOrderId: string;
@@ -241,18 +245,9 @@ export async function createBookingProcess(input: {
       ? lastError.message
       : "We could not start this booking with the hotel provider.";
 
-  await applyBookingStatus({
-    partnerOrderId,
-    status: "failed",
-    errorMessage: message,
-  });
-
+  await applyBookingStatus({ partnerOrderId, status: "failed", errorMessage: message });
   throw new HotelBookingError(message);
 }
-
-/* -------------------------------------------------------------------------- */
-/* 2. Start booking process                                                    */
-/* -------------------------------------------------------------------------- */
 
 export async function startBookingProcess(input: StartBookingInput): Promise<void> {
   const [lead] = input.guests;
@@ -281,7 +276,7 @@ export async function startBookingProcess(input: StartBookingInput): Promise<voi
       },
     ],
     payment_type: {
-      type: "deposit",
+      type: input.paymentType,
       amount: String(input.amount),
       currency_code: input.currency.toUpperCase(),
     },
@@ -293,10 +288,6 @@ export async function startBookingProcess(input: StartBookingInput): Promise<voi
     providerStatus: "processing",
   });
 }
-
-/* -------------------------------------------------------------------------- */
-/* 3. Check booking process (polled until ok or final failure)                 */
-/* -------------------------------------------------------------------------- */
 
 export type CheckBookingResult = {
   status: BookingStatus;
@@ -314,9 +305,7 @@ async function checkOnce(partnerOrderId: string): Promise<CheckBookingResult> {
   const providerStatus = (data?.status ?? "processing").toLowerCase();
   const percent = typeof data?.percent === "number" ? data.percent : null;
 
-  if (providerStatus === "ok") {
-    return { status: "ok", providerStatus, percent, message: null };
-  }
+  if (providerStatus === "ok") return { status: "ok", providerStatus, percent, message: null };
   if (providerStatus === "error" || providerStatus === "failed") {
     return {
       status: "failed",
@@ -328,11 +317,6 @@ async function checkOnce(partnerOrderId: string): Promise<CheckBookingResult> {
   return { status: "processing", providerStatus, percent, message: null };
 }
 
-/**
- * Poll the check endpoint until the provider reports `ok` or a final failure.
- * If the ceiling is reached the booking stays `processing`; the webhook will
- * settle it.
- */
 export async function checkBookingProcess(
   partnerOrderId: string,
 ): Promise<CheckBookingResult> {
@@ -352,9 +336,7 @@ export async function checkBookingProcess(
         providerStatus: "error",
         percent: null,
         message:
-          error instanceof Error
-            ? error.message
-            : "We lost contact with the hotel provider.",
+          error instanceof Error ? error.message : "We lost contact with the hotel provider.",
       };
     }
 
@@ -380,7 +362,6 @@ export async function checkBookingProcess(
   return last;
 }
 
-/** Full sequence: create → start → check. */
 export async function runBookingSequence(input: {
   bookHash: string;
   requestId?: string | null;
@@ -390,6 +371,7 @@ export async function runBookingSequence(input: {
   guests: BookingGuest[];
   amount: number;
   currency: string;
+  paymentType: HotelBookingPaymentType;
   comment?: string;
 }): Promise<{ partnerOrderId: string; orderId: string; result: CheckBookingResult }> {
   const created = await createBookingProcess({
@@ -405,9 +387,133 @@ export async function runBookingSequence(input: {
     guests: input.guests,
     amount: input.amount,
     currency: input.currency,
+    paymentType: input.paymentType,
     comment: input.comment ?? "",
   });
 
   const result = await checkBookingProcess(created.partnerOrderId);
   return { partnerOrderId: created.partnerOrderId, orderId: created.orderId, result };
+}
+
+/**
+ * Starts a booking using only server-persisted hotel data. This prevents the
+ * browser from resubmitting or altering a short-lived book_hash/payment type.
+ * Current automated flow intentionally supports one room; multi-room bookings
+ * remain with the specialist workflow until room-to-guest allocation is stored.
+ */
+export async function bookStoredHotelRequest(
+  requestId: string,
+  expectedPaymentType: HotelBookingPaymentType,
+): Promise<{ partnerOrderId: string; orderId: string | null; status: BookingStatus }> {
+  const db = await admin();
+
+  const { data: existing } = await db
+    .from("hotel_bookings")
+    .select("partner_order_id, status, order_id")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    const row = existing as { partner_order_id: string; status: BookingStatus; order_id?: string | null };
+    return {
+      partnerOrderId: row.partner_order_id,
+      orderId: row.order_id ?? null,
+      status: row.status,
+    };
+  }
+
+  const { data: request, error: requestError } = await db
+    .from("service_requests")
+    .select("*")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (requestError || !request) {
+    throw new HotelBookingError("We could not find this hotel booking request.");
+  }
+
+  const row = request as Record<string, unknown>;
+  const category = String(row["service_category"] ?? "").toLowerCase();
+  if (category !== "hotels" && !String(row["service_type"] ?? "").toLowerCase().includes("hotel")) {
+    throw new HotelBookingError("This request is not a hotel booking.");
+  }
+
+  const bookHash = String(row["hotel_book_hash"] ?? "").trim();
+  if (!bookHash) throw new HotelBookingError("This hotel rate no longer has a confirmed booking hash.");
+
+  const paymentType = String(row["hotel_payment_type"] ?? "");
+  if (paymentType !== expectedPaymentType) {
+    throw new HotelBookingError("The selected hotel payment method does not match this booking action.");
+  }
+
+  if (Boolean(row["hotel_payment_requires_card"])) {
+    throw new HotelBookingError(
+      "This pay-at-property rate requires a card guarantee. Secure card tokenization is not enabled yet.",
+    );
+  }
+
+  const roomCount = Number(row["hotel_rooms"] ?? 1);
+  if (roomCount !== 1) {
+    throw new HotelBookingError(
+      "Online RateHawk confirmation currently supports one room per booking. Please use one room or contact support for a multi-room stay.",
+    );
+  }
+
+  const guestCount = Math.max(1, Number(row["hotel_guests"] ?? row["traveller_count"] ?? 1));
+  const { data: passengerRows, error: passengerError } = await db
+    .from("booking_passengers")
+    .select("first_name, last_name, created_at")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: true });
+
+  if (passengerError) throw new HotelBookingError("We could not load the hotel guest details.");
+
+  const guests = ((passengerRows ?? []) as Record<string, unknown>[])
+    .map((guest) => ({
+      firstName: String(guest["first_name"] ?? "").trim(),
+      lastName: String(guest["last_name"] ?? "").trim(),
+    }))
+    .filter((guest) => guest.firstName && guest.lastName);
+
+  if (guests.length !== guestCount) {
+    throw new HotelBookingError(
+      `Please provide traveller details for all ${guestCount} hotel guest(s) before booking.`,
+    );
+  }
+
+  const email = String(row["email"] ?? "").trim();
+  const phone = String(row["phone"] ?? "").trim();
+  if (!email || !phone || phone === "—") {
+    throw new HotelBookingError("A booking contact email and phone number are required.");
+  }
+
+  const amount = Number(row["hotel_provider_payment_amount"] ?? row["hotel_price"] ?? 0);
+  const currency = String(
+    row["hotel_provider_payment_currency"] ?? row["hotel_currency"] ?? "USD",
+  ).trim();
+
+  await db.from("service_requests").update({ booking_status: "processing" }).eq("id", requestId);
+
+  try {
+    const booked = await runBookingSequence({
+      bookHash,
+      requestId,
+      email,
+      phone,
+      guests,
+      amount,
+      currency,
+      paymentType: expectedPaymentType,
+    });
+    return {
+      partnerOrderId: booked.partnerOrderId,
+      orderId: booked.orderId,
+      status: booked.result.status,
+    };
+  } catch (error) {
+    await db.from("service_requests").update({ booking_status: "failed" }).eq("id", requestId);
+    throw error;
+  }
 }
