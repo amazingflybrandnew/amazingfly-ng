@@ -18,25 +18,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHmac, timingSafeEqual } from "crypto";
 
-const SIGNATURE_HEADERS = [
-  "x-signature",
-  "signature",
-  "x-ratehawk-signature",
-  "x-etg-signature",
-];
-
 function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
   return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
 }
 
-function verifySignature(rawBody: string, provided: string, token: string): boolean {
-  const value = provided.trim().replace(/^sha256=/i, "");
-  const mac = createHmac("sha256", token).update(rawBody, "utf8");
-  const hex = mac.digest("hex");
-  const base64 = createHmac("sha256", token).update(rawBody, "utf8").digest("base64");
-  return safeEqual(value.toLowerCase(), hex) || safeEqual(value, base64);
+/** ETG: HMAC-SHA256(key = api token, message = timestamp + token) in hex. */
+function verifySignature(
+  signature: { signature?: string; timestamp?: number; token?: string } | null | undefined,
+  apiToken: string,
+): boolean {
+  if (!signature?.signature || signature.timestamp == null || !signature.token) {
+    return false;
+  }
+  const expected = createHmac("sha256", apiToken)
+    .update(`${signature.timestamp}${signature.token}`, "utf8")
+    .digest("hex");
+  return safeEqual(signature.signature.trim().toLowerCase(), expected);
 }
 
 type RateHawkCallback = {
@@ -47,6 +46,7 @@ type RateHawkCallback = {
     status?: string;
     error?: string | null;
   } | null;
+  signature?: { signature?: string; timestamp?: number; token?: string } | null;
   partner_order_id?: string;
   order_id?: string | number;
   error?: string | null;
@@ -66,20 +66,18 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
 
         const rawBody = await request.text();
 
-        const provided = SIGNATURE_HEADERS.map((name) => request.headers.get(name)).find(
-          (value): value is string => Boolean(value),
-        );
-        if (!provided || !verifySignature(rawBody, provided, token)) {
-          console.error("[ratehawk-webhook] rejected: invalid or missing signature");
-          return new Response("Invalid signature", { status: 401 });
-        }
-
         let event: RateHawkCallback | null = null;
         try {
           event = JSON.parse(rawBody) as RateHawkCallback;
         } catch {
           return new Response("Invalid payload", { status: 400 });
         }
+
+        if (!verifySignature(event?.signature, token)) {
+          console.error("[ratehawk-webhook] rejected: invalid or missing signature");
+          return new Response("Invalid signature", { status: 401 });
+        }
+
 
         const body = event?.data ?? event ?? {};
         const partnerOrderId = body.partner_order_id ?? event?.partner_order_id;

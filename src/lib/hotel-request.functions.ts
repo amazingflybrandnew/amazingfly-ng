@@ -25,6 +25,7 @@ const hotelInput = z
     cancellationPolicy: z.string().trim().max(400).nullable(),
     price: z.number().nonnegative(),
     currency: z.string().trim().min(3).max(6),
+    bookHash: z.string().trim().max(600).nullable().optional(),
   })
   .strict();
 
@@ -126,6 +127,7 @@ export const createHotelRequest = createServerFn({ method: "POST" })
       hotel_cancellation_policy: data.cancellationPolicy,
       hotel_price: data.price,
       hotel_currency: data.currency,
+      hotel_book_hash: data.bookHash ?? null,
       booking_status: "not_booked",
     };
 

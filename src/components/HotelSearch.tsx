@@ -264,6 +264,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
             : null,
           price: room?.price ?? hotel.price,
           currency: room?.currency ?? hotel.currency,
+          bookHash: room?.bookHash ?? null,
         },
       }),
   });
