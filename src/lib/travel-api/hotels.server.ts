@@ -13,6 +13,8 @@ import {
 } from "@/lib/ratehawk.server";
 import type {
   CancellationPolicy,
+  HotelPaymentOption,
+  HotelPaymentType,
   HotelResult,
   HotelSearchRequest,
   RoomResult,
@@ -91,7 +93,6 @@ function friendlyProviderError(code: string | null | undefined, status: number):
   }
 }
 
-
 /** Number of nights between two ISO dates; 0 when invalid. */
 export function nightsBetween(checkIn: string, checkOut: string): number {
   const start = Date.parse(checkIn);
@@ -136,6 +137,20 @@ function buildGuests(request: HotelSearchRequest) {
 
 type RhDailyPrice = { amount?: string; currency_code?: string };
 
+type RhPaymentType = {
+  type?: string;
+  amount?: string;
+  currency_code?: string;
+  show_amount?: string;
+  show_currency_code?: string;
+  is_need_credit_card_data?: boolean;
+  is_need_cvc?: boolean;
+  cancellation_penalties?: {
+    free_cancellation_before?: string | null;
+    policies?: { start_at?: string | null; end_at?: string | null; amount_show?: string }[];
+  };
+};
+
 type RhRate = {
   match_hash?: string;
   book_hash?: string;
@@ -143,18 +158,7 @@ type RhRate = {
   meal?: string;
   room_data_info?: { types?: { bedding_type?: string } };
   rg_ext?: { capacity?: number; bedding?: number; class?: number };
-  payment_options?: {
-    payment_types?: {
-      amount?: string;
-      currency_code?: string;
-      show_amount?: string;
-      show_currency_code?: string;
-      cancellation_penalties?: {
-        free_cancellation_before?: string | null;
-        policies?: { start_at?: string | null; end_at?: string | null; amount_show?: string }[];
-      };
-    }[];
-  };
+  payment_options?: { payment_types?: RhPaymentType[] };
   daily_prices?: RhDailyPrice[] | string[];
 };
 
@@ -184,11 +188,39 @@ function imageUrl(template: string | undefined, size = "640x400"): string | null
   return template.replace("{size}", size);
 }
 
+function isPaymentType(value: string | undefined): value is HotelPaymentType {
+  return value === "deposit" || value === "hotel" || value === "now";
+}
+
+function numberOrZero(value: string | undefined): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mapPaymentOptions(rate: RhRate, fallbackCurrency: string): HotelPaymentOption[] {
+  const mapped: HotelPaymentOption[] = [];
+  for (const option of rate.payment_options?.payment_types ?? []) {
+    if (!isPaymentType(option.type)) continue;
+    const currency = option.currency_code ?? fallbackCurrency;
+    const showCurrency = option.show_currency_code ?? currency;
+    mapped.push({
+      type: option.type,
+      amount: numberOrZero(option.amount),
+      currency,
+      showAmount: numberOrZero(option.show_amount ?? option.amount),
+      showCurrency,
+      requiresCard: Boolean(option.is_need_credit_card_data),
+      requiresCvc: Boolean(option.is_need_cvc),
+    });
+  }
+  return mapped;
+}
+
 function ratePrice(rate: RhRate, fallbackCurrency: string): { price: number; currency: string } {
   const option = rate.payment_options?.payment_types?.[0];
-  const amount = Number(option?.show_amount ?? option?.amount ?? 0);
+  const amount = numberOrZero(option?.show_amount ?? option?.amount);
   const currency = option?.show_currency_code ?? option?.currency_code ?? fallbackCurrency;
-  return { price: Number.isFinite(amount) ? amount : 0, currency };
+  return { price: amount, currency };
 }
 
 function mapCancellation(rate: RhRate): CancellationPolicy {
@@ -217,6 +249,7 @@ function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
     ...(rate.meal ? { boardType: humanise(rate.meal) } : {}),
     price,
     currency,
+    paymentOptions: mapPaymentOptions(rate, fallbackCurrency),
   };
 }
 
@@ -334,7 +367,6 @@ export async function searchHotels(
       mapHotel(hotel, info.get(hotel.id ?? String(hotel.hid ?? "")), request, nights),
     )
     .sort((a, b) => a.price - b.price);
-
 }
 
 export type HotelStaticDetails = {
@@ -381,12 +413,7 @@ export async function getHotelDetails(
   };
 }
 
-/**
- * Retrieve hotelpage (RateHawk `/api/b2b/v3/search/hp/`).
- *
- * Returns every available rate for the hotel and stay, de-duplicated by
- * booking hash and sorted cheapest first.
- */
+/** Retrieve hotelpage (`/search/hp/`) live rates for a single hotel. */
 export async function getHotelRooms(
   hotelId: string,
   request: HotelSearchRequest,
@@ -427,10 +454,8 @@ export type PrebookOutcome =
   | { status: "unavailable"; message: string };
 
 /**
- * Prebook a rate selected from the hotelpage (`/api/b2b/v3/hotel/prebook/`).
- *
- * Confirms the rate is still bookable and returns the live price so the caller
- * can ask the traveller to confirm when it has moved.
+ * Prebook a hotelpage rate. The prebook response is authoritative for the
+ * current book_hash, price, cancellation policy and payment methods.
  */
 export async function prebookHotelRate(
   bookHash: string,
@@ -461,14 +486,13 @@ export async function prebookHotelRate(
     };
   }
 
-  // A successful prebook always returns its own book_hash. Never fall back to
-  // the hash we sent, match_hash, or a room name.
   if (!rate.book_hash) {
     return {
       status: "unavailable",
       message: "This rate could not be confirmed. Please choose another room.",
     };
   }
+
   const room: RoomResult = {
     ...mapRate(rate, currency),
     bookHash: rate.book_hash,
@@ -477,6 +501,12 @@ export async function prebookHotelRate(
     return {
       status: "unavailable",
       message: "This rate is no longer priced by the hotel. Please choose another room.",
+    };
+  }
+  if (!room.paymentOptions.length) {
+    return {
+      status: "unavailable",
+      message: "This rate no longer has a supported payment method. Please choose another room.",
     };
   }
 
