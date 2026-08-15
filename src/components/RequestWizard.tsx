@@ -35,15 +35,18 @@ import { createDocumentUploadUrl, submitTravelRequest } from "@/lib/travel-reque
 import {
   ACTIVE_CATALOGUE,
   ITINERARY_NOTE,
-  LONG_STAY_QUOTE_MESSAGE,
   PROCESSING_FAQ,
   catalogueDisplayPrice,
-  needsCustomQuote,
+  formatNaira,
   packageDestinations,
   packagesFor,
   type CatalogueCategory,
   type CatalogueItem,
 } from "@/lib/catalogue/visa-catalogue";
+import {
+  calculateProofOfFundsFee,
+  YELLOW_FEVER_CARD_PRICE_NGN,
+} from "@/lib/catalogue/service-pricing";
 import { findCategoryGroup } from "@/lib/catalogue/service-categories";
 import { getPublicPackages } from "@/lib/packages.functions";
 import { useQuery } from "@tanstack/react-query";
@@ -133,10 +136,11 @@ export function RequestWizard({
     [packagesQuery.data],
   );
 
+  const documentService = answers["document_service"] ?? "";
+
   const catalogueItem = useMemo<CatalogueItem | undefined>(() => {
     const direct = packages.find((item) => item.id === answers["catalogue_id"]);
     if (direct) return direct;
-    const documentService = answers["document_service"] ?? "";
     const byDocument: Record<string, string> = {
       "Police character certificate": "police-character-certificate",
       "Proof of funds": "proof-of-funds-support",
@@ -145,19 +149,40 @@ export function RequestWizard({
     };
     const mapped = byDocument[documentService];
     return mapped ? packages.find((item) => item.id === mapped) : undefined;
-  }, [answers, packages]);
+  }, [answers, documentService, packages]);
 
+  const proofOfFundsCalculation = useMemo(() => {
+    if (documentService !== "Proof of funds") return null;
+    return calculateProofOfFundsFee(
+      Number(answers["pof_amount"] ?? 0),
+      answers["pof_bank"] ?? "",
+    );
+  }, [answers, documentService]);
+
+  const yellowFeverSelected = documentService === "Yellow fever card";
+  const insurancePending = category?.id === "insurance" || documentService === "Travel insurance";
   const requiresQuote = false;
+
+  const dynamicAmount = proofOfFundsCalculation?.fee ??
+    (yellowFeverSelected ? YELLOW_FEVER_CARD_PRICE_NGN : null);
+
+  const payableService = Boolean(
+    dynamicAmount || (catalogueItem && (catalogueItem.price ?? 0) > 0),
+  );
+
+  const priceLabel = useMemo(() => {
+    if (proofOfFundsCalculation) return formatNaira(proofOfFundsCalculation.fee);
+    if (yellowFeverSelected) return formatNaira(YELLOW_FEVER_CARD_PRICE_NGN);
+    if (catalogueItem && (catalogueItem.price ?? 0) > 0) return catalogueDisplayPrice(catalogueItem);
+    if (insurancePending) return "Allianz live pricing pending";
+    return null;
+  }, [catalogueItem, insurancePending, proofOfFundsCalculation, yellowFeverSelected]);
+
   const sections: Section[] = useMemo(() => (category ? buildSections(category) : []), [category]);
   const documents = useMemo(
     () => (category ? category.documents.filter((d) => isVisible(d, answers)) : []),
     [category, answers],
   );
-
-  // Fixed-price catalogue services continue into a payment step after review.
-  const payableService = Boolean(
-  catalogueItem && (catalogueItem.price ?? 0) > 0
-);
 
   const stepLabels = useMemo(
     () => ["Service", ...sections.map((s) => s.title), "Documents", "Review"],
@@ -170,7 +195,6 @@ export function RequestWizard({
   const totalSteps = stepLabels.length;
   const documentsStep = sections.length + 1;
   const reviewStep = documentsStep + 1;
-
 
   const set = (id: string, value: string) => setAnswers((prev) => ({ ...prev, [id]: value }));
 
@@ -210,6 +234,14 @@ export function RequestWizard({
   }
 
   function chooseCategory(next: ServiceCategory) {
+    if (next.id === "flight") {
+      void navigate({ to: "/flights" });
+      return;
+    }
+    if (next.id === "hotel") {
+      void navigate({ to: "/hotels" });
+      return;
+    }
     setCategoryId(next.id);
     setErrors({});
     setDocs([]);
@@ -300,6 +332,12 @@ export function RequestWizard({
   async function handleSubmit() {
     if (!category) return;
     if (!validateStep(reviewStep)) return;
+    if (insurancePending) {
+      setSubmitError(
+        "Travel insurance live pricing is being connected to Allianz. Payment will be enabled once the Allianz premium API is available.",
+      );
+      return;
+    }
     setSubmitError(null);
     setSubmitting(true);
     try {
@@ -370,19 +408,20 @@ export function RequestWizard({
 
       if (!result.ok) {
         setSubmitError(
-          "We could not submit your request at the moment. Please try again, or contact Amazingfly Travels directly.",
+          result.message ||
+            "We could not submit your request at the moment. Please try again, or contact Amazingfly Travels directly.",
         );
         return;
       }
-      // Priced services already have a pending payment transaction, so send the
-      // customer straight to the payment panel instead of a dead-end screen.
+
+      // Every priced customer service goes from Review straight to the secure
+      // payment page. Public users authenticate first and return to that exact
+      // payment page; the server remains the authority for the payable amount.
       if (result.payable || payableService) {
-        const target = `/requests/${result.requestId}`;
+        const target = `/payment/${result.requestId}`;
         if (session?.user) {
-          void navigate({ to: "/requests/$id", params: { id: result.requestId } });
+          void navigate({ to: "/payment/$requestId", params: { requestId: result.requestId } });
         } else {
-          // The wizard is public: sign in (or create an account with the same
-          // email) first, then land straight on the payment panel.
           void navigate({ to: "/auth", search: { redirect: target } });
         }
         return;
@@ -402,10 +441,24 @@ export function RequestWizard({
 
   const activeSection = step >= 1 && step <= sections.length ? sections[step - 1] : undefined;
 
+  const selectedServiceRows: Array<[string, string]> = [
+    ["Service", category?.name ?? "—"],
+    ...(catalogueItem ? [["Selected", catalogueItem.name] as [string, string]] : []),
+    ...(documentService === "Proof of funds" && proofOfFundsCalculation
+      ? [
+          ["Proof of Funds amount", formatNaira(Number(answers["pof_amount"] ?? 0))] as [string, string],
+          ["Bank rate", `${proofOfFundsCalculation.rate}%`] as [string, string],
+        ]
+      : []),
+    ...(priceLabel ? [["Amount payable", priceLabel] as [string, string]] : []),
+    ...(catalogueItem?.processingTime
+      ? [["Processing time", catalogueItem.processingTime] as [string, string]]
+      : []),
+  ];
+
   return (
     <div ref={topRef} className="mx-auto max-w-3xl">
       <ProgressBar labels={progressLabels} step={step} />
-
 
       <div className="glass-card mt-6 rounded-3xl p-6 md:p-10">
         <div key={`${categoryId}-${step}`} className="animate-in fade-in slide-in-from-right-4 duration-300">
@@ -418,7 +471,7 @@ export function RequestWizard({
               : step === documentsStep
                 ? "Required Documents"
                 : step === reviewStep
-                  ? "Review & Submit"
+                  ? "Review & Pay"
                   : (activeSection?.title ?? "")}
           </h2>
 
@@ -436,11 +489,13 @@ export function RequestWizard({
             {step === 0 ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Choose a service and we will only ask the questions that matter for it.
+                  Choose a service. Flights and hotels open their live booking sections; other
+                  available services continue through this form to review and payment.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {SERVICE_CATEGORIES.map((item) => {
                     const active = item.id === categoryId;
+                    const isDedicatedBooking = item.id === "flight" || item.id === "hotel";
                     return (
                       <button
                         key={item.id}
@@ -460,6 +515,11 @@ export function RequestWizard({
                         <span className="mt-1.5 block text-sm leading-relaxed text-muted-foreground">
                           {item.tagline}
                         </span>
+                        {isDedicatedBooking ? (
+                          <span className="mt-2 block text-xs font-bold text-coral">
+                            Opens live {item.id === "flight" ? "flight" : "hotel"} search
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}
@@ -482,8 +542,42 @@ export function RequestWizard({
                   onChange={set}
                   packages={packages}
                 />
+
+                {documentService === "Proof of funds" && proofOfFundsCalculation ? (
+                  <PricePreview
+                    title="Proof of Funds service fee"
+                    rows={[
+                      ["Selected bank", proofOfFundsCalculation.bank],
+                      ["Required POF amount", formatNaira(Number(answers["pof_amount"] ?? 0))],
+                      ["Applicable rate", `${proofOfFundsCalculation.rate}%`],
+                      ["Amount payable", formatNaira(proofOfFundsCalculation.fee)],
+                    ]}
+                  />
+                ) : null}
+
+                {yellowFeverSelected ? (
+                  <PricePreview
+                    title="Yellow Fever Card Assistance"
+                    rows={[["Amount payable", formatNaira(YELLOW_FEVER_CARD_PRICE_NGN)]]}
+                  />
+                ) : null}
+
+                {insurancePending ? (
+                  <div className="rounded-2xl border border-sky/40 bg-sky-tint p-5 text-sm text-navy">
+                    <p className="font-bold">Allianz live insurance pricing is being connected.</p>
+                    <p className="mt-1 text-navy-soft">
+                      We will enable payment here once the Allianz API returns the exact premium for
+                      the traveller, destination and dates. No manual insurance amount will be guessed.
+                    </p>
+                  </div>
+                ) : null}
+
                 {catalogueItem ? (
-                  <CataloguePanel item={catalogueItem} requiresQuote={requiresQuote} />
+                  <CataloguePanel
+                    item={catalogueItem}
+                    priceLabel={priceLabel}
+                    paymentReady={!insurancePending}
+                  />
                 ) : null}
               </>
             ) : null}
@@ -513,19 +607,7 @@ export function RequestWizard({
               <>
                 <SummaryBlock
                   title="Selected service"
-                  rows={[
-                    ["Service", category?.name ?? "—"],
-                    ...(catalogueItem
-                      ? ([
-                          ["Selected", catalogueItem.name],
-                          [
-                            "Price",
-                             catalogueDisplayPrice(catalogueItem),
-                          ],
-                          ["Processing time", catalogueItem.processingTime],
-                        ] as Array<[string, string]>)
-                      : []),
-                  ]}
+                  rows={selectedServiceRows}
                   onEdit={() => goTo(0)}
                 />
                 {sections.map((section, index) => (
@@ -551,6 +633,18 @@ export function RequestWizard({
                   }
                   onEdit={() => goTo(documentsStep)}
                 />
+
+                {insurancePending ? (
+                  <div className="rounded-xl border border-sky/40 bg-sky-tint p-4 text-sm font-medium text-navy">
+                    Travel insurance payment will be enabled as soon as Allianz live premium pricing
+                    is connected.
+                  </div>
+                ) : payableService ? (
+                  <div className="rounded-xl border border-mint/50 bg-mint-tint p-4 text-sm font-medium text-navy">
+                    After you confirm below, you will continue directly to secure payment for
+                    {priceLabel ? ` ${priceLabel}` : " this service"}.
+                  </div>
+                ) : null}
 
                 <div>
                   <label className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground">
@@ -598,12 +692,18 @@ export function RequestWizard({
               Continue <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button type="button" size="lg" disabled={submitting} onClick={handleSubmit}>
+            <Button
+              type="button"
+              size="lg"
+              disabled={submitting || insurancePending}
+              onClick={handleSubmit}
+            >
               {submitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
-                  {payableService ? "Preparing payment…" : "Submitting…"}
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing payment…
                 </>
+              ) : insurancePending ? (
+                "Awaiting Allianz Pricing"
               ) : payableService ? (
                 <>
                   Continue to Payment <ArrowRight className="ml-2 h-4 w-4" />
@@ -612,7 +712,6 @@ export function RequestWizard({
                 "Submit Travel Request"
               )}
             </Button>
-
           )}
         </div>
       </div>
@@ -918,6 +1017,25 @@ function SummaryBlock({
   );
 }
 
+function PricePreview({ title, rows }: { title: string; rows: Array<[string, string]> }) {
+  return (
+    <div className="rounded-2xl border border-mint/50 bg-mint-tint p-5">
+      <p className="text-sm font-bold text-navy">{title}</p>
+      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={`${label}-${value}`} className="flex justify-between gap-3 rounded-xl bg-white/60 px-3 py-2">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="text-right font-bold text-navy">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-xs text-navy-soft">
+        The server recalculates this amount before creating the Paystack transaction.
+      </p>
+    </div>
+  );
+}
+
 function Confirmation({ reference, quoteOnly }: { reference: string; quoteOnly?: boolean }) {
   return (
     <div className="glass-card mx-auto max-w-2xl rounded-3xl p-8 md:p-12">
@@ -927,7 +1045,7 @@ function Confirmation({ reference, quoteOnly }: { reference: string; quoteOnly?:
       </h2>
       <p className="mt-4 text-base leading-relaxed text-muted-foreground">
         {quoteOnly
-          ? "Your application has been received. Our specialist will review and provide a quotation before payment."
+          ? "Your application has been received."
           : "Our travel specialists will review your request and contact you shortly through your preferred contact method."}
       </p>
 
@@ -958,10 +1076,12 @@ function Confirmation({ reference, quoteOnly }: { reference: string; quoteOnly?:
 
 function CataloguePanel({
   item,
-  requiresQuote,
+  priceLabel,
+  paymentReady,
 }: {
   item: CatalogueItem;
-  requiresQuote: boolean;
+  priceLabel: string | null;
+  paymentReady: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border/70 bg-white/75 p-5">
@@ -974,7 +1094,7 @@ function CataloguePanel({
           <h3 className="mt-1 text-lg font-extrabold text-navy">{item.name}</h3>
         </div>
         <p className="text-lg font-extrabold text-navy">
-          {requiresQuote ? "Quotation" : catalogueDisplayPrice(item)}
+          {priceLabel ?? "Price calculated before payment"}
         </p>
       </div>
 
@@ -1031,15 +1151,15 @@ function CataloguePanel({
         </div>
       ) : null}
 
-      {requiresQuote ? (
-        <p className="mt-4 rounded-xl border border-coral/30 bg-peach-tint p-3 text-sm font-medium text-navy">
-          {LONG_STAY_QUOTE_MESSAGE}
-        </p>
-      ) : (
-        <p className="mt-4 rounded-xl border border-sky/40 bg-sky-tint p-3 text-sm font-medium text-navy">
-          Payment becomes available as soon as you submit this application with your documents.
-        </p>
-      )}
+      <p
+        className={`mt-4 rounded-xl border p-3 text-sm font-medium text-navy ${
+          paymentReady ? "border-sky/40 bg-sky-tint" : "border-coral/30 bg-peach-tint"
+        }`}
+      >
+        {paymentReady
+          ? "After review, you will continue directly to secure payment."
+          : "Live provider pricing must be available before payment can be enabled."}
+      </p>
 
       <details className="mt-4 rounded-xl border border-border/60 bg-white/70 p-4">
         <summary className="cursor-pointer text-sm font-bold text-navy">
@@ -1134,9 +1254,7 @@ function PackagePicker({
                 ) : null}
                 <span className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-navy-soft">
                   <span className="font-extrabold text-navy">
-                    {item.requiresQuote || item.price <= 0
-                      ? "Quotation"
-                      : catalogueDisplayPrice(item)}
+                    {item.price > 0 ? catalogueDisplayPrice(item) : "Price calculated before payment"}
                   </span>
                   {item.processingTime ? <span>{item.processingTime}</span> : null}
                 </span>
