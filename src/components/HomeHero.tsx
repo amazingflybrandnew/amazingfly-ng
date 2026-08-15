@@ -112,8 +112,18 @@ export function HomeHero() {
       setValidationMessage(missingMessage());
       return;
     }
+
     const selected = NEEDS.find((item) => item.label === need);
-    navigate({
+    if (selected?.slug === "flights") {
+      void navigate({ to: "/flights" });
+      return;
+    }
+    if (selected?.slug === "hotels") {
+      void navigate({ to: "/hotels" });
+      return;
+    }
+
+    void navigate({
       to: "/request",
       search: {
         ...(selected ? { service: selected.slug } : {}),
@@ -125,7 +135,6 @@ export function HomeHero() {
 
   return (
     <section className="relative isolate overflow-hidden hero-aurora">
-      {/* Atmosphere: soft clouds, flight routes, skyline silhouettes */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         {backgroundImage ? (
           <div
@@ -189,7 +198,6 @@ export function HomeHero() {
           </p>
         </div>
 
-        {/* Interactive search — all three fields required */}
         <div className="mx-auto mt-10 max-w-5xl rounded-[28px] glass-card p-4 md:p-5">
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
             <label className="block text-left">
@@ -276,7 +284,6 @@ export function HomeHero() {
             </button>
           </div>
 
-
           {!isComplete && !validationMessage ? (
             <p className="mt-3 text-center text-xs font-medium text-muted-foreground md:text-left">
               Select all three options to continue.
@@ -294,7 +301,6 @@ export function HomeHero() {
           ) : null}
         </div>
 
-        {/* Trust */}
         <div className="mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm">
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2">
@@ -323,7 +329,6 @@ export function HomeHero() {
           </div>
         </div>
 
-        {/* Traveller + feature cards */}
         <div className="relative mt-10 md:mt-4">
           <div className="pointer-events-none flex justify-center md:justify-end">
             <img
