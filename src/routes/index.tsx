@@ -67,15 +67,21 @@ const trustPoints = [
 ];
 
 const steps = [
-  { title: "Choose a Service", description: "Select the travel service you need from Amazingfly.ng." },
-  { title: "Submit Your Request", description: "Share your travel details and the documents you already have." },
   {
-    title: "Receive Guidance or a Quotation",
-    description: "Our team responds with a checklist, guidance or a written quotation.",
+    title: "Choose a Service",
+    description: "Select the travel service you need from Amazingfly.ng.",
   },
   {
-    title: "Complete Payment and Processing",
-    description: "Confirm the details, complete payment and we proceed with the work.",
+    title: "Complete Your Details",
+    description: "Provide the trip, traveller and document information required for that service.",
+  },
+  {
+    title: "Review Your Request",
+    description: "Check your information and review the applicable service fee before continuing.",
+  },
+  {
+    title: "Pay and Continue",
+    description: "Complete secure payment and we proceed with processing or supplier booking.",
   },
 ];
 
@@ -104,15 +110,15 @@ function Home() {
       {/* Interactive hero */}
       <HomeHero />
 
-      {/* Direct flight search (separate from the hero request box) */}
+      {/* Direct flight search */}
       <section className="surface-soft">
         <div className="container-page section-y">
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Flights</p>
             <h2 className="mt-4 text-3xl font-extrabold md:text-4xl">Find Your Perfect Flight</h2>
             <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-              Already know where you are going? Search routes, fares and cabins directly — or keep
-              using the request box above if you would rather our team handle everything for you.
+              Search live routes, fares and cabins, select your preferred flight and continue into
+              the dedicated passenger and payment flow.
             </p>
           </div>
           <div className="mt-10">
@@ -127,20 +133,14 @@ function Home() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange">Hotels</p>
           <h2 className="mt-4 text-3xl font-extrabold md:text-4xl">Find Your Perfect Stay</h2>
           <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-            Already know you need accommodation? Search hotels by destination, dates, guests and
-            rooms — or keep using the request box above if you would rather our team arrange
-            everything for you.
+            Search live hotels by destination and dates, choose an available room and continue into
+            the dedicated hotel booking and payment flow.
           </p>
         </div>
         <div className="mt-10">
           <HotelSearch compact />
         </div>
       </section>
-
-
-
-
-
 
       {/* Trust highlights */}
       <section className="container-page section-y">
@@ -172,6 +172,15 @@ function Home() {
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {services.map((service) => {
               const Icon = service.icon;
+              const isFlight = service.slug === "flights";
+              const isHotel = service.slug === "hotels";
+              const displayName = isFlight ? "Flights" : isHotel ? "Hotels" : service.name;
+              const displayDescription = isFlight
+                ? "Search live flight options, select your preferred fare and continue to passenger details and payment."
+                : isHotel
+                  ? "Search live hotel availability, choose your room and continue through the correct booking and payment flow."
+                  : service.shortDescription;
+
               return (
                 <article
                   key={service.slug}
@@ -180,23 +189,43 @@ function Home() {
                   <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-peach-tint to-coral-tint">
                     <Icon className="h-6 w-6 text-orange" aria-hidden="true" />
                   </span>
-                  <h3 className="mt-5 text-lg font-bold">{service.name}</h3>
+                  <h3 className="mt-5 text-lg font-bold">{displayName}</h3>
                   <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
-                    {service.shortDescription}
+                    {displayDescription}
                   </p>
                   <div className="mt-6 flex flex-wrap gap-2">
-                    <Button asChild size="sm" variant="ghost" className="text-navy hover:text-orange">
-                      <Link to="/services/$slug" params={{ slug: service.slug }}>
-                        Learn More
-                      </Link>
-                    </Button>
-                    <Button asChild size="sm">
-                      <Link to="/request" search={{ service: service.slug }}>
-                        {service.status === "Request and quotation" && service.slug !== "travel-insurance"
-                          ? "Request a Quote"
-                          : "Start a Request"}
-                      </Link>
-                    </Button>
+                    {isFlight ? (
+                      <>
+                        <Button asChild size="sm" variant="ghost" className="text-navy hover:text-orange">
+                          <Link to="/flights">Learn More</Link>
+                        </Button>
+                        <Button asChild size="sm">
+                          <Link to="/flights">Search Flights</Link>
+                        </Button>
+                      </>
+                    ) : isHotel ? (
+                      <>
+                        <Button asChild size="sm" variant="ghost" className="text-navy hover:text-orange">
+                          <Link to="/hotels">Learn More</Link>
+                        </Button>
+                        <Button asChild size="sm">
+                          <Link to="/hotels">Search Hotels</Link>
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button asChild size="sm" variant="ghost" className="text-navy hover:text-orange">
+                          <Link to="/services/$slug" params={{ slug: service.slug }}>
+                            Learn More
+                          </Link>
+                        </Button>
+                        <Button asChild size="sm">
+                          <Link to="/request" search={{ service: service.slug }}>
+                            Start a Request
+                          </Link>
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </article>
               );
@@ -204,7 +233,6 @@ function Home() {
           </div>
         </div>
       </section>
-
 
       {/* How it works */}
       <section className="container-page section-y">
@@ -225,9 +253,9 @@ function Home() {
         </ol>
         <div className="mt-12 max-w-3xl">
           <Disclaimer>
-            Flights and Hotels will initially operate through a request-and-quotation process.
-            Amazingfly.ng does not display live fares, live availability or instant booking
-            confirmations at this stage.
+            Flight fares and hotel rates come from live supplier systems and may change until the
+            supplier confirms the booking. Other Amazingfly service charges are shown or calculated
+            before payment.
           </Disclaimer>
         </div>
       </section>
@@ -255,7 +283,6 @@ function Home() {
         </div>
       </section>
 
-
       {/* Visa feature */}
       <section className="container-page section-y">
         <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
@@ -265,7 +292,9 @@ function Home() {
             <p className="mt-5 text-base leading-relaxed text-muted-foreground">{visa.introduction}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link to="/request" search={{ service: "visa-assistance" }}>Begin Visa Assistance</Link>
+                <Link to="/request" search={{ service: "visa-assistance" }}>
+                  Begin Visa Assistance
+                </Link>
               </Button>
               <Button asChild size="lg" variant="secondary">
                 <Link to="/services/$slug" params={{ slug: "visa-assistance" }}>
@@ -299,27 +328,69 @@ function Home() {
           <div className="max-w-2xl">
             <h2 className="text-3xl font-extrabold md:text-4xl">Other travel services</h2>
             <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-              Alongside visa assistance, customers can also request the following support from
+              Alongside visa assistance, customers can also access the following support from
               Amazingfly Travels.
             </p>
           </div>
           <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              "Flight reservations",
-              "Hotel reservations",
-              "Travel insurance",
-              "Police Character Certificates",
-              "Yellow Fever Cards",
-              "Proof of Funds document guidance",
-            ].map((item) => (
-              <li
-                key={item}
+            <li>
+              <Link
+                to="/flights"
                 className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
               >
                 <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
-                {item}
-              </li>
-            ))}
+                Flight reservations
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/hotels"
+                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
+              >
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                Hotel reservations
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/request"
+                search={{ service: "travel-insurance" }}
+                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
+              >
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                Travel insurance
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/request"
+                search={{ service: "police-character-certificate" }}
+                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
+              >
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                Police Character Certificates
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/request"
+                search={{ service: "yellow-fever-card" }}
+                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
+              >
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                Yellow Fever Cards
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/request"
+                search={{ service: "proof-of-funds" }}
+                className="flex items-center gap-3 rounded-2xl border border-white/70 bg-white/80 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:border-sky/40"
+              >
+                <ArrowRight className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                Proof of Funds support
+              </Link>
+            </li>
           </ul>
         </div>
       </section>
@@ -335,11 +406,10 @@ function Home() {
             steps on Amazingfly.ng.
           </p>
           <Button asChild size="lg" className="btn-gradient mt-9 border-0 text-white hover:-translate-y-0.5">
-            <Link to="/request">Start a Request</Link>
+            <Link to="/services">Choose a Service</Link>
           </Button>
         </div>
       </section>
-
     </>
   );
 }
