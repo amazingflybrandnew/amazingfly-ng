@@ -90,23 +90,82 @@ export const getAdminPayments = createServerFn({ method: "POST" })
     },
   );
 
+/**
+ * Reconciles an online payment against Paystack itself. Staff can request a
+ * fresh verification, but they cannot manufacture a successful payment state.
+ */
+export const reconcileAdminPayment = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ payment_id: z.string().uuid() }).strict().parse(data),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message: string }> => {
+    const { requireAdmin, logAdminAction } = await import("./admin.server");
+    const who = await requireAdmin("manage_payments");
+    const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
+    const supabase = createExternalSupabaseAdmin();
+
+    const { data: payment, error } = await supabase
+      .from("payment_transactions")
+      .select("id, request_id, provider, transaction_reference, status")
+      .eq("id", data.payment_id)
+      .maybeSingle();
+
+    if (error || !payment) {
+      return { ok: false, message: error?.message ?? "Payment not found." };
+    }
+
+    const row = payment as Record<string, unknown>;
+    const provider = String(row["provider"] ?? "").toLowerCase();
+    const reference = String(row["transaction_reference"] ?? "").trim();
+
+    if (provider !== "paystack") {
+      return {
+        ok: false,
+        message: "Only Paystack transactions can be reconciled automatically from this screen.",
+      };
+    }
+    if (!reference) return { ok: false, message: "This transaction has no Paystack reference." };
+
+    const { finalizePaystackPayment } = await import("./payment/verify.server");
+    const result = await finalizePaystackPayment({ reference });
+
+    await logAdminAction(who, "Reconciled payment with Paystack", {
+      type: "payment",
+      id: data.payment_id,
+      detail: result.ok
+        ? `${reference}: ${result.status}${result.alreadyProcessed ? " (already processed)" : ""}`
+        : `${reference}: verification failed - ${result.message}`,
+    });
+
+    if (!result.ok) return { ok: false, message: result.message };
+
+    const message =
+      result.status === "successful"
+        ? result.alreadyProcessed
+          ? "Paystack confirms this payment was already successfully processed."
+          : "Paystack confirmed the payment successfully."
+        : result.status === "pending"
+          ? "Paystack still reports this payment as pending."
+          : `Paystack reports this payment as ${result.status}.`;
+
+    return { ok: true, message };
+  });
+
+/**
+ * Legacy server action retained so old clients fail safely. Online payment
+ * status must never be changed by staff without provider verification.
+ */
 export const setAdminPaymentStatus = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     z.object({ payment_id: z.string().uuid(), status: statusEnum }).strict().parse(data),
   )
-  .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
-    const { requireAdmin, logAdminAction } = await import("./admin.server");
-    const { adminSetPaymentStatus } = await import("./payments.server");
-    const who = await requireAdmin("manage_payments");
-    const result = await adminSetPaymentStatus(data.payment_id, data.status);
-    if (result.ok) {
-      await logAdminAction(who, "Updated payment status", {
-        type: "payment",
-        id: data.payment_id,
-        detail: `Set to ${data.status}`,
-      });
-    }
-    return result;
+  .handler(async (): Promise<{ ok: boolean; message?: string }> => {
+    const { requireAdmin } = await import("./admin.server");
+    await requireAdmin("manage_payments");
+    return {
+      ok: false,
+      message: "Direct payment status changes are disabled. Verify online payments with Paystack instead.",
+    };
   });
 
 export const setAdminRequestFee = createServerFn({ method: "POST" })
