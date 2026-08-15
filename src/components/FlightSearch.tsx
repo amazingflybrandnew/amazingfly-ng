@@ -219,12 +219,20 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         void navigate({ to: "/passengers/$requestId", params: { requestId: result.requestId } });
       }
     },
+    onSettled: () => setPendingFlightId(null),
   });
 
   const handleSelect = (flight: FlightResult) => {
+    setPendingFlightId(flight.id);
     selectFlight(flight);
+    scrollElementIntoView(selectionPanelRef.current);
     createRequest.mutate(flight);
   };
+
+  useEffect(() => {
+    if (selected) scrollElementIntoView(selectionPanelRef.current);
+  }, [selected?.id, selected?.selectedAt]);
+
 
   const [origin, setOrigin] = useState("LOS");
   const [destination, setDestination] = useState("LHR");
