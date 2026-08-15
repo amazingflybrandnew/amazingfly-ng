@@ -73,12 +73,14 @@ function HotelCard({
   onOpen,
   onSelect,
   isSelected,
+  isPending,
 }: {
   hotel: HotelResult;
   stay: StayInputShape | null;
   onOpen: () => void;
   onSelect: () => void;
   isSelected: boolean;
+  isPending: boolean;
 }) {
   const refundable = hotel.rooms.some((room) => room.cancellationPolicy.refundable);
   const nights =
@@ -89,10 +91,16 @@ function HotelCard({
 
   return (
     <article
+      aria-busy={isPending}
       className={`group overflow-hidden rounded-3xl border bg-white/80 shadow-card backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
-        isSelected ? "border-orange ring-2 ring-orange/30" : "border-white/70 hover:border-orange/40"
+        isPending
+          ? "scale-[1.01] border-orange ring-4 ring-orange/30"
+          : isSelected
+            ? "border-orange ring-2 ring-orange/30"
+            : "border-white/70 hover:border-orange/40"
       }`}
     >
+
       <div className="flex flex-col md:flex-row">
         <div className="relative overflow-hidden md:w-72 md:shrink-0">
           {hotel.hotelImage ? (
