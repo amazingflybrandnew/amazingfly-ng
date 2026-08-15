@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -28,6 +28,7 @@ import { searchFlightOffers } from "@/lib/travel-api/flights.functions";
 import { CABIN_CLASSES, type CabinClass, type FlightResult } from "@/lib/travel-api/flight.types";
 import { selectFlight, useSelectedFlight } from "@/lib/travel-api/selected-flight";
 import { createFlightRequest } from "@/lib/flight-request.functions";
+import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
 
 type SortKey = "recommended" | "price" | "duration" | "stops";
 
@@ -80,16 +81,20 @@ function FlightCard({
   onOpen,
   onSelect,
   isSelected,
+  isPending,
 }: {
   flight: FlightResult;
   onOpen: () => void;
   onSelect: () => void;
   isSelected: boolean;
+  isPending: boolean;
 }) {
   return (
     <article
       role="button"
       tabIndex={0}
+      data-flight-id={flight.id}
+      aria-busy={isPending}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -97,8 +102,12 @@ function FlightCard({
           onOpen();
         }
       }}
-      className={`hover-lift cursor-pointer rounded-3xl border bg-white/80 p-6 shadow-card backdrop-blur-sm transition ${
-        isSelected ? "border-orange ring-2 ring-orange/30" : "border-white/70"
+      className={`hover-lift cursor-pointer rounded-3xl border bg-white/80 p-6 shadow-card backdrop-blur-sm transition duration-200 ${
+        isPending
+          ? "scale-[1.01] border-orange ring-4 ring-orange/30"
+          : isSelected
+            ? "border-orange ring-2 ring-orange/30"
+            : "border-white/70"
       }`}
     >
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -151,12 +160,17 @@ function FlightCard({
           <Button
             size="sm"
             className="btn-gradient border-0 text-white"
+            disabled={isPending}
             onClick={(event) => {
               event.stopPropagation();
               onSelect();
             }}
           >
-            {isSelected ? (
+            {isPending ? (
+              <>
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> Selecting…
+              </>
+            ) : isSelected ? (
               <>
                 <Check className="mr-1 h-4 w-4" aria-hidden="true" /> Selected
               </>
@@ -175,6 +189,9 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const selected = useSelectedFlight();
   const createRequestFn = useServerFn(createFlightRequest);
   const navigate = useNavigate();
+  const selectionPanelRef = useRef<HTMLDivElement | null>(null);
+  const [pendingFlightId, setPendingFlightId] = useState<string | null>(null);
+
 
 
   const createRequest = useMutation({
@@ -202,12 +219,21 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         void navigate({ to: "/passengers/$requestId", params: { requestId: result.requestId } });
       }
     },
+    onSettled: () => setPendingFlightId(null),
   });
 
   const handleSelect = (flight: FlightResult) => {
+    setPendingFlightId(flight.id);
     selectFlight(flight);
+    scrollElementIntoView(selectionPanelRef.current);
     createRequest.mutate(flight);
   };
+
+  useEffect(() => {
+    if (createRequest.data) scrollElementIntoView(selectionPanelRef.current);
+  }, [createRequest.data]);
+
+
 
   const [origin, setOrigin] = useState("LOS");
   const [destination, setDestination] = useState("LHR");
@@ -445,7 +471,11 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
-        <div className="space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
+        <div
+          ref={selectionPanelRef}
+          aria-live="polite"
+          className="scroll-mt-24 space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm"
+        >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="text-sm">
               <p className="font-bold">
@@ -675,6 +705,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
                   key={flight.id}
                   flight={flight}
                   isSelected={selected?.id === flight.id}
+                  isPending={pendingFlightId === flight.id}
                   onOpen={() => setDetailFlight(flight)}
                   onSelect={() => handleSelect(flight)}
                 />

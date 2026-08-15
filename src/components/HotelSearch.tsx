@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -47,6 +47,7 @@ import {
   nightsBetween,
   perNightPrice,
 } from "@/lib/travel-api/hotel-format";
+import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
 
 type SortKey = "recommended" | "price" | "rating";
 
@@ -72,12 +73,14 @@ function HotelCard({
   onOpen,
   onSelect,
   isSelected,
+  isPending,
 }: {
   hotel: HotelResult;
   stay: StayInputShape | null;
   onOpen: () => void;
   onSelect: () => void;
   isSelected: boolean;
+  isPending: boolean;
 }) {
   const refundable = hotel.rooms.some((room) => room.cancellationPolicy.refundable);
   const nights =
@@ -88,10 +91,16 @@ function HotelCard({
 
   return (
     <article
+      aria-busy={isPending}
       className={`group overflow-hidden rounded-3xl border bg-white/80 shadow-card backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
-        isSelected ? "border-orange ring-2 ring-orange/30" : "border-white/70 hover:border-orange/40"
+        isPending
+          ? "scale-[1.01] border-orange ring-4 ring-orange/30"
+          : isSelected
+            ? "border-orange ring-2 ring-orange/30"
+            : "border-white/70 hover:border-orange/40"
       }`}
     >
+
       <div className="flex flex-col md:flex-row">
         <div className="relative overflow-hidden md:w-72 md:shrink-0">
           {hotel.hotelImage ? (
@@ -197,9 +206,14 @@ function HotelCard({
               <Button
                 size="sm"
                 className="btn-gradient flex-1 border-0 text-white md:flex-none"
+                disabled={isPending}
                 onClick={onSelect}
               >
-                {isSelected ? (
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> Selecting…
+                  </>
+                ) : isSelected ? (
                   <>
                     <Check className="mr-1 h-4 w-4" aria-hidden="true" /> Selected
                   </>
@@ -257,6 +271,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<HotelPaymentOption | null>(null);
   const [priceAccepted, setPriceAccepted] = useState(false);
+  const [pendingHotelId, setPendingHotelId] = useState<string | null>(null);
+  const confirmationRef = useRef<HTMLDivElement | null>(null);
+
+
 
   const createRequestFn = useServerFn(createHotelRequest);
   const createRequest = useMutation({
@@ -332,6 +350,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       setSelectedRoom(result.room);
       setSelectedPayment(null);
       setPriceAccepted(result.status === "available");
+    },
+    onSettled: () => {
+      setPendingHotelId(null);
+      scrollElementIntoView(confirmationRef.current);
     },
   });
 
@@ -430,9 +452,12 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
 
   const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
     if (!room?.bookHash) {
+      setPendingHotelId(hotel.hotelId);
       setDetailHotel(hotel);
+      window.setTimeout(() => setPendingHotelId(null), 400);
       return;
     }
+    setPendingHotelId(hotel.hotelId);
     setSelected(hotel);
     setSelectedRoom(room);
     setSelectedPayment(null);
@@ -440,9 +465,17 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     setDetailHotel(null);
     createRequest.reset();
     prebook.reset();
-    if (!submittedStay) return;
+    scrollElementIntoView(confirmationRef.current);
+    if (!submittedStay) {
+      setPendingHotelId(null);
+      return;
+    }
     prebook.mutate({ hotel, room });
   };
+
+  useEffect(() => {
+    if (createRequest.data) scrollElementIntoView(confirmationRef.current);
+  }, [createRequest.data]);
 
   const choosePayment = (payment: HotelPaymentOption) => {
     if (!selected || !selectedRoom || !selectedRoom.bookHash) return;
@@ -453,6 +486,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   };
 
   const livePaymentOptions = selectedRoom?.paymentOptions ?? [];
+
 
   return (
     <div className="space-y-8">
@@ -557,6 +591,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
+        <div ref={confirmationRef} aria-live="polite" className="scroll-mt-24">
         <HotelConfirmation hotel={selected} room={selectedRoom} stay={submittedStay}>
           <div className="space-y-4">
             {prebook.isPending ? (
