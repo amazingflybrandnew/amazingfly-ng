@@ -271,6 +271,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<HotelPaymentOption | null>(null);
   const [priceAccepted, setPriceAccepted] = useState(false);
+  const [pendingHotelId, setPendingHotelId] = useState<string | null>(null);
+  const confirmationRef = useRef<HTMLDivElement | null>(null);
+
+
 
   const createRequestFn = useServerFn(createHotelRequest);
   const createRequest = useMutation({
