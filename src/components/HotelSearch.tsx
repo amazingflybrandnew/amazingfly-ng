@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -47,6 +47,7 @@ import {
   nightsBetween,
   perNightPrice,
 } from "@/lib/travel-api/hotel-format";
+import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
 
 type SortKey = "recommended" | "price" | "rating";
 
