@@ -6,6 +6,7 @@ import type { TransactionStatus } from "./types";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const ZERO_DECIMAL: readonly string[] = [];
+const PAYSTACK_IN_PROGRESS_STATUSES = new Set(["ongoing", "pending", "processing", "queued"]);
 
 export type PaystackVerifyPayload = {
   status: string;
@@ -181,13 +182,17 @@ async function ensurePaidHotelBooking(requestId: string): Promise<void> {
   }
 }
 
-async function markRequestPaymentFailed(requestId: string) {
+async function setRequestPaymentState(requestId: string, paymentStatus: string) {
   const supabase = await admin();
   const { error } = await supabase
     .from("service_requests")
-    .update({ payment_status: "payment_failed" })
+    .update({ payment_status: paymentStatus })
     .eq("id", requestId);
-  if (error) console.error("[paystack] markRequestPaymentFailed", error.message);
+  if (error) console.error("[paystack] setRequestPaymentState", error.message);
+}
+
+async function markRequestPaymentFailed(requestId: string) {
+  await setRequestPaymentState(requestId, "payment_failed");
 }
 
 export async function finalizePaystackPayment(input: {
@@ -238,6 +243,23 @@ export async function finalizePaystackPayment(input: {
 
   const data = verified.data;
   const paystackStatus = data.status.toLowerCase();
+
+  if (PAYSTACK_IN_PROGRESS_STATUSES.has(paystackStatus)) {
+    await supabase
+      .from("payment_transactions")
+      .update({ status: "pending", provider_response: safeProviderResponse(data, "verified_pending") })
+      .eq("id", String(tx["id"]));
+    if (requestId) await setRequestPaymentState(requestId, "pending_payment");
+    return {
+      ok: true,
+      status: "pending",
+      requestId: requestId ?? "",
+      reference,
+      amount,
+      currency,
+      alreadyProcessed: false,
+    };
+  }
 
   if (paystackStatus !== "success") {
     const failed: TransactionStatus = paystackStatus === "abandoned" ? "cancelled" : "failed";
