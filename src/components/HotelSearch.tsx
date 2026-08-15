@@ -351,6 +351,10 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       setSelectedPayment(null);
       setPriceAccepted(result.status === "available");
     },
+    onSettled: () => {
+      setPendingHotelId(null);
+      scrollElementIntoView(confirmationRef.current);
+    },
   });
 
   function validate(): string | null {
