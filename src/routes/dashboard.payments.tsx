@@ -56,11 +56,12 @@ function MyPaymentsPage() {
       <div className="glass-card rounded-3xl p-6 md:p-8">
         <p className="flex items-center gap-2 text-sm font-bold text-navy">
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          Secure checkout is being prepared
+          Secure online payment with Paystack
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Online card and transfer payments are coming soon. Your specialist will confirm the
-          amount payable on each application, and every payment will appear here automatically.
+          Payable requests continue through Amazingfly&apos;s secure checkout. Once Paystack confirms a
+          successful card or bank payment, the transaction reference and status are recorded here
+          automatically.
         </p>
       </div>
 
@@ -75,8 +76,8 @@ function MyPaymentsPage() {
           </span>
           <h2 className="mt-4 text-lg font-extrabold text-navy">No payments yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            When a fee is agreed on one of your applications, the payment will show up here with
-            its reference and status.
+            When you reach checkout for a payable request, its transaction will appear here with the
+            amount, reference and latest payment status.
           </p>
           <Button asChild variant="ghost" className="mt-4 text-navy">
             <Link to="/my-requests">View my requests</Link>
