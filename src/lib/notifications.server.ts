@@ -1,15 +1,14 @@
+import { sendTransactionalEmail, type EmailDeliveryResult } from "./email.server";
+
 /**
- * Business automation for Amazingfly Travels (Stage 6 Part 3).
+ * Business automation for Amazingfly Travels.
  *
- * One place composes every automated customer email, writes it to the
- * `email_notifications` audit table and mirrors it into the in-app
- * notification centre. Delivery is intentionally pluggable: until the
- * Amazingfly.ng sender domain is verified, messages are composed and logged
- * so the workflow and admin visibility already work end to end. When the
- * sender domain is live, swap `deliver()` for the project email helper -
- * nothing else in the codebase changes.
+ * One place composes automated customer/admin email, sends it through the
+ * server-only transactional email provider, writes the outcome to the
+ * `email_notifications` audit table and mirrors customer-facing events into
+ * the in-app notification centre.
  *
- * Server-only. Never throws: an automation problem must never fail a
+ * Server-only. Never throws: an email-provider problem must never fail a
  * customer submission, a status change or a payment.
  */
 
@@ -156,7 +155,6 @@ const STATUS_COPY: Record<string, { subject: string; line: string }> = {
     subject: "Additional documents are required",
     line: "Additional documents are required to continue processing your request.",
   },
-
   processing: {
     subject: "Your application is now processing",
     line: "Your application is now being processed by our team.",
@@ -295,20 +293,36 @@ export function composeCompletion(ctx: {
 
 // ------------------------------------------------------------------ delivery
 
-async function deliver(message: ComposedEmail) {
-  // TODO: replace with the project email sender once the Amazingfly.ng
-  // sender domain is verified. Until then every automated message is composed
-  // and logged so operations keeps full visibility.
-  console.info("[automation]", message.kind, "->", message.to, "|", message.subject);
+async function deliver(message: ComposedEmail): Promise<EmailDeliveryResult> {
+  const result = await sendTransactionalEmail({
+    to: message.to,
+    subject: message.subject,
+    text: message.body,
+  });
+
+  if (result.ok) {
+    console.info(
+      "[automation] sent",
+      message.kind,
+      "->",
+      message.to,
+      result.id ? `| provider id ${result.id}` : "",
+    );
+  } else {
+    console.error("[automation] email delivery failed", message.kind, "->", message.to, result.error);
+  }
+
+  return result;
 }
 
 async function logEmail(
   message: ComposedEmail,
   meta: { requestId?: string | null; userId?: string | null; reference?: string | null },
+  delivery: EmailDeliveryResult,
 ) {
   try {
     const supabase = await db();
-    await supabase.from("email_notifications").insert({
+    const { error } = await supabase.from("email_notifications").insert({
       event_type: message.kind,
       recipient_email: message.to,
       subject: message.subject,
@@ -316,8 +330,9 @@ async function logEmail(
       request_id: meta.requestId ?? null,
       user_id: meta.userId ?? null,
       request_reference: meta.reference ?? null,
-      delivery_status: "logged",
+      delivery_status: delivery.ok ? "sent" : "failed",
     });
+    if (error) console.error("[automation] email log failed", error.message);
   } catch (error) {
     console.error("[automation] email log failed", error);
   }
@@ -348,7 +363,7 @@ async function pushInApp(input: {
   }
 }
 
-/** Composes, logs, delivers and mirrors one automated message. */
+/** Composes, delivers, audits and mirrors one automated message. */
 export async function sendAutomated(
   message: ComposedEmail,
   meta: {
@@ -359,8 +374,8 @@ export async function sendAutomated(
   } = {},
 ): Promise<void> {
   try {
-    await deliver(message);
-    await logEmail(message, meta);
+    const delivery = await deliver(message);
+    await logEmail(message, meta, delivery);
     if (meta.inApp !== false && meta.inApp) {
       await pushInApp({
         userId: meta.userId ?? null,
@@ -423,7 +438,9 @@ export async function notifyAccountCreated(input: {
   });
 }
 
-export async function notifyRequestReceived(ctx: RequestNotificationContext & { requestId?: string; userId?: string | null }) {
+export async function notifyRequestReceived(
+  ctx: RequestNotificationContext & { requestId?: string; userId?: string | null },
+) {
   await Promise.all([
     sendAutomated(composeCustomerReceipt(ctx), {
       requestId: ctx.requestId ?? null,
@@ -554,7 +571,6 @@ export async function notifyDocumentReviewed(input: {
   );
 }
 
-
 export async function notifyPaymentReceived(input: {
   requestId: string;
   amountLabel: string;
@@ -609,7 +625,7 @@ export async function notifyAdminPaidRequest(input: {
   );
 }
 
-/** Sent when an admin prices a request that required a personalised quotation. */
+/** Legacy quotation notification retained for existing admin records. */
 export async function notifyQuotationReady(input: {
   requestId: string;
   amountLabel: string;
