@@ -160,12 +160,17 @@ function FlightCard({
           <Button
             size="sm"
             className="btn-gradient border-0 text-white"
+            disabled={isPending}
             onClick={(event) => {
               event.stopPropagation();
               onSelect();
             }}
           >
-            {isSelected ? (
+            {isPending ? (
+              <>
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> Selecting…
+              </>
+            ) : isSelected ? (
               <>
                 <Check className="mr-1 h-4 w-4" aria-hidden="true" /> Selected
               </>
