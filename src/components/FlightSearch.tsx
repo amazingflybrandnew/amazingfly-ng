@@ -189,6 +189,9 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const selected = useSelectedFlight();
   const createRequestFn = useServerFn(createFlightRequest);
   const navigate = useNavigate();
+  const selectionPanelRef = useRef<HTMLDivElement | null>(null);
+  const [pendingFlightId, setPendingFlightId] = useState<string | null>(null);
+
 
 
   const createRequest = useMutation({
