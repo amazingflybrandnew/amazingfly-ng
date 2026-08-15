@@ -230,8 +230,9 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   };
 
   useEffect(() => {
-    if (selected) scrollElementIntoView(selectionPanelRef.current);
-  }, [selected?.id, selected?.selectedAt]);
+    if (createRequest.data) scrollElementIntoView(selectionPanelRef.current);
+  }, [createRequest.data]);
+
 
 
   const [origin, setOrigin] = useState("LOS");
