@@ -81,16 +81,20 @@ function FlightCard({
   onOpen,
   onSelect,
   isSelected,
+  isPending,
 }: {
   flight: FlightResult;
   onOpen: () => void;
   onSelect: () => void;
   isSelected: boolean;
+  isPending: boolean;
 }) {
   return (
     <article
       role="button"
       tabIndex={0}
+      data-flight-id={flight.id}
+      aria-busy={isPending}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -98,8 +102,12 @@ function FlightCard({
           onOpen();
         }
       }}
-      className={`hover-lift cursor-pointer rounded-3xl border bg-white/80 p-6 shadow-card backdrop-blur-sm transition ${
-        isSelected ? "border-orange ring-2 ring-orange/30" : "border-white/70"
+      className={`hover-lift cursor-pointer rounded-3xl border bg-white/80 p-6 shadow-card backdrop-blur-sm transition duration-200 ${
+        isPending
+          ? "scale-[1.01] border-orange ring-4 ring-orange/30"
+          : isSelected
+            ? "border-orange ring-2 ring-orange/30"
+            : "border-white/70"
       }`}
     >
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
