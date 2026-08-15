@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -28,6 +28,7 @@ import { searchFlightOffers } from "@/lib/travel-api/flights.functions";
 import { CABIN_CLASSES, type CabinClass, type FlightResult } from "@/lib/travel-api/flight.types";
 import { selectFlight, useSelectedFlight } from "@/lib/travel-api/selected-flight";
 import { createFlightRequest } from "@/lib/flight-request.functions";
+import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
 
 type SortKey = "recommended" | "price" | "duration" | "stops";
 
