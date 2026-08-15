@@ -471,7 +471,11 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
-        <div className="space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm">
+        <div
+          ref={selectionPanelRef}
+          aria-live="polite"
+          className="scroll-mt-24 space-y-3 rounded-3xl border border-orange/30 bg-white/80 p-5 backdrop-blur-sm"
+        >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="text-sm">
               <p className="font-bold">
