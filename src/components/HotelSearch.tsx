@@ -452,9 +452,12 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
 
   const handleSelect = (hotel: HotelResult, room?: RoomResult) => {
     if (!room?.bookHash) {
+      setPendingHotelId(hotel.hotelId);
       setDetailHotel(hotel);
+      window.setTimeout(() => setPendingHotelId(null), 400);
       return;
     }
+    setPendingHotelId(hotel.hotelId);
     setSelected(hotel);
     setSelectedRoom(room);
     setSelectedPayment(null);
@@ -462,9 +465,17 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     setDetailHotel(null);
     createRequest.reset();
     prebook.reset();
-    if (!submittedStay) return;
+    scrollElementIntoView(confirmationRef.current);
+    if (!submittedStay) {
+      setPendingHotelId(null);
+      return;
+    }
     prebook.mutate({ hotel, room });
   };
+
+  useEffect(() => {
+    if (createRequest.data) scrollElementIntoView(confirmationRef.current);
+  }, [createRequest.data]);
 
   const choosePayment = (payment: HotelPaymentOption) => {
     if (!selected || !selectedRoom || !selectedRoom.bookHash) return;
@@ -475,6 +486,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   };
 
   const livePaymentOptions = selectedRoom?.paymentOptions ?? [];
+
 
   return (
     <div className="space-y-8">
