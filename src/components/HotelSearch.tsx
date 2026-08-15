@@ -591,6 +591,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       </form>
 
       {selected ? (
+        <div ref={confirmationRef} aria-live="polite" className="scroll-mt-24">
         <HotelConfirmation hotel={selected} room={selectedRoom} stay={submittedStay}>
           <div className="space-y-4">
             {prebook.isPending ? (
