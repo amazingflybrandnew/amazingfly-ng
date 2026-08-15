@@ -705,6 +705,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
                   key={flight.id}
                   flight={flight}
                   isSelected={selected?.id === flight.id}
+                  isPending={pendingFlightId === flight.id}
                   onOpen={() => setDetailFlight(flight)}
                   onSelect={() => handleSelect(flight)}
                 />
