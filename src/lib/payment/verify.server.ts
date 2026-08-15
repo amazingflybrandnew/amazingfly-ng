@@ -99,8 +99,8 @@ function safeProviderResponse(data: PaystackVerifyPayload, stage: string) {
 }
 
 /**
- * Marks payment received. Flights retain their existing confirmed behaviour;
- * RateHawk hotels move to processing until the supplier confirms the booking.
+ * Marks customer payment received. Supplier-backed bookings remain processing
+ * until the relevant supplier integration has actually confirmed/issued them.
  */
 async function confirmBooking(requestId: string) {
   const supabase = await admin();
@@ -120,7 +120,7 @@ async function confirmBooking(requestId: string) {
   const paidAt = new Date().toISOString();
   const patch: Record<string, unknown> = {
     payment_status: "payment_received",
-    booking_status: isHotel ? "processing" : isFlight ? "confirmed" : "processing",
+    booking_status: "processing",
     paid_at: paidAt,
   };
   if (!isBooking) patch["request_status"] = "processing";
@@ -141,11 +141,11 @@ async function confirmBooking(requestId: string) {
   }
   if (error) console.error("[paystack] confirmBooking", error.message);
 
-  const status = isHotel ? "processing" : isBooking ? "confirmed" : "processing";
+  const status = "processing";
   const message = isHotel
     ? "Payment received. Hotel confirmation is now processing with the accommodation provider."
-    : isBooking
-      ? "Payment received and booking confirmed."
+    : isFlight
+      ? "Payment received. Flight booking is now processing and will be confirmed after airline issuance."
       : "Payment received. Amazingfly Travels has started processing your request.";
 
   await supabase.from("request_updates").insert({ request_id: requestId, status, message });
