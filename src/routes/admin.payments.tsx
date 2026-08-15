@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { BadgeDollarSign, Loader2, Search } from "lucide-react";
+import { BadgeDollarSign, CheckCircle2, Loader2, RefreshCw, Search, ShieldCheck } from "lucide-react";
 
 import { AdminShell } from "@/components/AdminShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { getAdminPayments, setAdminPaymentStatus } from "@/lib/payments.functions";
+import { getAdminPayments, reconcileAdminPayment } from "@/lib/payments.functions";
 import {
   PAYMENT_STATUSES,
   PAYMENT_STATUS_LABELS,
@@ -47,20 +47,26 @@ const FILTERS = [
 function AdminPaymentsPage() {
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
+  const [reconcileMessage, setReconcileMessage] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const fetchPayments = useServerFn(getAdminPayments);
-  const updateStatus = useServerFn(setAdminPaymentStatus);
+  const reconcilePayment = useServerFn(reconcileAdminPayment);
 
   const list = useQuery({
     queryKey: ["admin", "payments", status, search],
     queryFn: () => fetchPayments({ data: { status, search } }),
   });
 
-  const change = useMutation({
-    mutationFn: (input: { payment_id: string; status: (typeof PAYMENT_STATUSES)[number] }) =>
-      updateStatus({ data: input }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "payments"] }),
+  const reconcile = useMutation({
+    mutationFn: (paymentId: string) => reconcilePayment({ data: { payment_id: paymentId } }),
+    onSuccess: async (result, paymentId) => {
+      setReconcileMessage((current) => ({
+        ...current,
+        [paymentId]: result.message,
+      }));
+      await queryClient.invalidateQueries({ queryKey: ["admin", "payments"] });
+    },
   });
 
   const rows = list.data?.rows ?? [];
@@ -71,6 +77,18 @@ function AdminPaymentsPage() {
       title="Payments"
       subtitle="Every transaction raised on Amazingfly.ng, with its reference, provider and current state."
     >
+      <div className="glass-card mb-6 rounded-3xl border border-mint/40 p-5">
+        <p className="flex items-center gap-2 text-sm font-bold text-navy">
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          Online payment status is provider-verified
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Staff cannot manually mark a Paystack transaction as paid. Use Verify with Paystack to
+          reconcile the transaction reference against Paystack before Amazingfly updates the
+          request or sends a payment confirmation.
+        </p>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card rounded-3xl p-5">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-mint-tint">
@@ -132,7 +150,7 @@ function AdminPaymentsPage() {
       ) : (
         <div className="glass-card mt-6 overflow-hidden rounded-3xl">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
               <thead>
                 <tr className="bg-white/70 text-[11px] uppercase tracking-[0.14em] text-navy-soft">
                   <th className="px-5 py-3 font-bold">Reference</th>
@@ -141,65 +159,93 @@ function AdminPaymentsPage() {
                   <th className="px-5 py-3 font-bold">Amount</th>
                   <th className="px-5 py-3 font-bold">Provider</th>
                   <th className="px-5 py-3 font-bold">Status</th>
-                  <th className="px-5 py-3 font-bold">Update</th>
+                  <th className="px-5 py-3 font-bold">Reconcile</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-t border-white/60 align-top">
-                    <td className="px-5 py-4">
-                      <p className="break-all font-semibold text-navy">
-                        {row.transaction_reference}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatDate(row.created_at)}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-navy">{row.request_reference || "—"}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {row.service_type ?? "—"}
-                        {row.destination_country ? ` · ${row.destination_country}` : ""}
-                      </p>
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">{row.email}</td>
-                    <td className="px-5 py-4 font-semibold text-navy">
-                      {formatMoney(row.amount, row.currency)}
-                    </td>
-                    <td className="px-5 py-4 capitalize text-muted-foreground">
-                      {row.payment_provider}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${paymentTone(
-                          row.status,
-                        )}`}
-                      >
-                        {paymentStatusLabel(row.status)}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <select
-                        value={row.status}
-                        disabled={change.isPending}
-                        onChange={(event) =>
-                          change.mutate({
-                            payment_id: row.id,
-                            status: event.target.value as (typeof PAYMENT_STATUSES)[number],
-                          })
-                        }
-                        aria-label={`Update status for ${row.transaction_reference}`}
-                        className="rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-xs font-semibold text-navy"
-                      >
-                        {PAYMENT_STATUSES.map((option) => (
-                          <option key={option} value={option}>
-                            {PAYMENT_STATUS_LABELS[option]}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row) => {
+                  const isPaystack = row.payment_provider.toLowerCase() === "paystack";
+                  const isSuccessful = paymentStatusLabel(row.status) === "Payment Received";
+                  const isCurrent = reconcile.isPending && reconcile.variables === row.id;
+                  const resultMessage = reconcileMessage[row.id];
+
+                  return (
+                    <tr key={row.id} className="border-t border-white/60 align-top">
+                      <td className="px-5 py-4">
+                        <p className="break-all font-semibold text-navy">
+                          {row.transaction_reference}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Created {formatDate(row.created_at)}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4">
+                        {row.request_id ? (
+                          <Link
+                            to="/admin/requests/$id"
+                            params={{ id: row.request_id }}
+                            className="font-semibold text-navy hover:text-navy-soft"
+                          >
+                            {row.request_reference || "Open request"}
+                          </Link>
+                        ) : (
+                          <p className="font-semibold text-navy">{row.request_reference || "—"}</p>
+                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {row.service_type ?? "—"}
+                          {row.destination_country ? ` · ${row.destination_country}` : ""}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 text-muted-foreground">{row.email}</td>
+                      <td className="px-5 py-4 font-semibold text-navy">
+                        {formatMoney(row.amount, row.currency)}
+                      </td>
+                      <td className="px-5 py-4 capitalize text-muted-foreground">
+                        {row.payment_provider}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${paymentTone(
+                            row.status,
+                          )}`}
+                        >
+                          {paymentStatusLabel(row.status)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        {isPaystack ? (
+                          <div className="min-w-[190px]">
+                            <Button
+                              type="button"
+                              variant={isSuccessful ? "ghost" : "default"}
+                              size="sm"
+                              disabled={isCurrent}
+                              onClick={() => reconcile.mutate(row.id)}
+                            >
+                              {isCurrent ? (
+                                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                              ) : isSuccessful ? (
+                                <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                              ) : (
+                                <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                              )}
+                              {isSuccessful ? "Re-check Paystack" : "Verify with Paystack"}
+                            </Button>
+                            {resultMessage ? (
+                              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                                {resultMessage}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <p className="max-w-[190px] text-xs leading-relaxed text-muted-foreground">
+                            Automatic reconciliation is only available for Paystack transactions.
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -207,8 +253,8 @@ function AdminPaymentsPage() {
       )}
 
       <p className="mt-6 text-xs text-muted-foreground">
-        Amount payable comes from the <strong>agreed fee</strong> on each request — set it on the
-        request detail page before asking a customer to pay.
+        Customer checkout amounts are created by the live service payment flow. For Paystack
+        transactions, use provider verification rather than manually changing a payment status.
       </p>
       <Button
         variant="ghost"
