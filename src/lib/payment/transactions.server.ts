@@ -1,10 +1,10 @@
 /**
  * Server-only payment helpers for Amazingfly Travels.
  *
- * Every payment row lives in `public.payment_transactions` and always points at
- * an existing `service_requests` row, so flight, hotel, visa and other travel
- * requests share the same flow. No provider (Paystack/Flutterwave) is wired up
- * yet — this file only owns the data layer and reference generation.
+ * Every payment row lives in `public.payment_transactions` and points at an
+ * existing `service_requests` row, so flight, hotel, visa and other travel
+ * requests share one payment history. Paystack is the active online provider;
+ * this module owns transaction persistence, customer scoping and references.
  */
 import type { SessionUser } from "../auth.server";
 import {
@@ -60,11 +60,79 @@ function shape(row: Record<string, unknown>): PaymentTransaction {
 
 const SELECT = "*, service_requests(request_reference, service_type)";
 
+/**
+ * Claims guest-created requests and their payment rows after the customer
+ * signs in with the same verified email address. Never reassigns a request
+ * that already belongs to a different account.
+ */
+async function claimGuestTransactionsForUser(
+  supabase: Awaited<ReturnType<typeof admin>>,
+  user: SessionUser,
+): Promise<void> {
+  const email = user.email.trim().toLowerCase();
+  if (!email) return;
+
+  const [ownedResult, emailResult] = await Promise.all([
+    supabase.from("service_requests").select("id, user_id").eq("user_id", user.id),
+    supabase.from("service_requests").select("id, user_id").ilike("email", email),
+  ]);
+
+  if (ownedResult.error) {
+    console.error("[payment] owned request lookup", ownedResult.error.message);
+  }
+  if (emailResult.error) {
+    console.error("[payment] email request lookup", emailResult.error.message);
+  }
+
+  const ownedIds = new Set<string>();
+  for (const row of ownedResult.data ?? []) {
+    if (row["id"]) ownedIds.add(String(row["id"]));
+  }
+
+  const claimableIds: string[] = [];
+  for (const row of emailResult.data ?? []) {
+    const id = row["id"] ? String(row["id"]) : "";
+    if (!id) continue;
+    const owner = row["user_id"] ? String(row["user_id"]) : null;
+    if (owner === user.id) {
+      ownedIds.add(id);
+    } else if (!owner) {
+      claimableIds.push(id);
+      ownedIds.add(id);
+    }
+  }
+
+  if (claimableIds.length) {
+    const { error } = await supabase
+      .from("service_requests")
+      .update({ user_id: user.id })
+      .in("id", claimableIds)
+      .is("user_id", null);
+    if (error) console.error("[payment] claim guest requests", error.message);
+  }
+
+  const requestIds = [...ownedIds];
+  if (!requestIds.length) return;
+
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ user_id: user.id })
+    .in("request_id", requestIds)
+    .is("user_id", null);
+  if (error) console.error("[payment] claim guest transactions", error.message);
+}
+
 /** Customer view — always scoped to the signed-in user. */
 export async function listCustomerTransactions(
   user: SessionUser,
 ): Promise<PaymentTransaction[]> {
   const supabase = await admin();
+
+  // A guest may create a payable request before authenticating. Claim any
+  // matching unowned request/payment first so My Payments is complete on the
+  // customer's first signed-in visit.
+  await claimGuestTransactionsForUser(supabase, user);
+
   const { data, error } = await supabase
     .from(TABLE)
     .select(SELECT)
@@ -117,10 +185,7 @@ export async function latestTransactionByRequest(): Promise<Map<string, PaymentT
   return map;
 }
 
-/**
- * Creates a pending transaction against an existing request. Provider
- * checkout is deliberately NOT started here — that arrives in Part 2.
- */
+/** Creates a pending transaction against an existing request. */
 export async function createPendingTransaction(input: {
   user_id: string | null;
   request_id: string;
