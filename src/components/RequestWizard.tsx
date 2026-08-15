@@ -73,6 +73,11 @@ const CONTACT_VALUE: Record<string, "whatsapp" | "phone" | "email"> = {
   Email: "email",
 };
 
+const HIDDEN_REQUEST_CATEGORY_IDS = new Set(["airport_transfer", "other"]);
+const REQUEST_SERVICE_CATEGORIES = SERVICE_CATEGORIES.filter(
+  (item) => !HIDDEN_REQUEST_CATEGORY_IDS.has(item.id),
+);
+
 function isVisible(question: Question | DocumentRequirement, answers: Answers) {
   if (!question.showIf) return true;
   return question.showIf.equals.includes(answers[question.showIf.id] ?? "");
@@ -104,11 +109,14 @@ export function RequestWizard({
   const { data: session } = useSessionQuery();
   const topRef = useRef<HTMLDivElement>(null);
 
-  // Carry the homepage hero selections in.
+  // Carry the homepage hero selections in. Hidden request categories are not
+  // restored from stale/deep links until Amazingfly intentionally re-enables them.
   useEffect(() => {
     if (initialService) {
       const mapped = HERO_SLUG_TO_CATEGORY[initialService];
-      if (mapped) setCategoryId((prev) => prev || mapped);
+      if (mapped && !HIDDEN_REQUEST_CATEGORY_IDS.has(mapped)) {
+        setCategoryId((prev) => prev || mapped);
+      }
     }
     setAnswers((prev) => ({
       ...prev,
@@ -493,7 +501,7 @@ export function RequestWizard({
                   available services continue through this form to review and payment.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {SERVICE_CATEGORIES.map((item) => {
+                  {REQUEST_SERVICE_CATEGORIES.map((item) => {
                     const active = item.id === categoryId;
                     const isDedicatedBooking = item.id === "flight" || item.id === "hotel";
                     return (
