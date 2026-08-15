@@ -206,9 +206,14 @@ function HotelCard({
               <Button
                 size="sm"
                 className="btn-gradient flex-1 border-0 text-white md:flex-none"
+                disabled={isPending}
                 onClick={onSelect}
               >
-                {isSelected ? (
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> Selecting…
+                  </>
+                ) : isSelected ? (
                   <>
                     <Check className="mr-1 h-4 w-4" aria-hidden="true" /> Selected
                   </>
