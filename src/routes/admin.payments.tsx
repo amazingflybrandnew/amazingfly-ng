@@ -2,7 +2,15 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { BadgeDollarSign, CheckCircle2, Loader2, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  BadgeDollarSign,
+  CheckCircle2,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 
 import { AdminShell } from "@/components/AdminShell";
 import { Input } from "@/components/ui/input";
@@ -12,6 +20,7 @@ import {
   PAYMENT_STATUSES,
   PAYMENT_STATUS_LABELS,
   formatMoney,
+  normalizePaymentStatus,
   paymentStatusLabel,
   paymentTone,
 } from "@/lib/payment-status";
@@ -71,6 +80,9 @@ function AdminPaymentsPage() {
 
   const rows = list.data?.rows ?? [];
   const totals = list.data?.totals ?? {};
+  const mismatchCount = rows.filter(
+    (row) => normalizePaymentStatus(row.status) !== normalizePaymentStatus(row.request_payment_status),
+  ).length;
 
   return (
     <AdminShell
@@ -89,7 +101,7 @@ function AdminPaymentsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <div className="glass-card rounded-3xl p-5">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-mint-tint">
             <BadgeDollarSign className="h-5 w-5 text-navy" aria-hidden="true" />
@@ -105,6 +117,13 @@ function AdminPaymentsPage() {
             <p className="mt-1 text-sm text-muted-foreground">{PAYMENT_STATUS_LABELS[key]}</p>
           </div>
         ))}
+        <div className="glass-card rounded-3xl border border-orange/40 p-5">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-peach-tint">
+            <AlertTriangle className="h-5 w-5 text-navy" aria-hidden="true" />
+          </span>
+          <p className="mt-4 text-3xl font-extrabold text-navy">{mismatchCount}</p>
+          <p className="mt-1 text-sm text-muted-foreground">Needs reconciliation</p>
+        </div>
       </div>
 
       <div className="glass-card mt-6 flex flex-wrap items-center gap-3 rounded-3xl p-5">
@@ -150,7 +169,7 @@ function AdminPaymentsPage() {
       ) : (
         <div className="glass-card mt-6 overflow-hidden rounded-3xl">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
               <thead>
                 <tr className="bg-white/70 text-[11px] uppercase tracking-[0.14em] text-navy-soft">
                   <th className="px-5 py-3 font-bold">Reference</th>
@@ -158,19 +177,28 @@ function AdminPaymentsPage() {
                   <th className="px-5 py-3 font-bold">Customer</th>
                   <th className="px-5 py-3 font-bold">Amount</th>
                   <th className="px-5 py-3 font-bold">Provider</th>
-                  <th className="px-5 py-3 font-bold">Status</th>
+                  <th className="px-5 py-3 font-bold">Transaction status</th>
+                  <th className="px-5 py-3 font-bold">Request status</th>
                   <th className="px-5 py-3 font-bold">Reconcile</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   const isPaystack = row.payment_provider.toLowerCase() === "paystack";
-                  const isSuccessful = paymentStatusLabel(row.status) === "Payment Received";
+                  const providerStatus = normalizePaymentStatus(row.status);
+                  const requestStatus = normalizePaymentStatus(row.request_payment_status);
+                  const isSuccessful = providerStatus === "payment_received";
+                  const needsReconciliation = providerStatus !== requestStatus;
                   const isCurrent = reconcile.isPending && reconcile.variables === row.id;
                   const resultMessage = reconcileMessage[row.id];
 
                   return (
-                    <tr key={row.id} className="border-t border-white/60 align-top">
+                    <tr
+                      key={row.id}
+                      className={`border-t border-white/60 align-top ${
+                        needsReconciliation ? "bg-peach-tint/40" : ""
+                      }`}
+                    >
                       <td className="px-5 py-4">
                         <p className="break-all font-semibold text-navy">
                           {row.transaction_reference}
@@ -206,30 +234,51 @@ function AdminPaymentsPage() {
                       <td className="px-5 py-4">
                         <span
                           className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${paymentTone(
-                            row.status,
+                            providerStatus,
                           )}`}
                         >
-                          {paymentStatusLabel(row.status)}
+                          {paymentStatusLabel(providerStatus)}
                         </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${paymentTone(
+                            requestStatus,
+                          )}`}
+                        >
+                          {paymentStatusLabel(requestStatus)}
+                        </span>
+                        {needsReconciliation ? (
+                          <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-navy">
+                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                            Needs reconciliation
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-5 py-4">
                         {isPaystack ? (
                           <div className="min-w-[190px]">
                             <Button
                               type="button"
-                              variant={isSuccessful ? "ghost" : "default"}
+                              variant={needsReconciliation || !isSuccessful ? "default" : "ghost"}
                               size="sm"
                               disabled={isCurrent}
                               onClick={() => reconcile.mutate(row.id)}
                             >
                               {isCurrent ? (
                                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                              ) : needsReconciliation ? (
+                                <AlertTriangle className="mr-1.5 h-4 w-4" aria-hidden="true" />
                               ) : isSuccessful ? (
                                 <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
                               ) : (
                                 <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden="true" />
                               )}
-                              {isSuccessful ? "Re-check Paystack" : "Verify with Paystack"}
+                              {needsReconciliation
+                                ? "Reconcile mismatch"
+                                : isSuccessful
+                                  ? "Re-check Paystack"
+                                  : "Verify with Paystack"}
                             </Button>
                             {resultMessage ? (
                               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
@@ -255,6 +304,8 @@ function AdminPaymentsPage() {
       <p className="mt-6 text-xs text-muted-foreground">
         Customer checkout amounts are created by the live service payment flow. For Paystack
         transactions, use provider verification rather than manually changing a payment status.
+        Rows marked Needs reconciliation have a transaction status that does not match the linked
+        request payment status.
       </p>
       <Button
         variant="ghost"
