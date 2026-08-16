@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDown, ArrowUp, ImagePlus, Pencil, Plus, Trash2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowDown, ArrowUp, ImagePlus, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SAMPLE_FEATURED_SERVICES, type FeaturedService } from "@/lib/featured-services";
+import { featuredServiceImage, type FeaturedService } from "@/lib/featured-services";
+import {
+  createFeaturedServiceUploadUrl,
+  getAdminFeaturedServices,
+  removeAdminFeaturedService,
+  reorderAdminFeaturedServices,
+  saveAdminFeaturedService,
+  toggleAdminFeaturedService,
+} from "@/lib/featured-services.functions";
 
 export const Route = createFileRoute("/admin/featured-services")({
   head: () => ({
@@ -40,7 +50,7 @@ export const Route = createFileRoute("/admin/featured-services")({
   component: AdminFeaturedServicesPage,
 });
 
-type Draft = Omit<FeaturedService, "id"> & { id?: string };
+type Draft = Omit<FeaturedService, "id"> & { id?: string | undefined };
 
 const EMPTY_DRAFT: Draft = {
   title: "",
@@ -51,48 +61,76 @@ const EMPTY_DRAFT: Draft = {
   is_active: true,
 };
 
-/**
- * UI-only admin screen. All state is local/mock so a backend can later replace
- * the handlers below with real CRUD calls without changing the layout.
- */
 function AdminFeaturedServicesPage() {
-  const [items, setItems] = useState<FeaturedService[]>(SAMPLE_FEATURED_SERVICES);
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  const sorted = items.slice().sort((a, b) => a.display_order - b.display_order);
+  const fetchItems = useServerFn(getAdminFeaturedServices);
+  const saveFn = useServerFn(saveAdminFeaturedService);
+  const removeFn = useServerFn(removeAdminFeaturedService);
+  const toggleFn = useServerFn(toggleAdminFeaturedService);
+  const reorderFn = useServerFn(reorderAdminFeaturedServices);
 
-  const save = () => {
-    if (!draft) return;
-    setItems((current) =>
-      draft.id
-        ? current.map((item) =>
-            item.id === draft.id ? ({ ...item, ...draft, id: draft.id } as FeaturedService) : item,
-          )
-        : [...current, { ...draft, id: `local-${Date.now()}` } as FeaturedService],
-    );
-    setDraft(null);
+  const list = useQuery({
+    queryKey: ["admin", "featured-services"],
+    queryFn: () => fetchItems(),
+  });
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ["admin", "featured-services"] });
+    void queryClient.invalidateQueries({ queryKey: ["featured-services"] });
   };
 
-  const remove = (id: string) => setItems((current) => current.filter((item) => item.id !== id));
+  const save = useMutation({
+    mutationFn: (value: Draft) => saveFn({ data: value }),
+    onSuccess: (result) => {
+      setFeedback(result.ok ? "Featured service saved." : (result.message ?? "Could not save."));
+      if (result.ok) setDraft(null);
+      invalidate();
+    },
+    onError: () => setFeedback("Could not save the featured service."),
+  });
 
-  const toggleActive = (id: string) =>
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, is_active: !item.is_active } : item)),
-    );
+  const remove = useMutation({
+    mutationFn: (id: string) => removeFn({ data: { id } }),
+    onSuccess: (result) => {
+      setFeedback(result.ok ? "Featured service removed." : (result.message ?? "Could not remove."));
+      invalidate();
+    },
+    onError: () => setFeedback("Could not remove the featured service."),
+  });
+
+  const toggle = useMutation({
+    mutationFn: (value: { id: string; is_active: boolean }) => toggleFn({ data: value }),
+    onSuccess: (result) => {
+      setFeedback(result.ok ? "Homepage visibility updated." : (result.message ?? "Could not update."));
+      invalidate();
+    },
+    onError: () => setFeedback("Could not update homepage visibility."),
+  });
+
+  const reorder = useMutation({
+    mutationFn: (items: Array<{ id: string; display_order: number }>) =>
+      reorderFn({ data: { items } }),
+    onSuccess: (result) => {
+      setFeedback(result.ok ? "Featured service order updated." : (result.message ?? "Could not reorder."));
+      invalidate();
+    },
+    onError: () => setFeedback("Could not reorder the featured services."),
+  });
+
+  const sorted = (list.data ?? []).slice().sort((a, b) => a.display_order - b.display_order);
 
   const move = (id: string, direction: -1 | 1) => {
-    const ordered = items.slice().sort((a, b) => a.display_order - b.display_order);
-    const index = ordered.findIndex((item) => item.id === id);
+    const next = sorted.slice();
+    const index = next.findIndex((item) => item.id === id);
     const target = index + direction;
-    if (index < 0 || target < 0 || target >= ordered.length) return;
-    const a = ordered[index]!;
-    const b = ordered[target]!;
-    const swapped = ordered.map((item) => {
-      if (item.id === a.id) return { ...item, display_order: b.display_order };
-      if (item.id === b.id) return { ...item, display_order: a.display_order };
-      return item;
-    });
-    setItems(swapped);
+    if (index < 0 || target < 0 || target >= next.length) return;
+    const currentItem = next[index]!;
+    next[index] = next[target]!;
+    next[target] = currentItem;
+    reorder.mutate(next.map((item, position) => ({ id: item.id, display_order: position + 1 })));
   };
 
   return (
@@ -110,94 +148,123 @@ function AdminFeaturedServicesPage() {
         </Button>
       }
     >
-      <div className="rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm font-medium text-navy">
-        Interface preview only — changes here are not saved yet.
+      <div className="rounded-2xl border border-mint/30 bg-mint-tint p-4 text-sm font-medium text-navy">
+        Changes made here are saved to the website CMS and reflected on the homepage after refresh.
       </div>
 
+      {feedback ? (
+        <p className="mt-4 rounded-2xl border border-border bg-white/75 px-4 py-3 text-sm text-navy">
+          {feedback}
+        </p>
+      ) : null}
+
       <div className="mt-6 space-y-4">
-        {sorted.map((item, index) => (
-          <article
-            key={item.id}
-            className="flex flex-col gap-4 rounded-3xl border border-border bg-white/80 p-4 shadow-card md:flex-row md:items-center"
-          >
-            <span className="grid h-20 w-28 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-sky-tint to-peach-tint">
-              {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt=""
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <ImagePlus className="h-5 w-5 text-navy-soft" aria-hidden="true" />
-              )}
-            </span>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-bold text-navy">{item.title}</h2>
-                <span
-                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] ${
-                    item.is_active
-                      ? "border-mint/50 bg-mint-tint text-navy"
-                      : "border-border bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {item.is_active ? "Active" : "Inactive"}
+        {list.isPending ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-navy-soft" aria-hidden="true" />
+          </div>
+        ) : list.isError ? (
+          <p className="rounded-3xl border border-coral/30 bg-coral-tint p-6 text-sm text-navy">
+            Featured services could not be loaded. Please refresh and try again.
+          </p>
+        ) : (
+          sorted.map((item, index) => {
+            const image = featuredServiceImage(item);
+            return (
+              <article
+                key={item.id}
+                className="flex flex-col gap-4 rounded-3xl border border-border bg-white/80 p-4 shadow-card md:flex-row md:items-center"
+              >
+                <span className="grid h-20 w-28 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-sky-tint to-peach-tint">
+                  {image ? (
+                    <img src={image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImagePlus className="h-5 w-5 text-navy-soft" aria-hidden="true" />
+                  )}
                 </span>
-              </div>
-              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
-              <p className="mt-2 text-xs font-semibold text-navy-soft">
-                {item.link_path} · order {item.display_order}
-              </p>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label={`Move ${item.title} up`}
-                  disabled={index === 0}
-                  onClick={() => move(item.id, -1)}
-                >
-                  <ArrowUp className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label={`Move ${item.title} down`}
-                  disabled={index === sorted.length - 1}
-                  onClick={() => move(item.id, 1)}
-                >
-                  <ArrowDown className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-              <Switch
-                checked={item.is_active}
-                onCheckedChange={() => toggleActive(item.id)}
-                aria-label={`Toggle ${item.title}`}
-              />
-              <Button variant="outline" size="sm" onClick={() => setDraft({ ...item })}>
-                <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
-                Edit
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => remove(item.id)}>
-                <Trash2 className="mr-2 h-4 w-4 text-coral" aria-hidden="true" />
-                Delete
-              </Button>
-            </div>
-          </article>
-        ))}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-sm font-bold text-navy">{item.title}</h2>
+                    <span
+                      className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] ${
+                        item.is_active
+                          ? "border-mint/50 bg-mint-tint text-navy"
+                          : "border-border bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {item.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
+                  <p className="mt-2 text-xs font-semibold text-navy-soft">
+                    {item.link_path} · order {item.display_order}
+                  </p>
+                </div>
 
-        {sorted.length === 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label={`Move ${item.title} up`}
+                      disabled={index === 0 || reorder.isPending}
+                      onClick={() => move(item.id, -1)}
+                    >
+                      <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label={`Move ${item.title} down`}
+                      disabled={index === sorted.length - 1 || reorder.isPending}
+                      onClick={() => move(item.id, 1)}
+                    >
+                      <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </div>
+                  <Switch
+                    checked={item.is_active}
+                    disabled={toggle.isPending}
+                    onCheckedChange={(checked) => toggle.mutate({ id: item.id, is_active: checked })}
+                    aria-label={`Toggle ${item.title}`}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => setDraft({ ...item })}>
+                    <Pencil className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={remove.isPending}
+                    onClick={() => {
+                      if (window.confirm(`Delete ${item.title}? This cannot be undone.`)) {
+                        remove.mutate(item.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4 text-coral" aria-hidden="true" />
+                    Delete
+                  </Button>
+                </div>
+              </article>
+            );
+          })
+        )}
+
+        {!list.isPending && !list.isError && sorted.length === 0 ? (
           <p className="rounded-3xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
             No featured services yet. Add your first card.
           </p>
         ) : null}
       </div>
 
-      <Dialog open={Boolean(draft)} onOpenChange={(open) => (open ? null : setDraft(null))}>
+      <Dialog
+        open={Boolean(draft)}
+        onOpenChange={(open) => {
+          if (!open) setDraft(null);
+        }}
+      >
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{draft?.id ? "Edit featured service" : "Add featured service"}</DialogTitle>
@@ -229,37 +296,11 @@ function AdminFeaturedServicesPage() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="fs-image">Card image</Label>
-                <div className="flex items-center gap-3 rounded-2xl border border-border bg-white/70 p-3">
-                  <span className="grid h-16 w-20 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-tint to-peach-tint">
-                    {draft.image_url ? (
-                      <img src={draft.image_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <ImagePlus className="h-5 w-5 text-navy-soft" aria-hidden="true" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <input
-                      id="fs-image"
-                      type="file"
-                      accept="image/*"
-                      className="block w-full text-xs text-navy-soft"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        // Preview only — no upload is performed in this UI stage.
-                        if (file) setDraft({ ...draft, image_url: URL.createObjectURL(file) });
-                      }}
-                    />
-                    <Input
-                      value={draft.image_url}
-                      onChange={(event) => setDraft({ ...draft, image_url: event.target.value })}
-                      placeholder="…or paste an image URL"
-                      aria-label="Image URL"
-                    />
-                  </div>
-                </div>
-              </div>
+              <FeaturedServiceImageUpload
+                value={draft.image_url}
+                fallback={featuredServiceImage(draft)}
+                onChange={(url) => setDraft({ ...draft, image_url: url })}
+              />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -276,6 +317,8 @@ function AdminFeaturedServicesPage() {
                   <Input
                     id="fs-order"
                     type="number"
+                    min={0}
+                    max={999}
                     value={draft.display_order}
                     onChange={(event) =>
                       setDraft({ ...draft, display_order: Number(event.target.value) })
@@ -301,12 +344,100 @@ function AdminFeaturedServicesPage() {
             <Button variant="outline" onClick={() => setDraft(null)}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={!draft?.title || !draft?.link_path}>
+            <Button
+              onClick={() => {
+                if (draft) {
+                  setFeedback(null);
+                  save.mutate(draft);
+                }
+              }}
+              disabled={!draft?.title.trim() || !draft?.link_path.trim() || save.isPending}
+            >
+              {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
               Save
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </AdminShell>
+  );
+}
+
+function FeaturedServiceImageUpload({
+  value,
+  fallback,
+  onChange,
+}: {
+  value: string;
+  fallback: string;
+  onChange: (url: string) => void;
+}) {
+  const uploadUrlFn = useServerFn(createFeaturedServiceUploadUrl);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const preview = value || fallback;
+
+  async function upload(file: File) {
+    setBusy(true);
+    setError(null);
+    try {
+      const signed = await uploadUrlFn({ data: { file_name: file.name } });
+      if (!signed.ok) {
+        setError(signed.message);
+        return;
+      }
+      const response = await fetch(signed.uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "content-type": file.type || "application/octet-stream" },
+      });
+      if (!response.ok) {
+        setError("The image upload failed. Please try again.");
+        return;
+      }
+      onChange(signed.publicUrl);
+    } catch {
+      setError("The image upload failed. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor="fs-image">Card image</Label>
+      <div className="flex items-center gap-3 rounded-2xl border border-border bg-white/70 p-3">
+        <span className="grid h-16 w-20 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-sky-tint to-peach-tint">
+          {preview ? (
+            <img src={preview} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <ImagePlus className="h-5 w-5 text-navy-soft" aria-hidden="true" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              id="fs-image"
+              type="file"
+              accept="image/*"
+              disabled={busy}
+              className="block min-w-0 flex-1 text-xs text-navy-soft"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void upload(file);
+              }}
+            />
+            {busy ? <Loader2 className="h-4 w-4 animate-spin text-navy-soft" aria-hidden="true" /> : null}
+          </div>
+          <Input
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder="…or paste an image URL"
+            aria-label="Image URL"
+          />
+          {error ? <p className="text-xs font-medium text-coral">{error}</p> : null}
+        </div>
+      </div>
+    </div>
   );
 }
