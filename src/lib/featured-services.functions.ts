@@ -21,6 +21,23 @@ export const getAdminFeaturedServices = createServerFn({ method: "GET" }).handle
   },
 );
 
+export const createFeaturedServiceUploadUrl = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ file_name: z.string().trim().min(1).max(200) }).strict().parse(data),
+  )
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      { ok: true; path: string; uploadUrl: string; publicUrl: string } | { ok: false; message: string }
+    > => {
+      const { requireAdmin } = await import("./admin.server");
+      const { signMediaUpload } = await import("./admin-ops.server");
+      await requireAdmin("manage_content");
+      return signMediaUpload("featured-services", data.file_name);
+    },
+  );
+
 const input = z
   .object({
     id: z.string().uuid().optional(),
