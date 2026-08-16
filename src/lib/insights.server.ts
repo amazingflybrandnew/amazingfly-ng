@@ -5,6 +5,7 @@
  * Read-only. Every export is called from a server function that has already
  * passed `requireAdmin("view")`.
  */
+import { normalizePaymentStatus } from "./payment-status";
 
 async function db() {
   const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
@@ -45,7 +46,7 @@ export async function loadAdminAlerts(): Promise<AdminAlertFeed> {
         "id, request_reference, full_name, email, service_type, service_category, destination_country, request_status, created_at",
       )
       .order("created_at", { ascending: false })
-      .limit(40),
+      .limit(100),
     supabase
       .from("profiles")
       .select("id, user_id, full_name, email, created_at")
@@ -57,8 +58,8 @@ export async function loadAdminAlerts(): Promise<AdminAlertFeed> {
       .order("created_at", { ascending: false })
       .limit(40),
     supabase
-      .from("payments")
-      .select("id, request_id, amount, currency, status, transaction_reference, created_at")
+      .from("payment_transactions")
+      .select("id, request_id, amount, currency, status, transaction_reference, created_at, paid_at")
       .order("created_at", { ascending: false })
       .limit(40),
   ]);
@@ -110,7 +111,7 @@ export async function loadAdminAlerts(): Promise<AdminAlertFeed> {
   }
 
   const paid = ((paymentsRes.data ?? []) as Record<string, unknown>[]).filter(
-    (row) => str(row, "status") === "payment_received",
+    (row) => normalizePaymentStatus(row["status"]) === "payment_received",
   );
   for (const row of paid) {
     const requestId = str(row, "request_id");
@@ -120,7 +121,7 @@ export async function loadAdminAlerts(): Promise<AdminAlertFeed> {
       kind: "payment_received",
       title: `Payment received · ${referenceById.get(requestId) ?? "Request"}`,
       detail: `${amount === null ? "Amount confirmed" : `${str(row, "currency", "NGN")} ${amount.toLocaleString("en-NG")}`} · ${str(row, "transaction_reference", "—")}`,
-      created_at: str(row, "created_at"),
+      created_at: str(row, "paid_at") || str(row, "created_at"),
       request_id: requestId || null,
     });
   }
@@ -205,7 +206,10 @@ export async function loadAnalytics(): Promise<AnalyticsData> {
         "id, request_status, service_type, service_category, destination_country, created_at",
       )
       .limit(5000),
-    supabase.from("payments").select("amount, currency, status, created_at").limit(5000),
+    supabase
+      .from("payment_transactions")
+      .select("amount, currency, status, created_at, paid_at")
+      .limit(5000),
     supabase.from("profiles").select("id").limit(5000),
   ]);
 
@@ -233,15 +237,15 @@ export async function loadAnalytics(): Promise<AnalyticsData> {
 
   for (const row of payments) {
     const amount = row["amount"] === null || row["amount"] === undefined ? 0 : Number(row["amount"]);
-    const status = str(row, "status");
+    const status = normalizePaymentStatus(row["status"]);
     currency = str(row, "currency", currency) || currency;
     if (status === "payment_received") {
       revenue += amount;
-      const key = monthKey(str(row, "created_at"));
+      const key = monthKey(str(row, "paid_at") || str(row, "created_at"));
       if (revenueByMonth.has(key)) revenueByMonth.set(key, (revenueByMonth.get(key) ?? 0) + amount);
     } else if (status === "pending_payment") {
       pendingRevenue += amount;
-    } else if (status === "refunded" || status === "refund_requested") {
+    } else if (status === "refund_completed" || status === "refund_requested") {
       refunded += amount;
     }
   }
