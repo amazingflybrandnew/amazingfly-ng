@@ -87,7 +87,7 @@ function AdminMessagesPage() {
         setFeedback(result.message ?? "The message could not be sent.");
         return;
       }
-      setFeedback("Message sent.");
+      setFeedback(result.message ?? "Message sent.");
       setBody("");
       setActive((thread?.email ?? newEmail).trim());
       void queryClient.invalidateQueries({ queryKey: ["admin", "messages"] });
