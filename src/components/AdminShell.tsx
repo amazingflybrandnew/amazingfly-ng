@@ -19,6 +19,7 @@ import {
   Quote,
   PanelsTopLeft,
   ShieldCheck,
+  Sparkles,
   Users,
 } from "lucide-react";
 
@@ -43,7 +44,6 @@ const NAV = [
   { to: "/admin/testimonials", label: "Testimonials", icon: Quote },
   { to: "/admin/activity", label: "Activity", icon: History },
 ] as const;
-
 
 export const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",
