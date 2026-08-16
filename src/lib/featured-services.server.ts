@@ -30,25 +30,20 @@ function shapeFeaturedService(row: Record<string, unknown>): FeaturedService {
 }
 
 export async function loadPublicFeaturedServices(): Promise<FeaturedService[]> {
-  try {
-    const supabase = await publicDb();
-    const { data, error } = await supabase
-      .from("featured_services")
-      .select("id, title, description, image_url, link_path, display_order, is_active")
-      .eq("is_active", true)
-      .order("display_order", { ascending: true })
-      .order("created_at", { ascending: true });
+  const supabase = await publicDb();
+  const { data, error } = await supabase
+    .from("featured_services")
+    .select("id, title, description, image_url, link_path, display_order, is_active")
+    .eq("is_active", true)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("[featured-services] public load", error.message);
-      return [];
-    }
-
-    return ((data ?? []) as Record<string, unknown>[]).map(shapeFeaturedService);
-  } catch (error) {
-    console.error("[featured-services] public load", error);
-    return [];
+  if (error) {
+    console.error("[featured-services] public load", error.message);
+    throw new Error(error.message);
   }
+
+  return ((data ?? []) as Record<string, unknown>[]).map(shapeFeaturedService);
 }
 
 export async function loadAdminFeaturedServices(): Promise<FeaturedService[]> {
@@ -61,7 +56,7 @@ export async function loadAdminFeaturedServices(): Promise<FeaturedService[]> {
 
   if (error) {
     console.error("[featured-services] admin load", error.message);
-    return [];
+    throw new Error(error.message);
   }
 
   return ((data ?? []) as Record<string, unknown>[]).map(shapeFeaturedService);
