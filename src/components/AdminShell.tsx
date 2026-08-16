@@ -28,21 +28,21 @@ import { getAdminSession } from "@/lib/admin.functions";
 import { signOutCustomer } from "@/lib/auth.functions";
 
 const NAV = [
-  { to: "/admin", label: "Overview", icon: LayoutDashboard },
-  { to: "/admin/requests", label: "Requests", icon: ClipboardList },
-  { to: "/admin/notifications", label: "Notifications", icon: BellRing },
-  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/admin/customers", label: "Customers", icon: Users },
-  { to: "/admin/messages", label: "Messages", icon: MessageSquare },
-  { to: "/admin/payments", label: "Payments", icon: Wallet },
-  { to: "/admin/services", label: "Services", icon: Package },
-  { to: "/admin/packages", label: "Packages", icon: Layers },
-  { to: "/admin/content", label: "Website content", icon: PanelsTopLeft },
-  { to: "/admin/featured-services", label: "Featured services", icon: Sparkles },
-  { to: "/admin/services-content", label: "Service content", icon: FileText },
-  { to: "/admin/destinations", label: "Destinations", icon: Globe2 },
-  { to: "/admin/testimonials", label: "Testimonials", icon: Quote },
-  { to: "/admin/activity", label: "Activity", icon: History },
+  { to: "/admin", label: "Overview", icon: LayoutDashboard, action: "view" },
+  { to: "/admin/requests", label: "Requests", icon: ClipboardList, action: "view" },
+  { to: "/admin/notifications", label: "Notifications", icon: BellRing, action: "view" },
+  { to: "/admin/analytics", label: "Analytics", icon: BarChart3, action: "view" },
+  { to: "/admin/customers", label: "Customers", icon: Users, action: "manage_customers" },
+  { to: "/admin/messages", label: "Messages", icon: MessageSquare, action: "message_customer" },
+  { to: "/admin/payments", label: "Payments", icon: Wallet, action: "manage_payments" },
+  { to: "/admin/services", label: "Services", icon: Package, action: "manage_services" },
+  { to: "/admin/packages", label: "Packages", icon: Layers, action: "manage_services" },
+  { to: "/admin/content", label: "Website content", icon: PanelsTopLeft, action: "manage_content" },
+  { to: "/admin/featured-services", label: "Featured services", icon: Sparkles, action: "manage_content" },
+  { to: "/admin/services-content", label: "Service content", icon: FileText, action: "manage_content" },
+  { to: "/admin/destinations", label: "Destinations", icon: Globe2, action: "manage_content" },
+  { to: "/admin/testimonials", label: "Testimonials", icon: Quote, action: "manage_content" },
+  { to: "/admin/activity", label: "Activity", icon: History, action: "view" },
 ] as const;
 
 export const ROLE_LABELS: Record<string, string> = {
@@ -140,6 +140,7 @@ export function AdminShell({
   }
 
   const admin = data.admin;
+  const visibleNav = NAV.filter((item) => admin.actions.includes(item.action));
 
   return (
     <div className="hero-aurora relative min-h-screen overflow-hidden">
@@ -161,7 +162,7 @@ export function AdminShell({
                 </span>
               </div>
               <nav className="flex gap-1 overflow-x-auto lg:flex-col" aria-label="Admin">
-                {NAV.map(({ to, label, icon: Icon }) => {
+                {visibleNav.map(({ to, label, icon: Icon }) => {
                   const active = to === "/admin" ? pathname === to : pathname.startsWith(to);
                   return (
                     <Link
