@@ -141,6 +141,7 @@ export function HotelDetailsModal({
     if (hotel && stay && hotel.hotelId !== hotelId) {
       setHotelId(hotel.hotelId);
       setActiveImage(0);
+      setPendingRoomKey(null);
       details.mutate({ hotelId: hotel.hotelId, stay });
     }
     if (!hotel) setHotelId(null);
