@@ -314,7 +314,11 @@ export function HotelDetailsModal({
                   key={`${room.roomId}-${i}`}
                   room={room}
                   nights={nights}
-                  onSelect={() => onSelect(hotel, room)}
+                  isPending={pendingRoomKey === `${room.roomId}-${i}`}
+                  onSelect={() => {
+                    setPendingRoomKey(`${room.roomId}-${i}`);
+                    onSelect(hotel, room);
+                  }}
                 />
               ))}
             </ul>
