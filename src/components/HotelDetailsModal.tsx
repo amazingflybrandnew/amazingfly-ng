@@ -130,6 +130,7 @@ export function HotelDetailsModal({
   const fetchDetails = useServerFn(getHotelStayDetails);
   const [hotelId, setHotelId] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
+  const [pendingRoomKey, setPendingRoomKey] = useState<string | null>(null);
 
   const details = useMutation({
     mutationFn: (input: { hotelId: string; stay: StayInputShape }) =>
