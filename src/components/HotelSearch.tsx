@@ -800,6 +800,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                 onOpen={() => setDetailHotel(hotel)}
                 onSelect={() => handleSelect(hotel)}
                 isSelected={selected?.hotelId === hotel.hotelId}
+                isPending={pendingHotelId === hotel.hotelId || (prebook.isPending && selected?.hotelId === hotel.hotelId)}
               />
             ))}
             {visible.length === 0 ? (
