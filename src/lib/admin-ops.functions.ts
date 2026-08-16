@@ -12,7 +12,16 @@ import type {
   SiteContentItem,
 } from "./admin-ops.server";
 
-export type { ActivityEntry, AdminCustomer, AdminCustomerDetail, AdminMessage, AdminService, AdminTestimonial, MessageThread, SiteContentItem };
+export type {
+  ActivityEntry,
+  AdminCustomer,
+  AdminCustomerDetail,
+  AdminMessage,
+  AdminService,
+  AdminTestimonial,
+  MessageThread,
+  SiteContentItem,
+};
 
 // ---------------------------------------------------------------- customers
 
@@ -217,6 +226,58 @@ export const createMediaUploadUrl = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------- messages
 
+async function sendStaffMessageEmail(input: {
+  email: string;
+  request_id: string | null;
+  body: string;
+}): Promise<void> {
+  const subject = input.request_id
+    ? "New message about your Amazingfly travel request"
+    : "New message from Amazingfly Travels";
+  const text = [
+    "Hello,",
+    "",
+    "You have a new message from the Amazingfly Travels team:",
+    "",
+    input.body,
+    "",
+    "Sign in to your Amazingfly.ng account to view the conversation and reply.",
+    "",
+    "Amazingfly Travels - Amazingfly.ng",
+  ].join("\n");
+
+  try {
+    const { sendTransactionalEmail } = await import("./email.server");
+    const delivery = await sendTransactionalEmail({ to: input.email, subject, text });
+
+    try {
+      const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
+      const supabase = createExternalSupabaseAdmin();
+      const { error } = await supabase.from("email_notifications").insert({
+        event_type: "staff_message",
+        recipient_email: input.email,
+        subject,
+        body: text,
+        request_id: input.request_id,
+        user_id: null,
+        request_reference: null,
+        delivery_status: delivery.ok ? "sent" : "failed",
+      });
+      if (error) console.error("[admin] message email audit", error.message);
+    } catch (error) {
+      console.error("[admin] message email audit", error);
+    }
+
+    if (!delivery.ok) {
+      console.error("[admin] message email delivery failed", input.email, delivery.error);
+    }
+  } catch (error) {
+    // The portal message has already been saved successfully. Email is only a
+    // secondary alert and must never make the admin reply fail.
+    console.error("[admin] message email delivery failed", error);
+  }
+}
+
 export const getMessageThreads = createServerFn({ method: "GET" }).handler(
   async (): Promise<MessageThread[]> => {
     const { requireAdmin } = await import("./admin.server");
@@ -252,11 +313,19 @@ export const sendAdminMessage = createServerFn({ method: "POST" })
     const { requireAdmin } = await import("./admin.server");
     const { sendCustomerMessage } = await import("./admin-ops.server");
     const who = await requireAdmin("message_customer");
-    return sendCustomerMessage(who, {
+    const result = await sendCustomerMessage(who, {
       email: data.email,
       request_id: data.request_id ?? null,
       body: data.body,
     });
+    if (result.ok) {
+      await sendStaffMessageEmail({
+        email: data.email,
+        request_id: data.request_id ?? null,
+        body: data.body,
+      });
+    }
+    return result;
   });
 
 export const markMessageThreadRead = createServerFn({ method: "POST" })
