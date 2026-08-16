@@ -1,11 +1,3 @@
-/**
- * Featured services — presentation-layer types and temporary sample data.
- *
- * UI ONLY: no database, storage or server functions are involved here.
- * A backend can later supply `FeaturedService[]` (and CRUD handlers) with the
- * exact same shape without any redesign of the UI components.
- */
-
 import policeImage from "@/assets/featured-police-certificate.jpg";
 import proofOfFundsImage from "@/assets/featured-proof-of-funds.jpg";
 import visaImage from "@/assets/featured-visa.jpg";
@@ -23,7 +15,26 @@ export type FeaturedService = {
   is_active: boolean;
 };
 
-/** Temporary preview data — replace with backend-provided rows later. */
+const FALLBACK_IMAGE_BY_PATH: Record<string, string> = {
+  "/services/police-character-certificate": policeImage,
+  "/services/proof-of-funds": proofOfFundsImage,
+  "/services/visa-assistance": visaImage,
+  "/flights": flightsImage,
+  "/hotels": hotelsImage,
+};
+
+/**
+ * Bundled fallback imagery used when a CMS row has not received an uploaded image yet.
+ * Keying by link path keeps this working for UUID-backed database rows.
+ */
+export function featuredServiceImage(service: Pick<FeaturedService, "image_url" | "link_path">): string {
+  return service.image_url || FALLBACK_IMAGE_BY_PATH[service.link_path] || "";
+}
+
+/**
+ * Resilience-only fallback for a failed homepage request during rollout.
+ * A successful empty CMS result must remain empty rather than showing these cards.
+ */
 export const SAMPLE_FEATURED_SERVICES: FeaturedService[] = [
   {
     id: "police-character-certificate",
