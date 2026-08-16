@@ -4,10 +4,12 @@ import { useServerFn } from "@tanstack/react-start";
 
 import { createMediaUploadUrl } from "@/lib/admin-ops.functions";
 
-type Folder = "hero" | "services" | "destinations" | "testimonials" | "featured-services";
+type Folder = "hero" | "services" | "destinations" | "testimonials";
 
 /**
- * Uploads website imagery into the `site-media` bucket and returns the public URL.
+ * Uploads website imagery into the `site-media` bucket
+ * (website/hero, website/services, website/destinations, website/testimonials)
+ * and returns the public URL.
  */
 export function AdminMediaUpload({
   folder,
