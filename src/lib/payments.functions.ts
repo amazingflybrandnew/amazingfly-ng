@@ -117,6 +117,7 @@ export const reconcileAdminPayment = createServerFn({ method: "POST" })
     const row = payment as Record<string, unknown>;
     const provider = String(row["provider"] ?? "").toLowerCase();
     const reference = String(row["transaction_reference"] ?? "").trim();
+    const requestId = row["request_id"] ? String(row["request_id"]) : null;
 
     if (provider !== "paystack") {
       return {
@@ -129,11 +130,35 @@ export const reconcileAdminPayment = createServerFn({ method: "POST" })
     const { finalizePaystackPayment } = await import("./payment/verify.server");
     const result = await finalizePaystackPayment({ reference });
 
+    let requestStatusRepaired = false;
+    if (result.ok && result.status === "successful" && requestId) {
+      const { data: request } = await supabase
+        .from("service_requests")
+        .select("payment_status")
+        .eq("id", requestId)
+        .maybeSingle();
+      const storedStatus = String((request as Record<string, unknown> | null)?.["payment_status"] ?? "");
+
+      if (storedStatus !== "payment_received") {
+        const repaired = await supabase
+          .from("service_requests")
+          .update({ payment_status: "payment_received" })
+          .eq("id", requestId);
+        if (repaired.error) {
+          console.error("[payments] reconciliation request-status repair", repaired.error.message);
+        } else {
+          requestStatusRepaired = true;
+        }
+      }
+    }
+
     await logAdminAction(who, "Reconciled payment with Paystack", {
       type: "payment",
       id: data.payment_id,
       detail: result.ok
-        ? `${reference}: ${result.status}${result.alreadyProcessed ? " (already processed)" : ""}`
+        ? `${reference}: ${result.status}${result.alreadyProcessed ? " (already processed)" : ""}${
+            requestStatusRepaired ? " (request payment status repaired)" : ""
+          }`
         : `${reference}: verification failed - ${result.message}`,
     });
 
@@ -141,9 +166,11 @@ export const reconcileAdminPayment = createServerFn({ method: "POST" })
 
     const message =
       result.status === "successful"
-        ? result.alreadyProcessed
-          ? "Paystack confirms this payment was already successfully processed."
-          : "Paystack confirmed the payment successfully."
+        ? requestStatusRepaired
+          ? "Paystack confirms this payment is successful. The request payment status was repaired to match."
+          : result.alreadyProcessed
+            ? "Paystack confirms this payment was already successfully processed."
+            : "Paystack confirmed the payment successfully."
         : result.status === "pending"
           ? "Paystack still reports this payment as pending."
           : `Paystack reports this payment as ${result.status}.`;
