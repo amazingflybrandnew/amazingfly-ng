@@ -105,7 +105,7 @@ export function FeaturedServicesCarousel({
 function FeaturedServiceCard({ service }: { service: FeaturedService }) {
   return (
     <Link
-      to={service.link_path}
+      to={service.link_path as "/"}
       className="group hover-lift w-[80vw] max-w-[320px] shrink-0 snap-start overflow-hidden rounded-3xl border border-white/70 bg-white/80 shadow-card backdrop-blur-sm transition duration-200 hover:border-sky/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky/30 sm:w-[300px]"
     >
       <div className="relative h-44 overflow-hidden">
