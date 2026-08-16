@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HomeHero } from "@/components/HomeHero";
+import { FeaturedServicesCarousel } from "@/components/FeaturedServicesCarousel";
+import { SAMPLE_FEATURED_SERVICES } from "@/lib/featured-services";
 import { FlightSearch } from "@/components/FlightSearch";
 import { HotelSearch } from "@/components/HotelSearch";
 
@@ -109,6 +111,12 @@ function Home() {
     <>
       {/* Interactive hero */}
       <HomeHero />
+
+      {/* Featured services carousel */}
+      <FeaturedServicesCarousel
+        items={SAMPLE_FEATURED_SERVICES}
+        description="Pick the travel service you need and our specialists will take it from there."
+      />
 
       {/* Direct flight search */}
       <section className="surface-soft">

@@ -348,3 +348,18 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+@utility featured-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--navy) 20%, transparent) transparent;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--navy) 18%, transparent);
+  }
+}

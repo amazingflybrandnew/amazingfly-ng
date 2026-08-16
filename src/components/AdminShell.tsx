@@ -37,6 +37,7 @@ const NAV = [
   { to: "/admin/services", label: "Services", icon: Package },
   { to: "/admin/packages", label: "Packages", icon: Layers },
   { to: "/admin/content", label: "Website content", icon: PanelsTopLeft },
+  { to: "/admin/featured-services", label: "Featured services", icon: Sparkles },
   { to: "/admin/services-content", label: "Service content", icon: FileText },
   { to: "/admin/destinations", label: "Destinations", icon: Globe2 },
   { to: "/admin/testimonials", label: "Testimonials", icon: Quote },
