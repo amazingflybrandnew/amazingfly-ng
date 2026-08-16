@@ -707,6 +707,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
             ) : null}
           </div>
         </HotelConfirmation>
+        </div>
       ) : null}
 
       {mutation.isPending ? <HotelSearchSkeleton /> : null}
