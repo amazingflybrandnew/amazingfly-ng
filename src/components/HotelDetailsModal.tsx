@@ -96,8 +96,20 @@ function RoomCard({
               : "Total stay"}
           </p>
         </div>
-        <Button size="sm" variant="secondary" className="shrink-0" onClick={onSelect}>
-          Select Room
+        <Button
+          size="sm"
+          variant="secondary"
+          className="shrink-0"
+          disabled={isPending}
+          onClick={onSelect}
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> Selecting…
+            </>
+          ) : (
+            "Select Room"
+          )}
         </Button>
       </div>
     </li>
