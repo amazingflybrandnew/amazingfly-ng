@@ -244,6 +244,15 @@ export async function finalizePaystackPayment(input: {
   const data = verified.data;
   const paystackStatus = data.status.toLowerCase();
 
+  if (data.reference !== reference) {
+    console.error("[paystack] reference mismatch", { expected: reference, got: data.reference });
+    return {
+      ok: false,
+      message: "Paystack returned a different transaction reference. Please contact support.",
+      requestId,
+    };
+  }
+
   if (PAYSTACK_IN_PROGRESS_STATUSES.has(paystackStatus)) {
     await supabase
       .from("payment_transactions")
@@ -295,7 +304,11 @@ export async function finalizePaystackPayment(input: {
     };
   }
 
-  const { error: updateError } = await supabase
+  // Atomically claim the successful transition. If the webhook, browser callback
+  // and an admin reconciliation race one another, PostgreSQL re-checks the
+  // `status != successful` predicate after the row lock is released. Only the
+  // winning request receives a row back and is allowed to run side effects.
+  const { data: claimedRows, error: updateError } = await supabase
     .from("payment_transactions")
     .update({
       status: "successful",
@@ -304,11 +317,26 @@ export async function finalizePaystackPayment(input: {
       paid_at: data.paidAt ?? new Date().toISOString(),
       provider_response: safeProviderResponse(data, "verified"),
     })
-    .eq("id", String(tx["id"]));
+    .eq("id", String(tx["id"]))
+    .neq("status", "successful")
+    .select("id");
 
   if (updateError) {
     console.error("[paystack] complete transaction", updateError.message);
     return { ok: false, message: "We could not save your payment. Please contact support.", requestId };
+  }
+
+  if (!claimedRows?.length) {
+    if (requestId) await ensurePaidHotelBooking(requestId);
+    return {
+      ok: true,
+      status: "successful",
+      requestId: requestId ?? "",
+      reference,
+      amount,
+      currency,
+      alreadyProcessed: true,
+    };
   }
 
   if (requestId) {
