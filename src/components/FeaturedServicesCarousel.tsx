@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 
-import { visibleFeaturedServices, type FeaturedService } from "@/lib/featured-services";
+import {
+  featuredServiceImage,
+  visibleFeaturedServices,
+  type FeaturedService,
+} from "@/lib/featured-services";
+import { getFeaturedServices } from "@/lib/featured-services.functions";
 
 /**
- * Presentation-only horizontal carousel of featured services.
- * The caller supplies the items array, so backend data can be dropped in later.
+ * Homepage featured-services carousel backed by the CMS.
+ * `items` is retained as a resilience fallback only when the public CMS request fails.
  */
 export function FeaturedServicesCarousel({
   items,
@@ -19,11 +26,18 @@ export function FeaturedServicesCarousel({
   eyebrow?: string;
   description?: string;
 }) {
+  const fetchFeaturedServices = useServerFn(getFeaturedServices);
+  const featuredQuery = useQuery({
+    queryKey: ["featured-services"],
+    queryFn: () => fetchFeaturedServices(),
+    staleTime: 30_000,
+  });
+
+  const sourceItems = featuredQuery.isError ? items : (featuredQuery.data ?? []);
+  const cards = visibleFeaturedServices(sourceItems);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const cards = visibleFeaturedServices(items);
 
   const syncArrows = useCallback(() => {
     const node = scrollerRef.current;
@@ -48,7 +62,7 @@ export function FeaturedServicesCarousel({
     node.scrollBy({ left: amount * direction, behavior: "smooth" });
   };
 
-  if (cards.length === 0) return null;
+  if (featuredQuery.isPending || cards.length === 0) return null;
 
   return (
     <section className="surface-soft" aria-labelledby="featured-services-heading">
@@ -103,20 +117,24 @@ export function FeaturedServicesCarousel({
 }
 
 function FeaturedServiceCard({ service }: { service: FeaturedService }) {
+  const image = featuredServiceImage(service);
+
   return (
     <Link
       to={service.link_path as "/"}
       className="group hover-lift w-[80vw] max-w-[320px] shrink-0 snap-start overflow-hidden rounded-3xl border border-white/70 bg-white/80 shadow-card backdrop-blur-sm transition duration-200 hover:border-sky/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky/30 sm:w-[300px]"
     >
-      <div className="relative h-44 overflow-hidden">
-        <img
-          src={service.image_url}
-          alt={service.title}
-          loading="lazy"
-          width={1024}
-          height={768}
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]"
-        />
+      <div className="relative h-44 overflow-hidden bg-gradient-to-br from-sky-tint to-peach-tint">
+        {image ? (
+          <img
+            src={image}
+            alt={service.title}
+            loading="lazy"
+            width={1024}
+            height={768}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]"
+          />
+        ) : null}
         <span
           className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-navy/45 to-transparent"
           aria-hidden="true"
