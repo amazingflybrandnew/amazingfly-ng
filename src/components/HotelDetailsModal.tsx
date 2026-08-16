@@ -36,13 +36,20 @@ function RoomCard({
   room,
   nights,
   onSelect,
+  isPending,
 }: {
   room: RoomResult;
   nights: number;
   onSelect: () => void;
+  isPending: boolean;
 }) {
   return (
-    <li className="flex h-full flex-col gap-3 rounded-2xl border border-white/70 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-orange/40 hover:shadow-card">
+    <li
+      aria-busy={isPending}
+      className={`flex h-full flex-col gap-3 rounded-2xl border bg-white/75 p-4 transition hover:-translate-y-0.5 hover:shadow-card ${
+        isPending ? "border-orange ring-4 ring-orange/30" : "border-white/70 hover:border-orange/40"
+      }`}
+    >
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-navy">{room.roomName}</p>
         <p className="mt-1 text-xs text-muted-foreground">
