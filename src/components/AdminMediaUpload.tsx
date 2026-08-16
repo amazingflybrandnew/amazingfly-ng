@@ -6,6 +6,9 @@ import { createMediaUploadUrl } from "@/lib/admin-ops.functions";
 
 type Folder = "hero" | "services" | "destinations" | "testimonials";
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+
 /**
  * Uploads website imagery into the `site-media` bucket
  * (website/hero, website/services, website/destinations, website/testimonials)
@@ -25,8 +28,18 @@ export function AdminMediaUpload({
   const uploadUrlFn = useServerFn(createMediaUploadUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   async function upload(file: File) {
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setError("Please upload a JPG, PNG, WebP or AVIF image.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError("Please keep website images at 5 MB or smaller.");
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -35,16 +48,28 @@ export function AdminMediaUpload({
         setError(signed.message);
         return;
       }
+
+      // Supabase signed uploads expect multipart FormData for browser File/Blob
+      // bodies. Do not set Content-Type manually; the browser must add the
+      // multipart boundary.
+      const body = new FormData();
+      body.append("cacheControl", "3600");
+      body.append("", file);
+
       const response = await fetch(signed.uploadUrl, {
         method: "PUT",
-        body: file,
-        headers: { "content-type": file.type || "application/octet-stream" },
+        body,
+        headers: { "x-upsert": "false" },
       });
       if (!response.ok) {
         setError("The image upload failed. Please try again.");
         return;
       }
+
+      setPreviewFailed(false);
       onChange(signed.publicUrl);
+    } catch {
+      setError("The image upload failed. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -63,8 +88,14 @@ export function AdminMediaUpload({
 
       <div className="mt-3 flex items-center gap-3">
         <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-sky-tint to-peach-tint">
-          {value ? (
-            <img src={value} alt="" className="h-full w-full object-cover" />
+          {value && !previewFailed ? (
+            <img
+              src={value}
+              alt=""
+              className="h-full w-full object-cover"
+              onLoad={() => setPreviewFailed(false)}
+              onError={() => setPreviewFailed(true)}
+            />
           ) : (
             <ImagePlus className="h-5 w-5 text-navy-soft" aria-hidden="true" />
           )}
@@ -72,24 +103,38 @@ export function AdminMediaUpload({
         <div className="min-w-0 flex-1">
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/avif"
             aria-label={label}
+            disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) void upload(file);
+              event.currentTarget.value = "";
             }}
             className="block w-full text-xs text-navy-soft"
           />
           <input
             value={value}
-            onChange={(event) => onChange(event.target.value)}
-            placeholder="…or paste an image URL"
+            onChange={(event) => {
+              setPreviewFailed(false);
+              setError(null);
+              onChange(event.target.value);
+            }}
+            placeholder="…or paste a direct image URL"
             aria-label={`${label} URL`}
             className="mt-2 w-full rounded-xl border border-white/70 bg-white/80 px-3 py-1.5 text-xs text-navy outline-none focus:border-sky/60"
           />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            For external URLs, use the direct image file URL rather than a gallery or webpage link.
+          </p>
         </div>
       </div>
 
+      {previewFailed ? (
+        <p className="mt-2 text-xs font-medium text-coral">
+          This URL does not load as an image. Upload a file or use a direct image URL.
+        </p>
+      ) : null}
       {error ? <p className="mt-2 text-xs font-medium text-coral">{error}</p> : null}
     </div>
   );
