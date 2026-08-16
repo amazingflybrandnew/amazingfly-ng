@@ -36,13 +36,20 @@ function RoomCard({
   room,
   nights,
   onSelect,
+  isPending,
 }: {
   room: RoomResult;
   nights: number;
   onSelect: () => void;
+  isPending: boolean;
 }) {
   return (
-    <li className="flex h-full flex-col gap-3 rounded-2xl border border-white/70 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:border-orange/40 hover:shadow-card">
+    <li
+      aria-busy={isPending}
+      className={`flex h-full flex-col gap-3 rounded-2xl border bg-white/75 p-4 transition hover:-translate-y-0.5 hover:shadow-card ${
+        isPending ? "border-orange ring-4 ring-orange/30" : "border-white/70 hover:border-orange/40"
+      }`}
+    >
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-navy">{room.roomName}</p>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -89,8 +96,20 @@ function RoomCard({
               : "Total stay"}
           </p>
         </div>
-        <Button size="sm" variant="secondary" className="shrink-0" onClick={onSelect}>
-          Select Room
+        <Button
+          size="sm"
+          variant="secondary"
+          className="shrink-0"
+          disabled={isPending}
+          onClick={onSelect}
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> Selecting…
+            </>
+          ) : (
+            "Select Room"
+          )}
         </Button>
       </div>
     </li>
@@ -111,6 +130,7 @@ export function HotelDetailsModal({
   const fetchDetails = useServerFn(getHotelStayDetails);
   const [hotelId, setHotelId] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
+  const [pendingRoomKey, setPendingRoomKey] = useState<string | null>(null);
 
   const details = useMutation({
     mutationFn: (input: { hotelId: string; stay: StayInputShape }) =>
@@ -121,6 +141,7 @@ export function HotelDetailsModal({
     if (hotel && stay && hotel.hotelId !== hotelId) {
       setHotelId(hotel.hotelId);
       setActiveImage(0);
+      setPendingRoomKey(null);
       details.mutate({ hotelId: hotel.hotelId, stay });
     }
     if (!hotel) setHotelId(null);
@@ -295,7 +316,11 @@ export function HotelDetailsModal({
                   key={`${room.roomId}-${i}`}
                   room={room}
                   nights={nights}
-                  onSelect={() => onSelect(hotel, room)}
+                  isPending={pendingRoomKey === `${room.roomId}-${i}`}
+                  onSelect={() => {
+                    setPendingRoomKey(`${room.roomId}-${i}`);
+                    onSelect(hotel, room);
+                  }}
                 />
               ))}
             </ul>
