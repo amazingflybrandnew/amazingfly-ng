@@ -50,11 +50,11 @@ const FEATURES = [
 ];
 
 const selectClass =
-  "w-full appearance-none rounded-2xl border border-white/70 bg-white/85 px-4 py-3 pr-10 text-sm font-semibold text-navy shadow-[0_1px_2px_rgba(60,60,110,0.05)] outline-none transition duration-300 hover:border-sky/50 focus:border-sky/70 focus:ring-4 focus:ring-sky/20";
+  "w-full appearance-none rounded-2xl border border-[#1268d8]/20 bg-white/95 px-4 py-3 pr-10 text-sm font-semibold text-navy shadow-[0_10px_30px_-20px_rgba(11,87,208,0.45)] outline-none transition duration-300 hover:border-[#1268d8]/45 focus:border-[#1268d8]/70 focus:ring-4 focus:ring-[#1268d8]/15";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#294f80]">
       {children}
     </span>
   );
@@ -70,7 +70,7 @@ export function HomeHero() {
   });
   const cms = heroQuery.data ?? {};
 
-  const badge = cms.badge ?? "Amazingfly.ng \u00b7 Travel made simple";
+  const badge = cms.badge ?? "Amazingfly.ng · Travel made simple";
   const headline = cms.headline ?? "Your fastest way to";
   const description = cms.description ?? "";
   const ctaLabel = cms.ctaLabel ?? "Get Started";
@@ -134,19 +134,19 @@ export function HomeHero() {
   };
 
   return (
-    <section className="relative isolate overflow-hidden hero-aurora">
+    <section className="relative isolate overflow-hidden bg-[linear-gradient(135deg,_#e7f1ff_0%,_#f2edff_38%,_#fff0e4_72%,_#e6fbf5_100%)]">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         {backgroundImage ? (
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-35"
+            className="absolute inset-0 bg-cover bg-center opacity-40"
             style={{ backgroundImage: `url(${backgroundImage})` }}
           />
         ) : null}
-        <div className="hero-glow hero-glow-a" />
-        <div className="hero-glow hero-glow-b" />
-        <div className="hero-glow hero-glow-c" />
+        <div className="absolute -left-32 top-4 h-[30rem] w-[30rem] rounded-full bg-[#1268d8]/25 blur-[115px]" />
+        <div className="absolute -right-36 top-28 h-[32rem] w-[32rem] rounded-full bg-[#ff6b21]/25 blur-[120px]" />
+        <div className="absolute bottom-[-12rem] left-[28%] h-[30rem] w-[30rem] rounded-full bg-[#22b98b]/20 blur-[120px]" />
         <svg
-          className="absolute inset-0 h-full w-full opacity-70"
+          className="absolute inset-0 h-full w-full opacity-75"
           viewBox="0 0 1440 900"
           preserveAspectRatio="xMidYMid slice"
           fill="none"
@@ -154,20 +154,20 @@ export function HomeHero() {
           <path
             d="M-40 250 C 300 90, 700 380, 1040 180 S 1420 120, 1500 210"
             stroke="currentColor"
-            className="text-white/80"
+            className="text-white/90"
             strokeWidth="2"
             strokeDasharray="10 16"
           />
           <path
             d="M-40 470 C 320 620, 760 300, 1120 470 S 1440 560, 1520 500"
             stroke="currentColor"
-            className="text-white/50"
+            className="text-white/65"
             strokeWidth="2"
             strokeDasharray="10 18"
           />
           <path
             d="M0 780 L60 720 L110 780 L170 690 L220 780 L275 640 L330 780 L390 700 L450 780 L520 660 L580 780 L650 720 L710 780 L780 640 L840 780 L910 700 L980 780 L1050 660 L1110 780 L1180 715 L1250 780 L1320 690 L1380 780 L1440 730 L1440 900 L0 900 Z"
-            className="fill-white/25"
+            className="fill-white/35"
           />
         </svg>
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background" />
@@ -175,30 +175,33 @@ export function HomeHero() {
 
       <div className="container-page relative pb-20 pt-14 md:pb-28 md:pt-20">
         <div className="mx-auto max-w-4xl text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/70 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-navy/70 backdrop-blur">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#1268d8]/20 bg-white/85 px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#174b88] shadow-sm backdrop-blur">
             {badge}
           </span>
-          <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight md:text-6xl">
+          <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-[#123c73] md:text-6xl">
             <span className="block">{headline}</span>
-            <span key={highlight} className="hero-rotate mt-2 block text-gradient-brand">
+            <span
+              key={highlight}
+              className="hero-rotate mt-2 block bg-[linear-gradient(90deg,_#0756c7_0%,_#5c45cc_45%,_#ff651f_100%)] bg-clip-text text-transparent"
+            >
               {highlight}
             </span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-navy/70 md:text-lg">
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-[#365b86] md:text-lg">
             {description ? (
               description
             ) : (
               <>
-                <span className="font-semibold text-navy">Fast</span>,{" "}
-                <span className="font-semibold text-navy">reliable</span> and stress-free travel
+                <span className="font-bold text-[#123c73]">Fast</span>,{" "}
+                <span className="font-bold text-[#123c73]">reliable</span> and stress-free travel
                 solutions for{" "}
-                <span className="font-bold text-gradient-brand">every destination.</span>
+                <span className="font-extrabold text-[#df5418]">every destination.</span>
               </>
             )}
           </p>
         </div>
 
-        <div className="mx-auto mt-10 max-w-5xl rounded-[28px] glass-card p-4 md:p-5">
+        <div className="mx-auto mt-10 max-w-5xl rounded-[28px] border border-white/90 bg-white/88 p-4 shadow-[0_28px_70px_-35px_rgba(15,70,145,0.5)] backdrop-blur-xl md:p-5">
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
             <label className="block text-left">
               <FieldLabel>I&apos;m travelling from</FieldLabel>
@@ -217,7 +220,7 @@ export function HomeHero() {
                   ))}
                 </select>
                 <MapPin
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sky"
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1268d8]"
                   aria-hidden="true"
                 />
               </div>
@@ -240,7 +243,7 @@ export function HomeHero() {
                   ))}
                 </select>
                 <MapPin
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-lavender"
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b4bd4]"
                   aria-hidden="true"
                 />
               </div>
@@ -263,7 +266,7 @@ export function HomeHero() {
                   ))}
                 </select>
                 <Briefcase
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-orange"
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#ff651f]"
                   aria-hidden="true"
                 />
               </div>
@@ -273,9 +276,9 @@ export function HomeHero() {
               type="button"
               onClick={handleStart}
               aria-disabled={!isComplete}
-              className={`btn-gradient inline-flex h-[46px] items-center justify-center gap-2 rounded-2xl px-7 text-sm font-bold text-white shadow-card ${
+              className={`inline-flex h-[46px] items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(90deg,_#0756c7_0%,_#1b70e7_50%,_#ff651f_100%)] px-7 text-sm font-extrabold text-white shadow-[0_14px_32px_-14px_rgba(11,87,208,0.8)] transition duration-300 ${
                 isComplete
-                  ? "hover:-translate-y-0.5"
+                  ? "hover:-translate-y-0.5 hover:shadow-[0_18px_38px_-14px_rgba(255,101,31,0.65)]"
                   : "cursor-not-allowed opacity-45 saturate-50"
               }`}
             >
@@ -285,7 +288,7 @@ export function HomeHero() {
           </div>
 
           {!isComplete && !validationMessage ? (
-            <p className="mt-3 text-center text-xs font-medium text-muted-foreground md:text-left">
+            <p className="mt-3 text-center text-xs font-medium text-[#55708d] md:text-left">
               Select all three options to continue.
             </p>
           ) : null}
@@ -307,8 +310,8 @@ export function HomeHero() {
               {["A", "F", "T", "N"].map((initial, position) => (
                 <span
                   key={initial}
-                  className={`grid h-8 w-8 place-items-center rounded-full border-2 border-white text-[11px] font-bold text-white ${
-                    position % 2 === 0 ? "bg-navy-soft" : "bg-orange"
+                  className={`grid h-8 w-8 place-items-center rounded-full border-2 border-white text-[11px] font-bold text-white shadow-sm ${
+                    position % 2 === 0 ? "bg-[#0756c7]" : "bg-[#ff651f]"
                   }`}
                   aria-hidden="true"
                 >
@@ -316,16 +319,16 @@ export function HomeHero() {
                 </span>
               ))}
             </div>
-            <span className="font-semibold text-navy">Trusted by thousands of travellers</span>
+            <span className="font-bold text-[#123c73]">Trusted by thousands of travellers</span>
           </div>
-          <span className="hidden h-5 w-px bg-navy/15 sm:block" aria-hidden="true" />
+          <span className="hidden h-5 w-px bg-[#123c73]/20 sm:block" aria-hidden="true" />
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-0.5" aria-hidden="true">
               {[0, 1, 2, 3, 4].map((star) => (
-                <Star key={star} className="h-4 w-4 fill-orange text-orange" />
+                <Star key={star} className="h-4 w-4 fill-[#ff651f] text-[#ff651f]" />
               ))}
             </span>
-            <span className="font-semibold text-navy">4.8/5 on Trustpilot</span>
+            <span className="font-bold text-[#123c73]">4.8/5 on Trustpilot</span>
           </div>
         </div>
 
@@ -336,20 +339,29 @@ export function HomeHero() {
               alt="Nigerian traveller holding a passport and boarding pass with luggage"
               width={1024}
               height={1280}
-              className="h-[300px] w-auto object-contain drop-shadow-[0_30px_45px_rgba(80,80,140,0.16)] md:h-[420px] md:-mt-10 md:mr-10"
+              className="h-[300px] w-auto object-contain drop-shadow-[0_30px_45px_rgba(27,87,165,0.24)] md:h-[420px] md:-mt-10 md:mr-10"
             />
           </div>
 
-          <div className="relative -mt-10 rounded-[28px] glass-card p-6 md:-mt-24 md:p-8">
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-navy/10">
-              {FEATURES.map((feature) => (
+          <div className="relative -mt-10 rounded-[28px] border border-white/90 bg-white/90 p-6 shadow-[0_24px_65px_-36px_rgba(16,65,130,0.55)] backdrop-blur-xl md:-mt-24 md:p-8">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-[#1268d8]/15">
+              {FEATURES.map((feature, featureIndex) => (
                 <div key={feature.title} className="flex gap-3 lg:px-5 lg:first:pl-0 lg:last:pr-0">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-tint to-peach-tint">
-                    <feature.icon className="h-5 w-5 text-orange" aria-hidden="true" />
+                  <span
+                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+                      featureIndex % 2 === 0
+                        ? "bg-[linear-gradient(135deg,_#dbeafe_0%,_#bfdbfe_100%)]"
+                        : "bg-[linear-gradient(135deg,_#ffedd5_0%,_#fed7aa_100%)]"
+                    }`}
+                  >
+                    <feature.icon
+                      className={`h-5 w-5 ${featureIndex % 2 === 0 ? "text-[#0756c7]" : "text-[#e95516]"}`}
+                      aria-hidden="true"
+                    />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-bold text-navy">{feature.title}</h2>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    <h2 className="text-sm font-extrabold text-[#123c73]">{feature.title}</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-[#5c7087]">
                       {feature.description}
                     </p>
                   </div>
