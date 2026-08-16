@@ -201,10 +201,31 @@ async function loadCustomerDetail(input: {
   const requestColumns =
     "id, request_reference, user_id, email, full_name, phone, nationality, service_type, service_category, destination_country, request_status, payment_status, created_at";
 
+  const { data: profileRows, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .ilike("email", email)
+    .limit(5);
+  if (profileError) console.error("[admin-customers] detail profile", profileError.message);
+
+  const profiles = (profileRows ?? []) as Record<string, unknown>[];
+  const profile = uid ? profiles.find((row) => userId(row) === uid) : undefined;
+  const unclaimedBelongsToAccount = Boolean(
+    uid && profiles.length === 1 && userId(profiles[0]) === uid,
+  );
+
   const requestResults = uid
     ? await Promise.all([
         supabase.from("service_requests").select(requestColumns).eq("user_id", uid),
-        supabase.from("service_requests").select(requestColumns).is("user_id", null).ilike("email", email),
+        ...(unclaimedBelongsToAccount
+          ? [
+              supabase
+                .from("service_requests")
+                .select(requestColumns)
+                .is("user_id", null)
+                .ilike("email", email),
+            ]
+          : []),
       ])
     : [
         await supabase
@@ -226,26 +247,12 @@ async function loadCustomerDetail(input: {
   const rawRequests = [...byId.values()].sort((a, b) =>
     str(b, "created_at").localeCompare(str(a, "created_at")),
   );
-
-  const { data: profileRows, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .ilike("email", email)
-    .limit(5);
-  if (profileError) console.error("[admin-customers] detail profile", profileError.message);
-
-  const profiles = (profileRows ?? []) as Record<string, unknown>[];
-  const profile = uid
-    ? profiles.find((row) => userId(row) === uid)
-    : profiles.length === 1
-      ? profiles[0]
-      : undefined;
   const latest = rawRequests[0];
 
   if (!profile && !latest) return null;
 
   const customer: AdminCustomer = {
-    user_id: uid ?? userId(profile),
+    user_id: uid ?? null,
     full_name: str(profile, "full_name") || str(latest, "full_name"),
     email: str(profile, "email") || str(latest, "email") || email,
     phone: str(profile, "phone") || str(latest, "phone"),
@@ -256,7 +263,7 @@ async function loadCustomerDetail(input: {
     ),
     request_count: rawRequests.length,
     last_request_at: rawRequests.length ? str(rawRequests[0], "created_at") : null,
-    account_status: uid || userId(profile) ? "registered" : "guest",
+    account_status: uid ? "registered" : "guest",
   };
 
   const requests: AdminCustomerRequest[] = rawRequests.map((row) => ({
