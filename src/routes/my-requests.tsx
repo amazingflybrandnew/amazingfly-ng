@@ -197,7 +197,11 @@ function MyRequestsPage() {
                   </div>
                 </dl>
                 <span className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-navy">
-                  View details
+                  {request.booking_status === "confirmed" &&
+                  (request.service_category?.toLowerCase() === "hotels" ||
+                    request.service_type?.toLowerCase().includes("hotel"))
+                    ? "Manage hotel booking"
+                    : "View details"}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </span>
               </Link>

@@ -102,6 +102,10 @@ function RequestDetailPage() {
             : workflow === "quotation_pending"
               ? "Awaiting quotation"
               : "Payment pending";
+          const isHotelRequest =
+            Boolean(data.request.hotel_name) ||
+            (data.request.service_type ?? "").toLowerCase().includes("hotel");
+          const canManageHotel = isHotelRequest && data.request.booking_status === "confirmed";
           return (
         <div className="space-y-6">
           <section className="glass-card rounded-3xl p-6 md:p-8">
@@ -158,6 +162,28 @@ function RequestDetailPage() {
             </dl>
 
             <PaymentPanel request={data.request} documentCount={data.documents.length} />
+
+            {canManageHotel ? (
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-sky/50 bg-sky-tint p-5">
+                <div>
+                  <p className="text-sm font-extrabold text-navy">Hotel booking confirmed</p>
+                  <p className="mt-1 text-sm text-navy-soft">
+                    Open your booking management page to view the supplier reference or cancel this hotel reservation.
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Supplier cancellation terms and any applicable penalties still apply.
+                  </p>
+                </div>
+                <Button asChild size="lg" className="rounded-2xl bg-navy text-white hover:bg-navy/90">
+                  <Link
+                    to="/booking-confirmation/$requestId"
+                    params={{ requestId: data.request.id }}
+                  >
+                    Manage / cancel hotel booking
+                  </Link>
+                </Button>
+              </div>
+            ) : null}
 
             {data.request.request_details ? (
               <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-5">

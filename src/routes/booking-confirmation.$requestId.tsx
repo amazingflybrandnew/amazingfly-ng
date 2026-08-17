@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   BedDouble,
@@ -8,16 +8,18 @@ import {
   Plane,
   ReceiptText,
   ShieldCheck,
+  Trash2,
   Users,
 } from "lucide-react";
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
-import { getBookingConfirmation } from "@/lib/payment/verify.functions";
-import { formatMoney } from "@/lib/payment-status";
-import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 import { TITLE_LABELS } from "@/lib/booking/passenger.types";
+import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
+import { formatMoney } from "@/lib/payment-status";
+import { getBookingConfirmation } from "@/lib/payment/verify.functions";
 import { formatDate } from "@/lib/request-status";
+import { cancelHotelBooking } from "@/lib/travel-api/hotel-booking.functions";
 
 export const Route = createFileRoute("/booking-confirmation/$requestId")({
   head: () => ({
@@ -26,12 +28,12 @@ export const Route = createFileRoute("/booking-confirmation/$requestId")({
       {
         name: "description",
         content:
-          "Your Amazingfly Travels payment was received and your booking details are confirmed below.",
+          "Your Amazingfly Travels payment and supplier booking status are shown below.",
       },
       { property: "og:title", content: "Booking Confirmed | Amazingfly.ng" },
       {
         property: "og:description",
-        content: "Payment receipt and booking confirmation for your Amazingfly Travels request.",
+        content: "Payment receipt and booking status for your Amazingfly Travels request.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -60,6 +62,7 @@ function ConfirmationPage() {
   const { requestId } = Route.useParams();
   const { data: session } = useSessionQuery();
   const fetchConfirmation = useServerFn(getBookingConfirmation);
+  const cancelHotel = useServerFn(cancelHotelBooking);
 
   const confirmation = useQuery({
     queryKey: ["booking-confirmation", requestId],
@@ -67,14 +70,39 @@ function ConfirmationPage() {
     enabled: Boolean(session?.user),
   });
 
+  const cancellation = useMutation({
+    mutationFn: () => cancelHotel({ data: { request_id: requestId } }),
+    onSuccess: (result) => {
+      if (result.ok) void confirmation.refetch();
+    },
+  });
+
   const data = confirmation.data;
   const review = data?.review ?? null;
   const paid = review?.transaction?.status === "successful" ? review.transaction : null;
+  const paidHotelBookingFailed =
+    review?.kind === "hotel" && Boolean(paid) && review.bookingStatus === "failed";
+  const canCancelHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
+
+  const requestCancellation = () => {
+    if (!canCancelHotel || cancellation.isPending) return;
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        "Cancel this confirmed hotel booking? The supplier cancellation terms will apply and this action cannot be undone here.",
+      );
+      if (!confirmed) return;
+    }
+    cancellation.mutate();
+  };
 
   return (
     <AccountShell
-      title="Booking confirmed"
-      subtitle="Your payment has been received and your booking details are saved to your account."
+      title={paidHotelBookingFailed ? "Booking requires attention" : "Booking confirmed"}
+      subtitle={
+        paidHotelBookingFailed
+          ? "Your payment is recorded, but the accommodation provider did not confirm the booking."
+          : "Your booking details are saved to your account."
+      }
     >
       {confirmation.isPending ? (
         <div className="glass-card flex items-center justify-center rounded-3xl p-16">
@@ -97,12 +125,18 @@ function ConfirmationPage() {
                 <CheckCircle2 className="h-6 w-6 text-navy" aria-hidden="true" />
               </span>
               <h2 className="mt-4 text-2xl font-extrabold text-navy">
-                {paid ? "Payment successful" : "Booking summary"}
+                {paidHotelBookingFailed
+                  ? "Payment received — hotel booking not confirmed"
+                  : paid
+                    ? "Payment successful"
+                    : "Booking summary"}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                {paid
-                  ? "Thank you. We have received your payment and your booking is confirmed."
-                  : "This booking has not been paid yet."}
+                {paidHotelBookingFailed
+                  ? "Your payment was received successfully, but the accommodation provider could not confirm the reservation. Please do not make another payment for this request while we review the booking."
+                  : paid
+                    ? "Thank you. We have received your payment and your booking details are below."
+                    : "Your booking details and current supplier status are shown below."}
               </p>
 
               <div className="mt-5">
@@ -112,7 +146,7 @@ function ConfirmationPage() {
                   value={review.transaction?.transaction_reference ?? "—"}
                 />
                 <Row
-                  label="Amount paid"
+                  label={paid ? "Amount paid" : "Booking amount"}
                   value={formatMoney(
                     review.transaction?.amount ?? review.amount,
                     review.transaction?.currency ?? review.currency,
@@ -177,6 +211,57 @@ function ConfirmationPage() {
                     value={review.pnr ?? "Voucher will be emailed to you"}
                   />
                 </div>
+
+                {data?.rateHawkDiagnostics ? (
+                  <div className="mt-5 rounded-2xl border border-sky/50 bg-sky-tint p-4">
+                    <p className="text-sm font-extrabold text-navy">RateHawk sandbox diagnostics</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Visible only while the RateHawk integration is running in sandbox.
+                    </p>
+                    <div className="mt-3">
+                      <Row label="Partner order ID" value={data.rateHawkDiagnostics.partnerOrderId || "—"} />
+                      <Row label="RateHawk order ID" value={data.rateHawkDiagnostics.orderId ?? "—"} />
+                      <Row label="Provider status" value={(data.rateHawkDiagnostics.providerStatus ?? data.rateHawkDiagnostics.status) || "—"} />
+                      <Row label="Booking attempts" value={`${data.rateHawkDiagnostics.attempts}`} />
+                      {data.rateHawkDiagnostics.errorMessage ? (
+                        <Row label="Provider error" value={data.rateHawkDiagnostics.errorMessage} />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {canCancelHotel ? (
+                  <div className="mt-5 border-t border-white/60 pt-5">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="text-coral"
+                      disabled={cancellation.isPending}
+                      onClick={requestCancellation}
+                    >
+                      {cancellation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                      )}
+                      Cancel hotel booking
+                    </Button>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Supplier cancellation terms and any applicable penalties still apply. Payment refunds, when due, are handled separately.
+                    </p>
+                  </div>
+                ) : null}
+
+                {cancellation.data && !cancellation.data.ok ? (
+                  <p className="mt-4 rounded-2xl bg-coral-tint px-4 py-3 text-sm text-navy">
+                    {cancellation.data.error}
+                  </p>
+                ) : null}
+                {cancellation.data?.ok ? (
+                  <p className="mt-4 rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
+                    The hotel booking was cancelled with the accommodation provider.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
@@ -210,8 +295,9 @@ function ConfirmationPage() {
                 What happens next
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Our specialists are finalising your booking documents. You will receive an email
-                confirmation, and everything stays available in your account.
+                {paidHotelBookingFailed
+                  ? "Your payment is recorded. Our team will review the failed supplier booking and contact you about rebooking or any applicable refund. Please do not make another payment for this request."
+                  : "Our specialists are finalising your booking documents. You will receive an email confirmation, and everything stays available in your account."}
               </p>
               <Button asChild className="btn-gradient mt-4 w-full text-white">
                 <Link to="/requests/$id" params={{ id: requestId }}>
