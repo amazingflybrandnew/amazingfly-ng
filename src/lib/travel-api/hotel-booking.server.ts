@@ -13,6 +13,7 @@ export const MAX_CREATE_ATTEMPTS = 10;
 const CREATE_RETRY_DELAY_MS = 1000;
 const CHECK_POLL_DELAY_MS = 5000;
 const DEFAULT_BOOKING_TIMEOUT_MS = 120_000;
+const SANDBOX_BOOK_LIMIT_TIMEOUT_MS = 240_000;
 
 export type BookingStatus = "created" | "started" | "processing" | "ok" | "failed";
 export type HotelBookingPaymentType = "deposit" | "hotel";
@@ -76,11 +77,17 @@ function resolveBookingRequestIp(explicit?: string): string {
   return resolved;
 }
 
-function bookingTimeoutMs(): number {
+function bookingTimeoutMs(partnerOrderId?: string): number {
   const configured = Number(process.env["RATEHAWK_BOOKING_TIMEOUT_MS"] ?? "");
-  return Number.isFinite(configured) && configured >= 10_000
-    ? configured
-    : DEFAULT_BOOKING_TIMEOUT_MS;
+  const normalTimeout =
+    Number.isFinite(configured) && configured >= 10_000
+      ? configured
+      : DEFAULT_BOOKING_TIMEOUT_MS;
+
+  if (isRateHawkSandbox() && partnerOrderId?.endsWith("_unknown_book_limit")) {
+    return Math.max(normalTimeout, SANDBOX_BOOK_LIMIT_TIMEOUT_MS);
+  }
+  return normalTimeout;
 }
 
 async function bookingRequest<T>(path: string, body: unknown) {
@@ -158,12 +165,27 @@ export async function applyBookingStatus(input: {
   const db = await admin();
   const { data: existing } = await db
     .from("hotel_bookings")
-    .select("status")
+    .select("status, provider_status")
     .eq("partner_order_id", input.partnerOrderId)
     .maybeSingle();
 
-  const current = (existing as { status?: string } | null)?.status;
-  if (current === "ok" || (current === "failed" && input.status !== "ok")) return;
+  const currentRow = existing as { status?: string; provider_status?: string | null } | null;
+  const current = currentRow?.status;
+  const currentProviderStatus = String(currentRow?.provider_status ?? "").toLowerCase();
+  const incomingProviderStatus = String(input.providerStatus ?? "").toLowerCase();
+  const replacesLocalTimeout =
+    current === "failed" &&
+    currentProviderStatus === "booking_timeout" &&
+    input.status === "failed" &&
+    Boolean(incomingProviderStatus) &&
+    !["booking_timeout", "unknown", "timeout", "processing"].includes(incomingProviderStatus);
+
+  if (
+    current === "ok" ||
+    (current === "failed" && input.status !== "ok" && !replacesLocalTimeout)
+  ) {
+    return;
+  }
 
   const patch: Record<string, unknown> = {
     status: input.status,
@@ -421,7 +443,7 @@ async function checkOnce(partnerOrderId: string): Promise<CheckBookingResult> {
 }
 
 export async function checkBookingProcess(partnerOrderId: string): Promise<CheckBookingResult> {
-  const deadline = Date.now() + bookingTimeoutMs();
+  const deadline = Date.now() + bookingTimeoutMs(partnerOrderId);
   let last: CheckBookingResult = {
     status: "processing",
     providerStatus: "processing",
