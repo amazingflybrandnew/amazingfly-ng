@@ -110,10 +110,15 @@ function CheckoutPage() {
   const verify = useMutation({
     mutationFn: (reference: string) => verifyFn({ data: { reference } }),
     onSuccess: async (result) => {
-      await review.refetch();
       if (result.ok && result.status === "successful") {
-        void navigate({ to: "/booking-confirmation/$requestId", params: { requestId } });
+        void navigate({
+          to: "/booking-confirmation/$requestId",
+          params: { requestId },
+          replace: true,
+        });
+        return;
       }
+      await review.refetch();
     },
   });
 
@@ -125,8 +130,11 @@ function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callbackReference, session?.user?.id]);
 
+  const confirmingCallback =
+    Boolean(callbackReference) && !verify.isError && (verify.isPending || !verify.data);
+
   const verifyMessage = verify.isPending
-    ? "Confirming your payment with Paystack…"
+    ? "Payment response received. Verifying with Paystack and confirming your booking with the provider…"
     : verify.data && !verify.data.ok
       ? verify.data.message
       : verify.data && verify.data.ok && verify.data.status !== "successful"
@@ -139,7 +147,6 @@ function CheckoutPage() {
       ? pay.data.message
       : null;
   const redirecting = pay.isPending || Boolean(pay.data?.ok);
-
 
   const data = review.data;
   const transaction = data?.transaction ?? null;
@@ -165,10 +172,43 @@ function CheckoutPage() {
 
   return (
     <AccountShell
-      title="Your booking is ready"
-      subtitle="Here is everything we need to take payment once secure checkout goes live."
+      title={confirmingCallback ? "Confirming your booking" : "Your booking is ready"}
+      subtitle={
+        confirmingCallback
+          ? "Your payment response is back from Paystack. We are completing supplier confirmation now."
+          : "Here is everything we need to take payment once secure checkout goes live."
+      }
     >
-      {review.isPending ? (
+      {confirmingCallback ? (
+        <div className="glass-card rounded-3xl p-8 md:p-10">
+          <div className="flex items-start gap-4">
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-mint-tint">
+              <Loader2 className="h-6 w-6 animate-spin text-navy" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-xl font-extrabold text-navy">
+                Payment response received — confirming your booking
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                We are verifying the transaction with Paystack and completing the supplier booking.
+                This can take a short moment while the hotel provider returns the final status.
+                Please keep this page open; you do not need to pay again.
+              </p>
+              <div className="mt-5 grid gap-2 text-xs font-semibold text-navy-soft sm:grid-cols-3">
+                <span className="rounded-xl border border-white/70 bg-white/70 px-3 py-2">
+                  1. Payment verification
+                </span>
+                <span className="rounded-xl border border-white/70 bg-white/70 px-3 py-2">
+                  2. Supplier confirmation
+                </span>
+                <span className="rounded-xl border border-white/70 bg-white/70 px-3 py-2">
+                  3. Final booking details
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : review.isPending ? (
         <div className="glass-card flex items-center justify-center rounded-3xl p-16">
           <Loader2 className="h-6 w-6 animate-spin text-navy-soft" aria-hidden="true" />
         </div>
@@ -199,7 +239,10 @@ function CheckoutPage() {
               <Row label="Currency" value={data.currency} />
               {data.kind === "flight" ? (
                 <>
-                  <Row label="Travellers" value={`${data.passengerCount || data.flight?.passengers || 1}`} />
+                  <Row
+                    label="Travellers"
+                    value={`${data.passengerCount || data.flight?.passengers || 1}`}
+                  />
                   <Row label="Airline reference (PNR)" value={data.pnr ?? "Issued after booking"} />
                   <Row label="Airline order ID" value={data.duffelOrderId ?? "—"} />
                   <Row label="Ticket number" value={data.ticketNumber ?? "Issued after payment"} />
@@ -252,8 +295,6 @@ function CheckoutPage() {
                   {verifyMessage}
                 </p>
               ) : null}
-
-
 
               <Button
                 size="lg"
