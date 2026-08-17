@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   BedDouble,
@@ -18,6 +18,7 @@ import { formatMoney } from "@/lib/payment-status";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 import { TITLE_LABELS } from "@/lib/booking/passenger.types";
 import { formatDate } from "@/lib/request-status";
+import { cancelStoredHotelBooking } from "@/lib/travel-api/hotel-booking.functions";
 
 export const Route = createFileRoute("/booking-confirmation/$requestId")({
   head: () => ({
@@ -60,6 +61,7 @@ function ConfirmationPage() {
   const { requestId } = Route.useParams();
   const { data: session } = useSessionQuery();
   const fetchConfirmation = useServerFn(getBookingConfirmation);
+  const cancelHotel = useServerFn(cancelStoredHotelBooking);
 
   const confirmation = useQuery({
     queryKey: ["booking-confirmation", requestId],
@@ -67,9 +69,17 @@ function ConfirmationPage() {
     enabled: Boolean(session?.user),
   });
 
+  const cancellation = useMutation({
+    mutationFn: () => cancelHotel({ data: { request_id: requestId } }),
+    onSuccess: (result) => {
+      if (result.ok) void confirmation.refetch();
+    },
+  });
+
   const data = confirmation.data;
   const review = data?.review ?? null;
   const paid = review?.transaction?.status === "successful" ? review.transaction : null;
+  const canCancelHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
 
   return (
     <AccountShell
@@ -102,7 +112,9 @@ function ConfirmationPage() {
               <p className="mt-2 text-sm text-muted-foreground">
                 {paid
                   ? "Thank you. We have received your payment and your booking is confirmed."
-                  : "This booking has not been paid yet."}
+                  : review.kind === "hotel" && review.bookingStatus === "confirmed"
+                    ? "Your hotel reservation is confirmed."
+                    : "This booking has not been paid yet."}
               </p>
 
               <div className="mt-5">
@@ -177,6 +189,38 @@ function ConfirmationPage() {
                     value={review.pnr ?? "Voucher will be emailed to you"}
                   />
                 </div>
+
+                {canCancelHotel ? (
+                  <div className="mt-6 rounded-2xl border border-coral/30 bg-coral-tint/50 p-4">
+                    <p className="text-sm font-bold text-navy">Need to cancel this hotel?</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Cancellation is submitted directly to RateHawk. Any applicable hotel penalty still follows the selected rate terms.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="mt-3"
+                      disabled={cancellation.isPending}
+                      onClick={() => cancellation.mutate()}
+                    >
+                      {cancellation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : null}
+                      Cancel hotel booking
+                    </Button>
+                  </div>
+                ) : null}
+
+                {cancellation.data && !cancellation.data.ok ? (
+                  <p className="mt-4 rounded-2xl bg-coral-tint px-4 py-3 text-sm text-navy">
+                    {cancellation.data.error}
+                  </p>
+                ) : null}
+                {cancellation.data?.ok ? (
+                  <p className="mt-4 rounded-2xl bg-mint-tint px-4 py-3 text-sm text-navy">
+                    The hotel cancellation was accepted by RateHawk.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
