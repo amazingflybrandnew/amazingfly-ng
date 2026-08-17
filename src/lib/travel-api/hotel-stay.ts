@@ -4,7 +4,7 @@ export type StayInputShape = {
   destination: string;
   checkInDate: string;
   checkOutDate: string;
-  guests: { adults: number; children: number };
+  guests: { adults: number; children: number; childAges?: number[] };
   rooms: number;
   nationality?: string | undefined;
   currency?: string | undefined;
@@ -16,7 +16,11 @@ export function toHotelRequest(data: StayInputShape): HotelSearchRequest {
     destination: data.destination,
     checkInDate: data.checkInDate,
     checkOutDate: data.checkOutDate,
-    guests: data.guests,
+    guests: {
+      adults: data.guests.adults,
+      children: data.guests.children,
+      ...(data.guests.childAges ? { childAges: data.guests.childAges } : {}),
+    },
     rooms: data.rooms,
     ...(data.nationality ? { nationality: data.nationality } : {}),
     ...(data.currency ? { currency: data.currency } : {}),
