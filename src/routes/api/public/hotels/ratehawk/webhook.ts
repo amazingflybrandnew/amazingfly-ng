@@ -7,10 +7,12 @@
  * POST — the real callback.
  *
  * Authentication follows the ETG webhook signature mechanism: the callback
- * carries an HMAC-SHA256 of the raw request body, keyed with our server-side
- * RateHawk API token (RATEHAWK_API_TOKEN, read from project secrets — never
- * hardcoded and never echoed back). Both hex and base64 digests are accepted,
- * compared in constant time.
+ * carries an HMAC-SHA256 signature keyed with our server-side RateHawk API
+ * token (RATEHAWK_API_TOKEN, read from project secrets — never hardcoded and
+ * never echoed back).
+ *
+ * Every signature-verified callback is written to ratehawk_webhook_events so
+ * sandbox certification can prove delivery independently of polling.
  *
  * Status codes: malformed payload → 400, bad/missing signature → 401,
  * successful processing → 200, internal failure → 500 so RateHawk retries.
@@ -52,6 +54,18 @@ type RateHawkCallback = {
   error?: string | null;
 };
 
+function mappedBookingStatus(providerStatus: string): "ok" | "failed" | "processing" {
+  if (providerStatus === "ok" || providerStatus === "completed") return "ok";
+  if (
+    ["processing", "unknown", "timeout", "started", "created", "pending"].includes(
+      providerStatus,
+    )
+  ) {
+    return "processing";
+  }
+  return "failed";
+}
+
 export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
   server: {
     handlers: {
@@ -78,7 +92,6 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
           return new Response("Invalid signature", { status: 401 });
         }
 
-
         const body = event?.data ?? event ?? {};
         const partnerOrderId = body.partner_order_id ?? event?.partner_order_id;
         const providerStatus = String(
@@ -90,12 +103,34 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
           return new Response("Missing partner_order_id", { status: 400 });
         }
 
-        const status =
-          providerStatus === "ok" || providerStatus === "completed"
-            ? "ok"
-            : providerStatus === "error" || providerStatus === "failed"
-              ? "failed"
-              : "processing";
+        const status = mappedBookingStatus(providerStatus);
+
+        const { createExternalSupabaseAdmin } = await import(
+          "@/lib/external-supabase.server"
+        );
+        const db = createExternalSupabaseAdmin();
+
+        const { data: auditRow, error: auditError } = await db
+          .from("ratehawk_webhook_events")
+          .insert({
+            partner_order_id: partnerOrderId,
+            order_id: orderId != null ? String(orderId) : null,
+            provider_status: providerStatus,
+            signature_verified: true,
+            processed: false,
+          })
+          .select("id")
+          .single();
+
+        if (auditError || !auditRow) {
+          console.error(
+            "[ratehawk-webhook] audit receipt failed",
+            auditError?.message ?? "missing audit row",
+          );
+          return new Response("Processing failed", { status: 500 });
+        }
+
+        const auditId = String((auditRow as { id: string }).id);
 
         const { applyBookingStatus } = await import(
           "@/lib/travel-api/hotel-booking.server"
@@ -113,7 +148,22 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
                 : null,
             payload: event,
           });
+
+          const { error: processedError } = await db
+            .from("ratehawk_webhook_events")
+            .update({ processed: true, processing_error: null })
+            .eq("id", auditId);
+          if (processedError) {
+            console.error("[ratehawk-webhook] audit completion failed", processedError.message);
+            return new Response("Processing failed", { status: 500 });
+          }
         } catch (error) {
+          const message = error instanceof Error ? error.message : "Webhook processing failed";
+          await db
+            .from("ratehawk_webhook_events")
+            .update({ processed: false, processing_error: message.slice(0, 1000) })
+            .eq("id", auditId);
+
           // Genuine internal failure — non-200 so RateHawk retries.
           console.error("[ratehawk-webhook] processing failed", error);
           return new Response("Processing failed", { status: 500 });
