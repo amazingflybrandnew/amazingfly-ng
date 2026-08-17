@@ -32,6 +32,7 @@ import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminContentRouteImport } from './routes/admin.content'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
+import { Route as AdminFeaturedServicesRouteImport } from './routes/admin.featured-services'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
@@ -168,6 +169,11 @@ const AdminCustomersRoute = AdminCustomersRouteImport.update({
 const AdminDestinationsRoute = AdminDestinationsRouteImport.update({
   id: '/admin/destinations',
   path: '/admin/destinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminFeaturedServicesRoute = AdminFeaturedServicesRouteImport.update({
+  id: '/admin/featured-services',
+  path: '/admin/featured-services',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminMessagesRoute = AdminMessagesRouteImport.update({
@@ -307,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
+  '/admin/featured-services': typeof AdminFeaturedServicesRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -354,6 +361,7 @@ export interface FileRoutesByTo {
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
+  '/admin/featured-services': typeof AdminFeaturedServicesRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -402,6 +410,7 @@ export interface FileRoutesById {
   '/admin/content': typeof AdminContentRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
+  '/admin/featured-services': typeof AdminFeaturedServicesRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
@@ -451,6 +460,7 @@ export interface FileRouteTypes {
     | '/admin/content'
     | '/admin/customers'
     | '/admin/destinations'
+    | '/admin/featured-services'
     | '/admin/messages'
     | '/admin/notifications'
     | '/admin/packages'
@@ -498,6 +508,7 @@ export interface FileRouteTypes {
     | '/admin/content'
     | '/admin/customers'
     | '/admin/destinations'
+    | '/admin/featured-services'
     | '/admin/messages'
     | '/admin/notifications'
     | '/admin/packages'
@@ -545,6 +556,7 @@ export interface FileRouteTypes {
     | '/admin/content'
     | '/admin/customers'
     | '/admin/destinations'
+    | '/admin/featured-services'
     | '/admin/messages'
     | '/admin/notifications'
     | '/admin/packages'
@@ -593,6 +605,7 @@ export interface RootRouteChildren {
   AdminContentRoute: typeof AdminContentRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminDestinationsRoute: typeof AdminDestinationsRoute
+  AdminFeaturedServicesRoute: typeof AdminFeaturedServicesRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPackagesRoute: typeof AdminPackagesRoute
@@ -781,6 +794,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDestinationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/featured-services': {
+      id: '/admin/featured-services'
+      path: '/admin/featured-services'
+      fullPath: '/admin/featured-services'
+      preLoaderRoute: typeof AdminFeaturedServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/messages': {
       id: '/admin/messages'
       path: '/admin/messages'
@@ -961,6 +981,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminContentRoute: AdminContentRoute,
   AdminCustomersRoute: AdminCustomersRoute,
   AdminDestinationsRoute: AdminDestinationsRoute,
+  AdminFeaturedServicesRoute: AdminFeaturedServicesRoute,
   AdminMessagesRoute: AdminMessagesRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPackagesRoute: AdminPackagesRoute,
