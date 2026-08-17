@@ -328,7 +328,7 @@ export function HomeHero() {
                 <Star key={star} className="h-4 w-4 fill-[#ff651f] text-[#ff651f]" />
               ))}
             </span>
-            <span className="font-bold text-[#123c73]">4.8/5 on Trustpilot</span>
+            <span className="font-bold text-[#123c73]">Rated by travellers</span>
           </div>
         </div>
 
