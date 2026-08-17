@@ -62,7 +62,7 @@ export function FeaturedServicesCarousel({
     node.scrollBy({ left: amount * direction, behavior: "smooth" });
   };
 
-  if (featuredQuery.isPending || cards.length === 0) return null;
+  if (cards.length === 0) return null;
 
   return (
     <section

@@ -46,7 +46,7 @@ const FEATURES = [
   { icon: Zap, title: "Fast Processing", description: "Quick support for urgent travellers" },
   { icon: ShieldCheck, title: "Secure & Protected", description: "Your documents are handled safely" },
   { icon: Headphones, title: "Expert Guidance", description: "Real travel specialists helping you" },
-  { icon: Star, title: "High Success Rate", description: "Professional visa preparation support" },
+  { icon: Star, title: "Trusted Service", description: "Professional visa preparation support" },
 ];
 
 const selectClass =
@@ -328,7 +328,7 @@ export function HomeHero() {
                 <Star key={star} className="h-4 w-4 fill-[#ff651f] text-[#ff651f]" />
               ))}
             </span>
-            <span className="font-bold text-[#123c73]">4.8/5 on Trustpilot</span>
+            <span className="font-bold text-[#123c73]">Rated by travellers</span>
           </div>
         </div>
 
