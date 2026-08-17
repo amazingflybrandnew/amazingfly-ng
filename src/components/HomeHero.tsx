@@ -46,7 +46,7 @@ const FEATURES = [
   { icon: Zap, title: "Fast Processing", description: "Quick support for urgent travellers" },
   { icon: ShieldCheck, title: "Secure & Protected", description: "Your documents are handled safely" },
   { icon: Headphones, title: "Expert Guidance", description: "Real travel specialists helping you" },
-  { icon: Star, title: "High Success Rate", description: "Professional visa preparation support" },
+  { icon: Star, title: "Trusted Service", description: "Professional visa preparation support" },
 ];
 
 const selectClass =
