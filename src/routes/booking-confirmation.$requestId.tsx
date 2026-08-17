@@ -28,12 +28,12 @@ export const Route = createFileRoute("/booking-confirmation/$requestId")({
       {
         name: "description",
         content:
-          "Your Amazingfly Travels payment was received and your booking details are confirmed below.",
+          "Your Amazingfly Travels payment and supplier booking status are shown below.",
       },
       { property: "og:title", content: "Booking Confirmed | Amazingfly.ng" },
       {
         property: "og:description",
-        content: "Payment receipt and booking confirmation for your Amazingfly Travels request.",
+        content: "Payment receipt and booking status for your Amazingfly Travels request.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -80,6 +80,8 @@ function ConfirmationPage() {
   const data = confirmation.data;
   const review = data?.review ?? null;
   const paid = review?.transaction?.status === "successful" ? review.transaction : null;
+  const paidHotelBookingFailed =
+    review?.kind === "hotel" && Boolean(paid) && review.bookingStatus === "failed";
   const canCancelHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
 
   const requestCancellation = () => {
@@ -95,8 +97,12 @@ function ConfirmationPage() {
 
   return (
     <AccountShell
-      title="Booking confirmed"
-      subtitle="Your booking details are saved to your account."
+      title={paidHotelBookingFailed ? "Booking requires attention" : "Booking confirmed"}
+      subtitle={
+        paidHotelBookingFailed
+          ? "Your payment is recorded, but the accommodation provider did not confirm the booking."
+          : "Your booking details are saved to your account."
+      }
     >
       {confirmation.isPending ? (
         <div className="glass-card flex items-center justify-center rounded-3xl p-16">
@@ -119,12 +125,18 @@ function ConfirmationPage() {
                 <CheckCircle2 className="h-6 w-6 text-navy" aria-hidden="true" />
               </span>
               <h2 className="mt-4 text-2xl font-extrabold text-navy">
-                {paid ? "Payment successful" : "Booking summary"}
+                {paidHotelBookingFailed
+                  ? "Payment received — hotel booking not confirmed"
+                  : paid
+                    ? "Payment successful"
+                    : "Booking summary"}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                {paid
-                  ? "Thank you. We have received your payment and your booking details are below."
-                  : "Your booking details and current supplier status are shown below."}
+                {paidHotelBookingFailed
+                  ? "Your payment was received successfully, but the accommodation provider could not confirm the reservation. Please do not make another payment for this request while we review the booking."
+                  : paid
+                    ? "Thank you. We have received your payment and your booking details are below."
+                    : "Your booking details and current supplier status are shown below."}
               </p>
 
               <div className="mt-5">
@@ -200,6 +212,24 @@ function ConfirmationPage() {
                   />
                 </div>
 
+                {data?.rateHawkDiagnostics ? (
+                  <div className="mt-5 rounded-2xl border border-sky/50 bg-sky-tint p-4">
+                    <p className="text-sm font-extrabold text-navy">RateHawk sandbox diagnostics</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Visible only while the RateHawk integration is running in sandbox.
+                    </p>
+                    <div className="mt-3">
+                      <Row label="Partner order ID" value={data.rateHawkDiagnostics.partnerOrderId || "—"} />
+                      <Row label="RateHawk order ID" value={data.rateHawkDiagnostics.orderId ?? "—"} />
+                      <Row label="Provider status" value={(data.rateHawkDiagnostics.providerStatus ?? data.rateHawkDiagnostics.status) || "—"} />
+                      <Row label="Booking attempts" value={`${data.rateHawkDiagnostics.attempts}`} />
+                      {data.rateHawkDiagnostics.errorMessage ? (
+                        <Row label="Provider error" value={data.rateHawkDiagnostics.errorMessage} />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
                 {canCancelHotel ? (
                   <div className="mt-5 border-t border-white/60 pt-5">
                     <Button
@@ -265,8 +295,9 @@ function ConfirmationPage() {
                 What happens next
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Our specialists are finalising your booking documents. You will receive an email
-                confirmation, and everything stays available in your account.
+                {paidHotelBookingFailed
+                  ? "Your payment is recorded. Our team will review the failed supplier booking and contact you about rebooking or any applicable refund. Please do not make another payment for this request."
+                  : "Our specialists are finalising your booking documents. You will receive an email confirmation, and everything stays available in your account."}
               </p>
               <Button asChild className="btn-gradient mt-4 w-full text-white">
                 <Link to="/requests/$id" params={{ id: requestId }}>

@@ -42,11 +42,21 @@ export const verifyPayment = createServerFn({ method: "POST" })
     };
   });
 
+export type RateHawkSandboxDiagnostics = {
+  partnerOrderId: string;
+  orderId: string | null;
+  status: string;
+  providerStatus: string | null;
+  errorMessage: string | null;
+  attempts: number;
+};
+
 export type BookingConfirmation = {
   review: BookingReview;
   passengers: BookingPassengerRecord[];
   contactName: string;
   contactEmail: string;
+  rateHawkDiagnostics: RateHawkSandboxDiagnostics | null;
 };
 
 /** Loads everything the confirmation page shows, scoped to the signed-in customer. */
@@ -64,11 +74,42 @@ export const getBookingConfirmation = createServerFn({ method: "POST" })
     if (!review) return null;
 
     const bundle = await loadPassengers(user, data.request_id);
+    let rateHawkDiagnostics: RateHawkSandboxDiagnostics | null = null;
+
+    if (review.kind === "hotel") {
+      const { isRateHawkSandbox } = await import("../ratehawk.server");
+      if (isRateHawkSandbox()) {
+        const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
+        const db = createExternalSupabaseAdmin();
+        const { data: booking, error } = await db
+          .from("hotel_bookings")
+          .select("partner_order_id, order_id, status, provider_status, error_message, attempts")
+          .eq("request_id", data.request_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.error("[hotel-booking] sandbox diagnostics load failed", error.message);
+        } else if (booking) {
+          const row = booking as Record<string, unknown>;
+          rateHawkDiagnostics = {
+            partnerOrderId: String(row["partner_order_id"] ?? ""),
+            orderId: row["order_id"] != null ? String(row["order_id"]) : null,
+            status: String(row["status"] ?? ""),
+            providerStatus: row["provider_status"] != null ? String(row["provider_status"]) : null,
+            errorMessage: row["error_message"] != null ? String(row["error_message"]) : null,
+            attempts: Number(row["attempts"] ?? 0),
+          };
+        }
+      }
+    }
 
     return {
       review,
       passengers: bundle?.passengers ?? [],
       contactName: bundle?.contact?.fullName ?? user.full_name ?? "",
       contactEmail: bundle?.contact?.email ?? user.email,
+      rateHawkDiagnostics,
     };
   });
