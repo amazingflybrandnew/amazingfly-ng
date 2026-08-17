@@ -22,10 +22,7 @@ import {
   type BookingContact,
   type BookingPassenger,
 } from "@/lib/booking/passenger.types";
-import {
-  getBookingPassengers,
-  saveBookingPassengers,
-} from "@/lib/booking/passengers.functions";
+import { getBookingPassengers, saveBookingPassengers } from "@/lib/booking/passengers.functions";
 
 export const Route = createFileRoute("/passengers/$requestId")({
   head: () => ({
@@ -33,14 +30,10 @@ export const Route = createFileRoute("/passengers/$requestId")({
       { title: "Traveller Details | Amazingfly.ng" },
       {
         name: "description",
-        content:
-          "Add the booking contact and traveller details required to complete your Amazingfly Travels booking.",
+        content: "Add the booking contact and traveller details required to complete your Amazingfly Travels booking.",
       },
       { property: "og:title", content: "Traveller Details | Amazingfly.ng" },
-      {
-        property: "og:description",
-        content: "Enter traveller details for your Amazingfly Travels booking.",
-      },
+      { property: "og:description", content: "Enter traveller details for your Amazingfly Travels booking." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex, nofollow" },
@@ -49,20 +42,12 @@ export const Route = createFileRoute("/passengers/$requestId")({
   component: PassengerDetailsPage,
 });
 
-function Field({
-  label,
-  children,
-  hint,
-}: {
-  label: string;
-  children: React.ReactNode;
-  hint?: string;
-}) {
+type CertificationScenario = "" | "unknown_success" | "unknown_soldout" | "unknown_book_limit";
+
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs font-bold uppercase tracking-[0.12em] text-navy-soft">
-        {label}
-      </Label>
+      <Label className="text-xs font-bold uppercase tracking-[0.12em] text-navy-soft">{label}</Label>
       {children}
       {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
     </div>
@@ -117,6 +102,7 @@ function PassengerDetailsPage() {
   });
   const [passengers, setPassengers] = useState<BookingPassenger[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [certificationScenario, setCertificationScenario] = useState<CertificationScenario>("");
 
   useEffect(() => {
     const bundle = saved.data;
@@ -139,7 +125,13 @@ function PassengerDetailsPage() {
   const ready = useMemo(() => passengers.length > 0, [passengers]);
 
   const reserve = useMutation({
-    mutationFn: () => reserveHotel({ data: { request_id: requestId } }),
+    mutationFn: () =>
+      reserveHotel({
+        data: {
+          request_id: requestId,
+          certificationScenario: certificationScenario || null,
+        },
+      }),
     onSuccess: (result) => {
       if (result.ok) {
         void navigate({ to: "/booking-confirmation/$requestId", params: { requestId } });
@@ -152,9 +144,7 @@ function PassengerDetailsPage() {
 
   const submit = useMutation({
     mutationFn: () =>
-      save({
-        data: { request_id: requestId, contact, passengers, passportRequired },
-      }),
+      save({ data: { request_id: requestId, contact, passengers, passportRequired } }),
     onSuccess: (result) => {
       if (!result.ok) {
         setError(result.message);
@@ -211,12 +201,8 @@ function PassengerDetailsPage() {
         </div>
       ) : !review.data ? (
         <div className="glass-card rounded-3xl p-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            We could not find this booking on your account.
-          </p>
-          <Button asChild variant="ghost" className="mt-4 text-navy">
-            <Link to="/my-requests">Back to my requests</Link>
-          </Button>
+          <p className="text-sm text-muted-foreground">We could not find this booking on your account.</p>
+          <Button asChild variant="ghost" className="mt-4 text-navy"><Link to="/my-requests">Back to my requests</Link></Button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -225,22 +211,12 @@ function PassengerDetailsPage() {
               <UserRound className="h-5 w-5 text-navy" aria-hidden="true" />
             </span>
             <h2 className="mt-4 text-xl font-extrabold text-navy">Booking contact</h2>
-            <p className="text-sm text-muted-foreground">
-              We send your booking reference and status updates here.
-            </p>
+            <p className="text-sm text-muted-foreground">We send your booking reference and status updates here.</p>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <Field label="Full name">
-                <Input value={contact.fullName} onChange={(event) => setContact({ ...contact, fullName: event.target.value })} maxLength={120} required />
-              </Field>
-              <Field label="Email">
-                <Input type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} maxLength={255} required />
-              </Field>
-              <Field label="Phone number">
-                <Input value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} maxLength={32} required />
-              </Field>
-              <Field label="Country / nationality">
-                <Input value={contact.country} onChange={(event) => setContact({ ...contact, country: event.target.value })} maxLength={80} required />
-              </Field>
+              <Field label="Full name"><Input value={contact.fullName} onChange={(event) => setContact({ ...contact, fullName: event.target.value })} maxLength={120} required /></Field>
+              <Field label="Email"><Input type="email" value={contact.email} onChange={(event) => setContact({ ...contact, email: event.target.value })} maxLength={255} required /></Field>
+              <Field label="Phone number"><Input value={contact.phone} onChange={(event) => setContact({ ...contact, phone: event.target.value })} maxLength={32} required /></Field>
+              <Field label="Country / nationality"><Input value={contact.country} onChange={(event) => setContact({ ...contact, country: event.target.value })} maxLength={80} required /></Field>
             </div>
           </section>
 
@@ -248,9 +224,7 @@ function PassengerDetailsPage() {
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-peach-tint">
               <Users className="h-5 w-5 text-navy" aria-hidden="true" />
             </span>
-            <h2 className="mt-4 text-xl font-extrabold text-navy">
-              Travellers ({passengers.length})
-            </h2>
+            <h2 className="mt-4 text-xl font-extrabold text-navy">Travellers ({passengers.length})</h2>
             <p className="text-sm text-muted-foreground">
               {isHotel
                 ? "RateHawk requires the first and last name of every guest included in this hotel reservation."
@@ -269,37 +243,21 @@ function PassengerDetailsPage() {
                         {PASSENGER_TITLES.map((title) => <option key={title} value={title}>{TITLE_LABELS[title]}</option>)}
                       </select>
                     </Field>
-                    <Field label="First name">
-                      <Input value={passenger.firstName} onChange={(event) => update(index, { firstName: event.target.value })} maxLength={80} required />
-                    </Field>
-                    <Field label="Middle name (optional)">
-                      <Input value={passenger.middleName ?? ""} onChange={(event) => update(index, { middleName: event.target.value })} maxLength={80} />
-                    </Field>
-                    <Field label="Last name">
-                      <Input value={passenger.lastName} onChange={(event) => update(index, { lastName: event.target.value })} maxLength={80} required />
-                    </Field>
-                    <Field label="Date of birth">
-                      <Input type="date" value={passenger.dateOfBirth} onChange={(event) => update(index, { dateOfBirth: event.target.value })} required />
-                    </Field>
+                    <Field label="First name"><Input value={passenger.firstName} onChange={(event) => update(index, { firstName: event.target.value })} maxLength={80} required /></Field>
+                    <Field label="Middle name (optional)"><Input value={passenger.middleName ?? ""} onChange={(event) => update(index, { middleName: event.target.value })} maxLength={80} /></Field>
+                    <Field label="Last name"><Input value={passenger.lastName} onChange={(event) => update(index, { lastName: event.target.value })} maxLength={80} required /></Field>
+                    <Field label="Date of birth"><Input type="date" value={passenger.dateOfBirth} onChange={(event) => update(index, { dateOfBirth: event.target.value })} required /></Field>
                     <Field label="Gender">
                       <select className={selectClass} value={passenger.gender} onChange={(event) => update(index, { gender: event.target.value as BookingPassenger["gender"] })}>
                         {PASSENGER_GENDERS.map((gender) => <option key={gender} value={gender}>{GENDER_LABELS[gender]}</option>)}
                       </select>
                     </Field>
-                    <Field label="Nationality">
-                      <Input value={passenger.nationality} onChange={(event) => update(index, { nationality: event.target.value })} maxLength={80} required />
-                    </Field>
+                    <Field label="Nationality"><Input value={passenger.nationality} onChange={(event) => update(index, { nationality: event.target.value })} maxLength={80} required /></Field>
                     {!isHotel ? (
                       <>
-                        <Field label={`Passport number${passportRequired ? "" : " (optional)"}`}>
-                          <Input value={passenger.passportNumber ?? ""} onChange={(event) => update(index, { passportNumber: event.target.value })} maxLength={40} />
-                        </Field>
-                        <Field label={`Issuing country${passportRequired ? "" : " (optional)"}`}>
-                          <Input value={passenger.passportCountry ?? ""} onChange={(event) => update(index, { passportCountry: event.target.value })} maxLength={80} />
-                        </Field>
-                        <Field label={`Passport expiry${passportRequired ? "" : " (optional)"}`}>
-                          <Input type="date" value={passenger.passportExpiry ?? ""} onChange={(event) => update(index, { passportExpiry: event.target.value })} />
-                        </Field>
+                        <Field label={`Passport number${passportRequired ? "" : " (optional)"}`}><Input value={passenger.passportNumber ?? ""} onChange={(event) => update(index, { passportNumber: event.target.value })} maxLength={40} /></Field>
+                        <Field label={`Issuing country${passportRequired ? "" : " (optional)"}`}><Input value={passenger.passportCountry ?? ""} onChange={(event) => update(index, { passportCountry: event.target.value })} maxLength={80} /></Field>
+                        <Field label={`Passport expiry${passportRequired ? "" : " (optional)"}`}><Input type="date" value={passenger.passportExpiry ?? ""} onChange={(event) => update(index, { passportExpiry: event.target.value })} /></Field>
                       </>
                     ) : null}
                   </div>
@@ -307,6 +265,29 @@ function PassengerDetailsPage() {
               ))}
             </div>
           </section>
+
+          {isPayAtProperty ? (
+            <details className="glass-card rounded-3xl p-5">
+              <summary className="cursor-pointer text-sm font-bold text-navy">RateHawk sandbox certification</summary>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Leave this on Normal for customers. These scenarios are rejected by the server outside the RateHawk sandbox.
+              </p>
+              <div className="mt-3 max-w-md">
+                <Label htmlFor="ratehawk-certification-scenario">Booking status scenario</Label>
+                <select
+                  id="ratehawk-certification-scenario"
+                  className={`${selectClass} mt-2`}
+                  value={certificationScenario}
+                  onChange={(event) => setCertificationScenario(event.target.value as CertificationScenario)}
+                >
+                  <option value="">Normal booking</option>
+                  <option value="unknown_success">Unknown → successful</option>
+                  <option value="unknown_soldout">Unknown → sold out</option>
+                  <option value="unknown_book_limit">Unknown → book limit</option>
+                </select>
+              </div>
+            </details>
+          ) : null}
 
           {error ? <p className="rounded-2xl bg-coral-tint px-4 py-3 text-sm font-medium text-navy">{error}</p> : null}
 
