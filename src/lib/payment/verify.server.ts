@@ -7,6 +7,16 @@ import type { TransactionStatus } from "./types";
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 const ZERO_DECIMAL: readonly string[] = [];
 const PAYSTACK_IN_PROGRESS_STATUSES = new Set(["ongoing", "pending", "processing", "queued"]);
+const RATEHAWK_CERTIFICATION_SCENARIOS = new Set([
+  "unknown_success",
+  "unknown_soldout",
+  "unknown_book_limit",
+]);
+
+type RateHawkCertificationScenario =
+  | "unknown_success"
+  | "unknown_soldout"
+  | "unknown_book_limit";
 
 export type PaystackVerifyPayload = {
   status: string;
@@ -38,6 +48,13 @@ async function admin() {
 function expectedSubunits(amount: number, currency: string): number {
   const factor = ZERO_DECIMAL.includes(currency.toUpperCase()) ? 1 : 100;
   return Math.round(amount * factor);
+}
+
+function rateHawkCertificationScenario(value: unknown): RateHawkCertificationScenario | null {
+  const scenario = String(value ?? "").trim();
+  return RATEHAWK_CERTIFICATION_SCENARIOS.has(scenario)
+    ? (scenario as RateHawkCertificationScenario)
+    : null;
 }
 
 export async function verifyPaystackTransaction(
@@ -164,7 +181,7 @@ async function ensurePaidHotelBooking(requestId: string): Promise<void> {
   const supabase = await admin();
   const { data } = await supabase
     .from("service_requests")
-    .select("service_category, service_type, hotel_payment_type")
+    .select("service_category, service_type, hotel_payment_type, hotel_certification_scenario")
     .eq("id", requestId)
     .maybeSingle();
   const row = (data as Record<string, unknown> | null) ?? {};
@@ -173,9 +190,13 @@ async function ensurePaidHotelBooking(requestId: string): Promise<void> {
     String(row["service_type"] ?? "").toLowerCase().includes("hotel");
   if (!isHotel || String(row["hotel_payment_type"] ?? "") !== "deposit") return;
 
+  const certificationScenario = rateHawkCertificationScenario(
+    row["hotel_certification_scenario"],
+  );
+
   try {
     const { bookStoredHotelRequest } = await import("../travel-api/hotel-booking.server");
-    await bookStoredHotelRequest(requestId, "deposit");
+    await bookStoredHotelRequest(requestId, "deposit", certificationScenario);
   } catch (error) {
     // Payment remains successful; booking status/error is handled by hotel booking persistence.
     console.error("[paystack] paid hotel supplier booking failed", error);
