@@ -3,15 +3,28 @@ import { z } from "zod";
 import { toHotelRequest } from "./hotel-stay";
 import type { HotelResult, HotelSearchResponse, RoomResult } from "./hotel.types";
 
+const guestsInput = z
+  .object({
+    adults: z.number().int().min(1).max(12),
+    children: z.number().int().min(0).max(8).default(0),
+    childAges: z.array(z.number().int().min(0).max(17)).max(8).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if ((value.childAges?.length ?? 0) !== value.children) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["childAges"],
+        message: "Please provide the age of every child.",
+      });
+    }
+  });
+
 const stayInput = z
   .object({
     destination: z.string().trim().min(2).max(80),
     checkInDate: z.string().trim().min(8).max(32),
     checkOutDate: z.string().trim().min(8).max(32),
-    guests: z.object({
-      adults: z.number().int().min(1).max(12),
-      children: z.number().int().min(0).max(8).default(0),
-    }),
+    guests: guestsInput,
     rooms: z.number().int().min(1).max(8),
     nationality: z.string().trim().min(2).max(2).optional(),
     currency: z.string().trim().min(3).max(3).optional(),
@@ -42,9 +55,10 @@ export const searchHotelStays = createServerFn({ method: "POST" })
       return { ok: true, results };
     } catch (error) {
       console.error("[Hotels] search failed", error);
-      const message =
-        error instanceof Error ? error.message : "Unable to search hotels right now.";
-      return { ok: false, error: message };
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Unable to search hotels right now.",
+      };
     }
   });
 
@@ -60,9 +74,10 @@ export const getHotelStayDetails = createServerFn({ method: "POST" })
       return { ok: true, hotel, rooms };
     } catch (error) {
       console.error("[Hotels] details failed", error);
-      const message =
-        error instanceof Error ? error.message : "Unable to load this hotel right now.";
-      return { ok: false, error: message };
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Unable to load this hotel right now.",
+      };
     }
   });
 
@@ -89,9 +104,7 @@ export const prebookHotelStayRate = createServerFn({ method: "POST" })
         data.expectedPrice,
         data.expectedCurrency,
       );
-      if (outcome.status === "unavailable") {
-        return { ok: false, error: outcome.message };
-      }
+      if (outcome.status === "unavailable") return { ok: false, error: outcome.message };
       if (outcome.status === "price_changed") {
         return {
           ok: true,
@@ -103,8 +116,9 @@ export const prebookHotelStayRate = createServerFn({ method: "POST" })
       return { ok: true, status: "available", room: outcome.room };
     } catch (error) {
       console.error("[Hotels] prebook failed", error);
-      const message =
-        error instanceof Error ? error.message : "We could not confirm this rate.";
-      return { ok: false, error: message };
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "We could not confirm this rate.",
+      };
     }
   });
