@@ -449,6 +449,7 @@ export async function checkBookingProcess(partnerOrderId: string): Promise<Check
     await sleep(CHECK_POLL_DELAY_MS);
   }
 
+  // ETG explicitly recommends one final request at the booking deadline.
   last = await checkOnce(partnerOrderId);
   if (last.status === "processing") {
     last = {
@@ -550,6 +551,8 @@ export async function bookStoredHotelRequest(
     if (row.status !== "failed") {
       return { partnerOrderId: row.partner_order_id, orderId: row.order_id ?? null, status: row.status };
     }
+    // A failed/interrupted attempt is not terminal for a customer retry. Create a
+    // fresh RateHawk booking process with a new partner_order_id below.
   }
 
   const { data: request, error: requestError } = await db

@@ -1,9 +1,6 @@
 /**
- * Server-only RateHawk (Emerging Travel Group / WorldOTA B2B v3) hotel client.
- *
- * Kept out of the client bundle by the `.server.ts` naming convention.
- * All HTTP goes through the shared sandbox client in `@/lib/ratehawk.server`,
- * which reads RATEHAWK_KEY_ID / RATEHAWK_API_TOKEN from project secrets.
+ * Server-only RateHawk / ETG B2B v3 hotel client.
+ * Supports regular region search plus direct HID search used during certification.
  */
 
 import {
@@ -34,21 +31,16 @@ export class HotelApiError extends Error {
   }
 }
 
-/** Currencies the RateHawk sandbox prices in. Anything else falls back to USD. */
 const SUPPORTED_CURRENCIES = new Set(["USD", "EUR", "GBP", "AED", "PLN", "RUB"]);
-
-/** Max rates shown per hotel at this stage. */
 const MAX_RATES_PER_HOTEL = 2;
-
-/** How many hotels we enrich with static content (hotel/info is 30 req/min). */
 const MAX_HOTELS = 12;
+const PREBOOK_PRICE_INCREASE_PERCENT = 10;
 
 function providerCurrency(requested: string | undefined): string {
   const code = (requested ?? "USD").toUpperCase();
   return SUPPORTED_CURRENCIES.has(code) ? code : "USD";
 }
 
-/** POST helper delegating to the shared sandbox client, with friendly errors. */
 async function rateHawkFetch<T>(path: string, body: unknown): Promise<T | null> {
   try {
     return await ratehawkFetch<T>(`/api/b2b/v3${path}`, body);
@@ -58,22 +50,17 @@ async function rateHawkFetch<T>(path: string, body: unknown): Promise<T | null> 
     }
     if (error instanceof RateHawkApiError) {
       if (error.status === 401 || error.status === 403) {
-        throw new HotelApiError(
-          "Hotel provider rejected our credentials. Please contact support.",
-        );
+        throw new HotelApiError("Hotel provider rejected our credentials. Please contact support.");
       }
       if (error.status === 429) {
-        throw new HotelApiError(
-          "Too many hotel searches right now. Please retry shortly.",
-        );
+        throw new HotelApiError("Too many hotel searches right now. Please retry shortly.");
       }
-      throw new HotelApiError(friendlyProviderError(error.message, error.status));
+      throw new HotelApiError(friendlyProviderError(error.code, error.status));
     }
     throw new HotelApiError("Could not reach the hotel provider. Please try again.");
   }
 }
 
-/** Translates RateHawk error codes into copy we can show a traveller. */
 function friendlyProviderError(code: string | null | undefined, status: number): string {
   switch (code) {
     case "invalid_params":
@@ -93,7 +80,6 @@ function friendlyProviderError(code: string | null | undefined, status: number):
   }
 }
 
-/** Number of nights between two ISO dates; 0 when invalid. */
 export function nightsBetween(checkIn: string, checkOut: string): number {
   const start = Date.parse(checkIn);
   const end = Date.parse(checkOut);
@@ -104,14 +90,17 @@ export function nightsBetween(checkIn: string, checkOut: string): number {
 function assertValidStay(request: HotelSearchRequest): number {
   const nights = nightsBetween(request.checkInDate, request.checkOutDate);
   if (!nights) {
-    throw new HotelApiError(
-      "Please choose a check-out date that is after the check-in date.",
-    );
+    throw new HotelApiError("Please choose a check-out date that is after the check-in date.");
   }
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   if (Date.parse(request.checkInDate) < today.getTime()) {
     throw new HotelApiError("Check-in date cannot be in the past.");
+  }
+  const expectedChildren = request.guests.children ?? 0;
+  const childAges = request.guests.childAges ?? [];
+  if (childAges.length !== expectedChildren) {
+    throw new HotelApiError("Please provide the exact age of every child.");
   }
   return nights;
 }
@@ -120,20 +109,14 @@ function assertValidStay(request: HotelSearchRequest): number {
 function buildGuests(request: HotelSearchRequest) {
   const rooms = Math.max(1, request.rooms || 1);
   const adults = Math.max(1, request.guests.adults || 1);
-  const childAges =
-    request.guests.childAges ??
-    Array.from({ length: request.guests.children ?? 0 }, () => 8);
-
+  const childAges = request.guests.childAges ?? [];
   const perRoomAdults = Math.max(1, Math.ceil(adults / rooms));
+
   return Array.from({ length: rooms }, (_, index) => ({
     adults: index === rooms - 1 ? Math.max(1, adults - perRoomAdults * (rooms - 1)) : perRoomAdults,
     children: index === 0 ? childAges : [],
   }));
 }
-
-/* -------------------------------------------------------------------------- */
-/* Provider response shapes (internal only)                                    */
-/* -------------------------------------------------------------------------- */
 
 type RhDailyPrice = { amount?: string; currency_code?: string };
 
@@ -179,9 +162,22 @@ type RhHotelInfo = {
   policy_struct?: { title?: string; paragraphs?: string[] }[];
 };
 
-/* -------------------------------------------------------------------------- */
-/* Mapping helpers                                                             */
-/* -------------------------------------------------------------------------- */
+type HotelRef = { id?: string; hid?: number };
+
+function parseHotelRef(value: string): HotelRef {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(?:hid:)?(\d{6,10})$/i);
+  if (match?.[1]) return { hid: Number(match[1]) };
+  return { id: trimmed };
+}
+
+function refKey(ref: HotelRef): string {
+  return ref.hid ? `hid:${ref.hid}` : ref.id ?? "";
+}
+
+function serpRef(hotel: RhSerpHotel): string {
+  return hotel.hid ? `hid:${hotel.hid}` : hotel.id ?? "";
+}
 
 function imageUrl(template: string | undefined, size = "640x400"): string | null {
   if (!template) return null;
@@ -229,9 +225,7 @@ function mapCancellation(rate: RhRate): CancellationPolicy {
   return {
     refundable: Boolean(freeUntil),
     freeCancellationUntil: freeUntil,
-    description: freeUntil
-      ? `Free cancellation until ${freeUntil}`
-      : "Non-refundable rate",
+    description: freeUntil ? `Free cancellation until ${freeUntil}` : "Non-refundable rate",
   };
 }
 
@@ -270,10 +264,9 @@ function mapHotel(
     .sort((a, b) => a.price - b.price)
     .slice(0, MAX_RATES_PER_HOTEL);
   const cheapest = rooms[0] ?? null;
-
   const images = (info?.images ?? []).map((i) => imageUrl(i)).filter(Boolean) as string[];
   const amenities = (info?.amenity_groups ?? []).flatMap((g) => g.amenities ?? []);
-  const hotelId = serp.id ?? info?.id ?? String(serp.hid ?? info?.hid ?? "");
+  const hotelId = serpRef(serp) || (info?.hid ? `hid:${info.hid}` : info?.id ?? "");
 
   return {
     hotelId,
@@ -298,33 +291,26 @@ function mapHotel(
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Public API                                                                  */
-/* -------------------------------------------------------------------------- */
-
-/** Resolve a free-text destination into a RateHawk region id. */
 async function resolveRegionId(destination: string): Promise<number> {
   const data = await rateHawkFetch<{ regions?: { id?: number; name?: string }[] }>(
     "/search/multicomplete/",
     { query: destination, language: "en" },
   );
   const region = data?.regions?.[0];
-  if (!region?.id) {
-    throw new HotelApiError(`We couldn't find "${destination}". Try a different city.`);
-  }
+  if (!region?.id) throw new HotelApiError(`We couldn't find "${destination}". Try a different city.`);
   return region.id;
 }
 
-/** Load static content for a set of hotel ids. */
-async function fetchHotelInfo(hotelIds: string[]): Promise<Map<string, RhHotelInfo>> {
+async function fetchHotelInfo(refs: string[]): Promise<Map<string, RhHotelInfo>> {
   const entries = await Promise.all(
-    hotelIds.map(async (id) => {
+    refs.map(async (key) => {
+      const ref = parseHotelRef(key);
       try {
         const data = await rateHawkFetch<RhHotelInfo>("/hotel/info/", {
-          id,
+          ...ref,
           language: "en",
         });
-        return data ? ([id, data] as const) : null;
+        return data ? ([key, data] as const) : null;
       } catch {
         return null;
       }
@@ -333,55 +319,53 @@ async function fetchHotelInfo(hotelIds: string[]): Promise<Map<string, RhHotelIn
   return new Map(entries.filter(Boolean) as (readonly [string, RhHotelInfo])[]);
 }
 
-/** Search RateHawk for hotels matching the request criteria. */
-export async function searchHotels(
-  request: HotelSearchRequest,
-): Promise<HotelResult[]> {
-  const nights = assertValidStay(request);
-  const regionId = await resolveRegionId(request.destination);
+function directHid(destination: string): number | null {
+  const match = destination.trim().match(/^(?:hid\s*:?[ ]*)?(\d{6,10})$/i);
+  return match?.[1] ? Number(match[1]) : null;
+}
 
-  const data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>(
-    "/search/serp/region/",
-    {
-      region_id: regionId,
-      checkin: request.checkInDate,
-      checkout: request.checkOutDate,
-      guests: buildGuests(request),
-      residency: (request.nationality ?? "gb").toLowerCase(),
-      currency: providerCurrency(request.currency),
-      language: "en",
-      hotels_limit: MAX_HOTELS,
-    },
-  );
+export async function searchHotels(request: HotelSearchRequest): Promise<HotelResult[]> {
+  const nights = assertValidStay(request);
+  const common = {
+    checkin: request.checkInDate,
+    checkout: request.checkOutDate,
+    guests: buildGuests(request),
+    residency: (request.nationality ?? "gb").toLowerCase(),
+    currency: providerCurrency(request.currency),
+    language: "en",
+  };
+
+  const hid = directHid(request.destination);
+  const data = hid
+    ? await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/search/serp/hotels/", {
+        ...common,
+        hids: [hid],
+      })
+    : await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/search/serp/region/", {
+        ...common,
+        region_id: await resolveRegionId(request.destination),
+        hotels_limit: MAX_HOTELS,
+      });
 
   const hotels = (data?.hotels ?? [])
-    .filter((h) => (h.rates ?? []).length > 0)
+    .filter((hotel) => (hotel.rates ?? []).length > 0)
     .slice(0, MAX_HOTELS);
   if (!hotels.length) return [];
 
-  const ids = hotels.map((h) => h.id ?? String(h.hid ?? "")).filter(Boolean);
-  const info = await fetchHotelInfo(ids);
-
+  const refs = hotels.map(serpRef).filter(Boolean);
+  const info = await fetchHotelInfo(refs);
   return hotels
-    .map((hotel) =>
-      mapHotel(hotel, info.get(hotel.id ?? String(hotel.hid ?? "")), request, nights),
-    )
+    .map((hotel) => mapHotel(hotel, info.get(serpRef(hotel)), request, nights))
     .sort((a, b) => a.price - b.price);
 }
 
-export type HotelStaticDetails = {
-  description: string;
-  policies: string;
-};
+export type HotelStaticDetails = { description: string; policies: string };
 
-/** Fetch the full static record for a single hotel id. */
 export async function getHotelDetails(
   hotelId: string,
 ): Promise<(HotelResult & HotelStaticDetails) | null> {
-  const info = await rateHawkFetch<RhHotelInfo>("/hotel/info/", {
-    id: hotelId,
-    language: "en",
-  });
+  const ref = parseHotelRef(hotelId);
+  const info = await rateHawkFetch<RhHotelInfo>("/hotel/info/", { ...ref, language: "en" });
   if (!info) return null;
 
   const images = (info.images ?? []).map((i) => imageUrl(i)).filter(Boolean) as string[];
@@ -392,7 +376,7 @@ export async function getHotelDetails(
       .join("\n\n");
 
   return {
-    hotelId: info.id ?? hotelId,
+    hotelId: info.hid ? `hid:${info.hid}` : info.id ?? hotelId,
     hotelName: info.name ?? hotelId,
     hotelImage: images[0] ?? null,
     images,
@@ -413,16 +397,15 @@ export async function getHotelDetails(
   };
 }
 
-/** Retrieve hotelpage (`/search/hp/`) live rates for a single hotel. */
 export async function getHotelRooms(
   hotelId: string,
   request: HotelSearchRequest,
 ): Promise<RoomResult[]> {
   assertValidStay(request);
-
   const currency = providerCurrency(request.currency);
+  const ref = parseHotelRef(hotelId);
   const data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/search/hp/", {
-    id: hotelId,
+    ...ref,
     checkin: request.checkInDate,
     checkout: request.checkOutDate,
     guests: buildGuests(request),
@@ -444,19 +427,11 @@ export async function getHotelRooms(
   return rooms.sort((a, b) => a.price - b.price);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Prebook                                                                     */
-/* -------------------------------------------------------------------------- */
-
 export type PrebookOutcome =
   | { status: "available"; room: RoomResult }
   | { status: "price_changed"; room: RoomResult; previousPrice: number }
   | { status: "unavailable"; message: string };
 
-/**
- * Prebook a hotelpage rate. The prebook response is authoritative for the
- * current book_hash, price, cancellation policy and payment methods.
- */
 export async function prebookHotelRate(
   bookHash: string,
   expectedPrice: number,
@@ -468,51 +443,35 @@ export async function prebookHotelRate(
   try {
     data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/hotel/prebook/", {
       hash: bookHash,
-      price_increase_percent: 100,
+      price_increase_percent: PREBOOK_PRICE_INCREASE_PERCENT,
     });
   } catch (error) {
-    const message =
-      error instanceof HotelApiError
-        ? error.message
-        : "This rate could not be confirmed. Please pick another room.";
-    return { status: "unavailable", message };
+    return {
+      status: "unavailable",
+      message:
+        error instanceof HotelApiError
+          ? error.message
+          : "This rate could not be confirmed. Please pick another room.",
+    };
   }
 
   const rate = data?.hotels?.[0]?.rates?.[0];
   if (!rate) {
-    return {
-      status: "unavailable",
-      message: "This rate has just sold out. Please choose another room.",
-    };
+    return { status: "unavailable", message: "This rate has just sold out. Please choose another room." };
   }
-
   if (!rate.book_hash) {
-    return {
-      status: "unavailable",
-      message: "This rate could not be confirmed. Please choose another room.",
-    };
+    return { status: "unavailable", message: "This rate could not be confirmed. Please choose another room." };
   }
 
-  const room: RoomResult = {
-    ...mapRate(rate, currency),
-    bookHash: rate.book_hash,
-  };
+  const room: RoomResult = { ...mapRate(rate, currency), bookHash: rate.book_hash };
   if (!room.price) {
-    return {
-      status: "unavailable",
-      message: "This rate is no longer priced by the hotel. Please choose another room.",
-    };
+    return { status: "unavailable", message: "This rate is no longer priced by the hotel. Please choose another room." };
   }
   if (!room.paymentOptions.length) {
-    return {
-      status: "unavailable",
-      message: "This rate no longer has a supported payment method. Please choose another room.",
-    };
+    return { status: "unavailable", message: "This rate no longer has a supported payment method. Please choose another room." };
   }
 
-  const moved =
-    Math.abs(room.price - expectedPrice) > 0.01 || room.currency !== expectedCurrency;
-
+  const moved = Math.abs(room.price - expectedPrice) > 0.01 || room.currency !== expectedCurrency;
   return moved
     ? { status: "price_changed", room, previousPrice: expectedPrice }
     : { status: "available", room };
