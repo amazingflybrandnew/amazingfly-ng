@@ -74,9 +74,22 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
     const { requireAdmin, changeRequestStatus, logAdminAction } = await import("./admin.server");
     const who = await requireAdmin("update_status");
-    const result = await changeRequestStatus(who, data.request_id, data.status, data.message);
+
+    // `additional_documents_required` is an admin presentation stage, not a
+    // persisted service_requests status. The live database intentionally uses
+    // the canonical `documents_required` value for both initial and follow-up
+    // document requests.
+    const canonicalStatus =
+      data.status === "additional_documents_required" ? "documents_required" : data.status;
+
+    const result = await changeRequestStatus(
+      who,
+      data.request_id,
+      canonicalStatus,
+      data.message,
+    );
     if (result.ok) {
-      await logAdminAction(who, `Changed status to ${data.status}`, {
+      await logAdminAction(who, `Changed status to ${canonicalStatus}`, {
         type: "request",
         id: data.request_id,
         detail: data.message,
@@ -87,10 +100,7 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
 
 export const assignRequestStaff = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
-    z
-      .object({ request_id: z.string().uuid(), staff_id: z.string().uuid().nullable() })
-      .strict()
-      .parse(data),
+    z.object({ request_id: z.string().uuid(), staff_id: z.string().uuid().nullable() }).strict().parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
     const { requireAdmin, assignStaff, logAdminAction } = await import("./admin.server");
@@ -130,10 +140,7 @@ export const setRequestPriority = createServerFn({ method: "POST" })
 
 export const addRequestNote = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
-    z
-      .object({ request_id: z.string().uuid(), note: z.string().trim().min(2).max(2000) })
-      .strict()
-      .parse(data),
+    z.object({ request_id: z.string().uuid(), note: z.string().trim().min(2).max(2000) }).strict().parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
     const { requireAdmin, addInternalNote, logAdminAction } = await import("./admin.server");
@@ -216,9 +223,7 @@ export const reviewUploadedDocument = createServerFn({ method: "POST" })
   });
 
 export const getAdminDocumentUrl = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
-    z.object({ document_id: z.string().uuid() }).strict().parse(data),
-  )
+  .inputValidator((data: unknown) => z.object({ document_id: z.string().uuid() }).strict().parse(data))
   .handler(async ({ data }): Promise<{ ok: true; url: string } | { ok: false; message: string }> => {
     const { requireAdmin, signAdminDocumentDownload } = await import("./admin.server");
     await requireAdmin("view");

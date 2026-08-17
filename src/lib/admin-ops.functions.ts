@@ -226,11 +226,15 @@ export const createMediaUploadUrl = createServerFn({ method: "POST" })
 
 // ---------------------------------------------------------------- messages
 
+type StaffMessageEmailResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 async function sendStaffMessageEmail(input: {
   email: string;
   request_id: string | null;
   body: string;
-}): Promise<void> {
+}): Promise<StaffMessageEmailResult> {
   const subject = input.request_id
     ? "New message about your Amazingfly travel request"
     : "New message from Amazingfly Travels";
@@ -270,11 +274,13 @@ async function sendStaffMessageEmail(input: {
 
     if (!delivery.ok) {
       console.error("[admin] message email delivery failed", input.email, delivery.error);
+      return { ok: false, error: delivery.error };
     }
+    return { ok: true };
   } catch (error) {
-    // The portal message has already been saved successfully. Email is only a
-    // secondary alert and must never make the admin reply fail.
+    const detail = error instanceof Error ? error.message : "Unknown email delivery error";
     console.error("[admin] message email delivery failed", error);
+    return { ok: false, error: detail };
   }
 }
 
@@ -318,14 +324,22 @@ export const sendAdminMessage = createServerFn({ method: "POST" })
       request_id: data.request_id ?? null,
       body: data.body,
     });
-    if (result.ok) {
-      await sendStaffMessageEmail({
-        email: data.email,
-        request_id: data.request_id ?? null,
-        body: data.body,
-      });
+    if (!result.ok) return result;
+
+    const email = await sendStaffMessageEmail({
+      email: data.email,
+      request_id: data.request_id ?? null,
+      body: data.body,
+    });
+
+    if (!email.ok) {
+      return {
+        ok: true,
+        message: `Message saved to the customer portal, but the email notification failed: ${email.error}`,
+      };
     }
-    return result;
+
+    return { ok: true, message: "Message sent and email notification delivered." };
   });
 
 export const markMessageThreadRead = createServerFn({ method: "POST" })
