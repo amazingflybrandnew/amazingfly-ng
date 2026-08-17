@@ -1,11 +1,12 @@
 /**
- * Sandbox-only RateHawk client.
- *
- * Reads credentials from project secrets and makes authenticated HTTP Basic Auth
- * requests to https://api-sandbox.worldota.net.
+ * Server-only RateHawk / ETG API client.
+ * Sandbox is the safe default; production uses the current RateHawk host.
  */
 
-const SANDBOX_BASE_URL = "https://api-sandbox.worldota.net";
+const SANDBOX_BASE_URL = "https://api-sandbox.ratehawk.com";
+const DEFAULT_PRODUCTION_BASE_URL = "https://api.ratehawk.com";
+
+export type RateHawkEnvironment = "sandbox" | "production";
 
 export class RateHawkAuthError extends Error {
   constructor() {
@@ -15,10 +16,31 @@ export class RateHawkAuthError extends Error {
 }
 
 export class RateHawkApiError extends Error {
+  readonly code: string;
+
   constructor(public status: number, message: string) {
     super(message);
     this.name = "RateHawkApiError";
+    this.code = message.trim().toLowerCase();
   }
+}
+
+export function ratehawkEnvironment(): RateHawkEnvironment {
+  return process.env["RATEHAWK_ENVIRONMENT"]?.trim().toLowerCase() === "production"
+    ? "production"
+    : "sandbox";
+}
+
+export function isRateHawkSandbox(): boolean {
+  return ratehawkEnvironment() === "sandbox";
+}
+
+function baseUrl(): string {
+  const configured = process.env["RATEHAWK_BASE_URL"]?.trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  return ratehawkEnvironment() === "production"
+    ? DEFAULT_PRODUCTION_BASE_URL
+    : SANDBOX_BASE_URL;
 }
 
 function basicAuthHeader(username: string, password: string): string {
@@ -33,11 +55,7 @@ function basicAuthHeader(username: string, password: string): string {
 function readCredentials(): { username: string; password: string } {
   const username = process.env["RATEHAWK_KEY_ID"];
   const password = process.env["RATEHAWK_API_TOKEN"];
-
-  if (!username || !password) {
-    throw new RateHawkAuthError();
-  }
-
+  if (!username || !password) throw new RateHawkAuthError();
   return { username, password };
 }
 
@@ -48,16 +66,13 @@ export type RateHawkResponse<T> = {
   debug?: unknown;
 };
 
-/**
- * POST an authenticated request to the RateHawk sandbox API.
- */
-export async function ratehawkFetch<T>(
+/** Return the full ETG response envelope so booking status is not discarded. */
+export async function ratehawkRequest<T>(
   path: string,
   body: unknown,
-): Promise<T | null> {
+): Promise<RateHawkResponse<T>> {
   const { username, password } = readCredentials();
-
-  const url = `${SANDBOX_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -65,18 +80,23 @@ export async function ratehawkFetch<T>(
       Authorization: basicAuthHeader(username, password),
       Accept: "application/json",
       "Content-Type": "application/json",
+      "User-Agent": "Amazingfly/1.0 (RateHawk B2B v3)",
     },
     body: JSON.stringify(body ?? {}),
   });
 
   const payload = (await response.json().catch(() => null)) as RateHawkResponse<T> | null;
-
   if (!response.ok || payload?.status === "error") {
     throw new RateHawkApiError(
       response.status,
       payload?.error ?? `RateHawk request failed (${response.status}).`,
     );
   }
+  return payload ?? { status: response.ok ? "ok" : "error", data: null };
+}
 
-  return payload?.data ?? null;
+/** Convenience helper for endpoints where only the `data` object is needed. */
+export async function ratehawkFetch<T>(path: string, body: unknown): Promise<T | null> {
+  const payload = await ratehawkRequest<T>(path, body);
+  return payload.data ?? null;
 }
