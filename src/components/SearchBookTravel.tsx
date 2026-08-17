@@ -2,10 +2,16 @@ import { useState } from "react";
 import { Award, Building2, Headphones, Plane, PlaneTakeoff, ShieldCheck, Sparkles } from "lucide-react";
 import { FlightSearch } from "@/components/FlightSearch";
 import { HotelSearch } from "@/components/HotelSearch";
-import hotelBg from "@/assets/search-hotel-bg.png.asset.json";
-import flightBg from "@/assets/search-flight-bg.png.asset.json";
 
 type Mode = "flights" | "hotels";
+
+// Lovable's /__l5e/assets-v1/... URLs are served by Lovable's asset proxy and
+// are not available on the Vercel deployment. Use normal HTTPS image assets so
+// the same component renders correctly on every deployment target.
+const FLIGHT_BACKGROUND =
+  "https://images.pexels.com/photos/11255361/pexels-photo-11255361.jpeg?cs=srgb&fm=jpg";
+const HOTEL_BACKGROUND =
+  "https://images.pexels.com/photos/16099258/pexels-photo-16099258.jpeg?cs=srgb&fm=jpg";
 
 const trustIndicators = [
   { icon: ShieldCheck, title: "Secure Booking", subtitle: "100% secure payments" },
@@ -21,20 +27,24 @@ export function SearchBookTravel() {
     <section className="relative isolate overflow-hidden bg-[#0b1f3a]">
       <div className="absolute inset-0 -z-10">
         <img
-          src={flightBg.url}
+          src={FLIGHT_BACKGROUND}
           alt="Aircraft parked at an airport gate at sunset"
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out ${
+          loading="eager"
+          decoding="async"
+          className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ease-out ${
             isFlights ? "opacity-100" : "opacity-0"
           }`}
         />
         <img
-          src={hotelBg.url}
-          alt="Warmly lit hotel entrance in the evening"
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out ${
+          src={HOTEL_BACKGROUND}
+          alt="Warmly lit hotel exterior in the evening"
+          loading="eager"
+          decoding="async"
+          className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ease-out ${
             isFlights ? "opacity-0" : "opacity-100"
           }`}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/25 via-white/10 to-white/70" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/15 to-white/75" />
       </div>
 
       <div className="container-page relative pb-14 pt-12 md:pt-16">
