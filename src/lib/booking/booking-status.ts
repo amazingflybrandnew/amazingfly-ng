@@ -1,7 +1,4 @@
-/**
- * Client-safe booking status vocabulary.
- * Stored in `service_requests.booking_status` — no new booking table.
- */
+/** Client-safe booking status vocabulary shared by flight and hotel flows. */
 
 export const BOOKING_STATUSES = [
   "pending",
@@ -19,7 +16,7 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   pending: "Pending",
-  processing: "In progress",
+  processing: "Processing",
   on_hold: "On hold",
   awaiting_payment: "Awaiting payment",
   paid: "Paid",
