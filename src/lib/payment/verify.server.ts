@@ -12,6 +12,7 @@ const RATEHAWK_CERTIFICATION_SCENARIOS = new Set([
   "unknown_soldout",
   "unknown_book_limit",
 ]);
+const VISA_HOTEL_RESERVATION_CATEGORY = "visa_hotel_reservation";
 
 type RateHawkCertificationScenario =
   | "unknown_success"
@@ -132,7 +133,8 @@ async function confirmBooking(requestId: string) {
   const serviceType = String(row["service_type"] ?? "").toLowerCase();
   const isFlight = category === "flights" || serviceType.includes("flight");
   const isHotel = category === "hotels" || serviceType.includes("hotel");
-  const isBooking = isFlight || isHotel;
+  const isVisaHotelReservation = category === VISA_HOTEL_RESERVATION_CATEGORY;
+  const isBooking = isFlight || isHotel || isVisaHotelReservation;
 
   const paidAt = new Date().toISOString();
   const patch: Record<string, unknown> = {
@@ -141,6 +143,7 @@ async function confirmBooking(requestId: string) {
     paid_at: paidAt,
   };
   if (!isBooking) patch["request_status"] = "processing";
+  if (isVisaHotelReservation) patch["request_status"] = "processing";
 
   const pnr = row["pnr"] ?? row["booking_reference"] ?? null;
   if (pnr) {
@@ -159,23 +162,28 @@ async function confirmBooking(requestId: string) {
   if (error) console.error("[paystack] confirmBooking", error.message);
 
   const status = "processing";
-  const message = isHotel
-    ? "Payment received. Hotel confirmation is now processing with the accommodation provider."
-    : isFlight
-      ? "Payment received. Flight booking is now processing and will be confirmed after airline issuance."
-      : "Payment received. Amazingfly Travels has started processing your request.";
+  const message = isVisaHotelReservation
+    ? "Payment received. Your visa hotel reservation is now being submitted to the accommodation provider."
+    : isHotel
+      ? "Payment received. Hotel confirmation is now processing with the accommodation provider."
+      : isFlight
+        ? "Payment received. Flight booking is now processing and will be confirmed after airline issuance."
+        : "Payment received. Amazingfly Travels has started processing your request.";
 
   await supabase.from("request_updates").insert({ request_id: requestId, status, message });
 
   return {
     isHotel,
+    isVisaHotelReservation,
     hotelPaymentType: String(row["hotel_payment_type"] ?? ""),
   };
 }
 
 /**
- * Idempotently starts the supplier booking for a successfully paid RateHawk
- * `deposit` rate. A supplier failure never reverses a verified customer payment.
+ * Idempotently starts the relevant supplier booking after a verified payment.
+ * Normal hotel `deposit` bookings keep their certified flow. Visa Hotel
+ * Reservation uses a separate adapter for the selected pay-at-property rate.
+ * A supplier failure never reverses a verified customer payment.
  */
 async function ensurePaidHotelBooking(requestId: string): Promise<void> {
   const supabase = await admin();
@@ -185,9 +193,22 @@ async function ensurePaidHotelBooking(requestId: string): Promise<void> {
     .eq("id", requestId)
     .maybeSingle();
   const row = (data as Record<string, unknown> | null) ?? {};
+  const category = String(row["service_category"] ?? "").toLowerCase();
+
+  if (category === VISA_HOTEL_RESERVATION_CATEGORY) {
+    try {
+      const { ensurePaidVisaHotelReservation } = await import(
+        "../visa-hotel-reservation-booking.server"
+      );
+      await ensurePaidVisaHotelReservation(requestId);
+    } catch (error) {
+      console.error("[paystack] paid visa hotel reservation supplier booking failed", error);
+    }
+    return;
+  }
+
   const isHotel =
-    String(row["service_category"] ?? "").toLowerCase() === "hotels" ||
-    String(row["service_type"] ?? "").toLowerCase().includes("hotel");
+    category === "hotels" || String(row["service_type"] ?? "").toLowerCase().includes("hotel");
   if (!isHotel || String(row["hotel_payment_type"] ?? "") !== "deposit") return;
 
   const certificationScenario = rateHawkCertificationScenario(
@@ -361,10 +382,8 @@ export async function finalizePaystackPayment(input: {
   }
 
   if (requestId) {
-    const booking = await confirmBooking(requestId);
-    if (booking.isHotel && booking.hotelPaymentType === "deposit") {
-      await ensurePaidHotelBooking(requestId);
-    }
+    await confirmBooking(requestId);
+    await ensurePaidHotelBooking(requestId);
 
     try {
       const { notifyPaymentReceived, notifyAdminPaidRequest } = await import(

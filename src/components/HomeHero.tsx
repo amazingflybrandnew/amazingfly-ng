@@ -119,8 +119,15 @@ export function HomeHero() {
       void navigate({ to: "/flights" });
       return;
     }
-    if (selected?.slug === "hotels" || selected?.slug === "visa-hotel-reservation") {
+    if (selected?.slug === "hotels") {
       void navigate({ to: "/hotels" });
+      return;
+    }
+    if (selected?.slug === "visa-hotel-reservation") {
+      void navigate({
+        to: "/visa-hotel-reservation",
+        search: { from: origin, to: destination },
+      });
       return;
     }
 
