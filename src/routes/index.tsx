@@ -16,6 +16,8 @@ import { HomeHero } from "@/components/HomeHero";
 import { FeaturedServicesCarousel } from "@/components/FeaturedServicesCarousel";
 import { SearchBookTravel } from "@/components/SearchBookTravel";
 import { SAMPLE_FEATURED_SERVICES } from "@/lib/featured-services";
+import { FlightSearch } from "@/components/FlightSearch";
+import { HotelSearch } from "@/components/HotelSearch";
 
 import { Disclaimer } from "@/components/PageParts";
 import { services, getService } from "@/data/services";
