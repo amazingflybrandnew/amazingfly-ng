@@ -21,6 +21,7 @@ const FALLBACK_IMAGE_BY_PATH: Record<string, string> = {
   "/services/visa-assistance": visaImage,
   "/flights": flightsImage,
   "/hotels": hotelsImage,
+  "/visa-hotel-reservation": hotelsImage,
 };
 
 /**
@@ -84,6 +85,16 @@ export const SAMPLE_FEATURED_SERVICES: FeaturedService[] = [
     image_url: hotelsImage,
     link_path: "/hotels",
     display_order: 5,
+    is_active: true,
+  },
+  {
+    id: "visa-hotel-reservation",
+    title: "Visa Hotel Reservation",
+    description:
+      "Get a genuine supplier-backed refundable hotel reservation and visa-ready confirmation for your application.",
+    image_url: hotelsImage,
+    link_path: "/visa-hotel-reservation",
+    display_order: 6,
     is_active: true,
   },
 ];
