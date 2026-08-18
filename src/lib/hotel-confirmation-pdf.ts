@@ -62,6 +62,7 @@ function wrapText(value: string, fontSize: number, maxWidth = CONTENT_WIDTH): st
       }
       continue;
     }
+
     const candidate = line ? `${line} ${word}` : word;
     if (candidate.length > maxChars) {
       if (line) lines.push(line);
@@ -70,6 +71,7 @@ function wrapText(value: string, fontSize: number, maxWidth = CONTENT_WIDTH): st
       line = candidate;
     }
   }
+
   if (line) lines.push(line);
   return lines;
 }
@@ -150,25 +152,37 @@ function addSectionTitle(pages: PdfPage[], title: string) {
 function addRow(pages: PdfPage[], label: string, value: string | null | undefined) {
   const clean = value?.trim();
   if (!clean) return;
+
   const labelWidth = 145;
   const lines = wrapText(clean, 10, CONTENT_WIDTH - labelWidth - 12);
   const height = Math.max(26, lines.length * 14 + 10);
   const page = ensureSpace(pages, height);
+
   addText(page, label, MARGIN, page.cursorY, 9, "F2", MUTED);
   lines.forEach((line, index) => {
     addText(page, line, MARGIN + labelWidth, page.cursorY - index * 14, 10, "F1", TEXT);
   });
-  addLine(page, MARGIN, page.cursorY - height + 8, MARGIN + CONTENT_WIDTH, page.cursorY - height + 8, LIGHT, 0.8);
+  addLine(
+    page,
+    MARGIN,
+    page.cursorY - height + 8,
+    MARGIN + CONTENT_WIDTH,
+    page.cursorY - height + 8,
+    LIGHT,
+    0.8,
+  );
   page.cursorY -= height;
 }
 
 function addParagraph(pages: PdfPage[], text: string, color: PdfColor = TEXT) {
   const lines = wrapText(text, 9.5);
   let index = 0;
+
   while (index < lines.length) {
     const page = ensureSpace(pages, 24);
     const availableLines = Math.max(1, Math.floor((page.cursorY - BOTTOM_LIMIT) / 14));
     const chunk = lines.slice(index, index + availableLines);
+
     chunk.forEach((line, lineIndex) => {
       addText(page, line, MARGIN, page.cursorY - lineIndex * 14, 9.5, "F1", color);
     });
@@ -193,6 +207,7 @@ function date(value: string | null): string | null {
   if (!value) return null;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
+
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -204,6 +219,7 @@ function dateTime(value: string | null): string | null {
   if (!value) return null;
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
+
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -237,17 +253,30 @@ function buildPdfBytes(pages: PdfPage[]): Uint8Array {
   const pageKids = pages.map((_, index) => `${firstPageId + index * 2} 0 R`).join(" ");
   objects[1] = `<< /Type /Catalog /Pages 2 0 R >>`;
   objects[2] = `<< /Type /Pages /Kids [${pageKids}] /Count ${pageCount} >>`;
-  objects[fontRegularId] = `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`;
-  objects[fontBoldId] = `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`;
+  objects[fontRegularId] =
+    `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`;
+  objects[fontBoldId] =
+    `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`;
 
   pages.forEach((page, index) => {
     const pageId = firstPageId + index * 2;
     const contentId = pageId + 1;
+
     addLine(page, MARGIN, 43, PAGE_WIDTH - MARGIN, 43, LIGHT, 0.8);
     addText(page, "Amazingfly Travels | Amazingfly.ng", MARGIN, 28, 8, "F1", MUTED);
-    addText(page, `Page ${index + 1} of ${pageCount}`, PAGE_WIDTH - MARGIN - 62, 28, 8, "F1", MUTED);
+    addText(
+      page,
+      `Page ${index + 1} of ${pageCount}`,
+      PAGE_WIDTH - MARGIN - 62,
+      28,
+      8,
+      "F1",
+      MUTED,
+    );
+
     const stream = page.commands.join("\n");
-    objects[pageId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfNumber(PAGE_WIDTH)} ${pdfNumber(PAGE_HEIGHT)}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`;
+    objects[pageId] =
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfNumber(PAGE_WIDTH)} ${pdfNumber(PAGE_HEIGHT)}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`;
     objects[contentId] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
   });
 
@@ -278,15 +307,16 @@ export function createHotelConfirmationPdf(
 ): { bytes: Uint8Array; filename: string } {
   const review = confirmation.review;
   const hotel = review.hotel;
+
   if (review.kind !== "hotel" || !hotel || review.bookingStatus !== "confirmed") {
     throw new Error("A confirmed hotel booking is required to generate this document.");
   }
 
   const pages: PdfPage[] = [makePage()];
-  const paidTransaction =
-    review.transaction?.status === "successful" ? review.transaction : review.transaction;
-  const amount = paidTransaction?.amount ?? review.amount;
-  const currency = paidTransaction?.currency ?? review.currency;
+  const transaction = review.transaction;
+  const amount = transaction?.amount ?? review.amount;
+  const currency = transaction?.currency ?? review.currency;
+  const guestCount = hotel.guests ?? review.passengerCount ?? 1;
   const supplierReference =
     confirmation.hotelSupplierReferences?.providerReference ??
     confirmation.hotelSupplierReferences?.orderId ??
@@ -296,9 +326,9 @@ export function createHotelConfirmationPdf(
   addRow(pages, "Amazingfly reference", review.reference || review.requestId);
   addRow(pages, "Booking status", "Confirmed");
   addRow(pages, "Supplier reference", supplierReference);
-  addRow(pages, "Transaction reference", review.transaction?.transaction_reference ?? null);
+  addRow(pages, "Transaction reference", transaction?.transaction_reference ?? null);
   addRow(pages, "Booking amount", money(amount, currency));
-  addRow(pages, "Payment date", dateTime(review.transaction?.paid_at ?? null));
+  addRow(pages, "Payment date", dateTime(transaction?.paid_at ?? null));
   addRow(pages, "Booking contact", confirmation.contactName || null);
   addRow(pages, "Contact email", confirmation.contactEmail || null);
 
@@ -311,14 +341,16 @@ export function createHotelConfirmationPdf(
   addRow(
     pages,
     "Stay",
-    hotel.nights != null ? `${hotel.nights} night${hotel.nights === 1 ? "" : "s"}` : null,
+    hotel.nights != null
+      ? `${hotel.nights} night${hotel.nights === 1 ? "" : "s"}`
+      : null,
   );
   addRow(pages, "Room type", hotel.roomType);
   addRow(pages, "Board basis", hotel.boardType);
   addRow(
     pages,
     "Guests / rooms",
-    `${hotel.guests ?? review.passengerCount || 1} guest(s)${hotel.rooms ? ` / ${hotel.rooms} room(s)` : ""}`,
+    `${guestCount} guest(s)${hotel.rooms ? ` / ${hotel.rooms} room(s)` : ""}`,
   );
 
   if (confirmation.passengers.length > 0) {
@@ -356,7 +388,11 @@ export function createHotelConfirmationPdf(
     "Keep this confirmation with your travel records. Hotel check-in requirements, local taxes, deposits, incidental charges and identification requirements may be set directly by the property. This document confirms the booking details held by Amazingfly Travels; it does not replace any supplier voucher where the accommodation provider issues one separately.",
   );
 
-  const reference = (review.reference || review.requestId).replace(/[^a-zA-Z0-9_-]+/g, "-");
+  const reference = (review.reference || review.requestId).replace(
+    /[^a-zA-Z0-9_-]+/g,
+    "-",
+  );
+
   return {
     bytes: buildPdfBytes(pages),
     filename: `Amazingfly-Hotel-Confirmation-${reference}.pdf`,
@@ -368,10 +404,12 @@ export function downloadHotelConfirmationPdf(
   titleLabels: Record<string, string>,
 ) {
   if (typeof window === "undefined" || typeof document === "undefined") return;
+
   const { bytes, filename } = createHotelConfirmationPdf(confirmation, titleLabels);
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
+
   anchor.href = url;
   anchor.download = filename;
   anchor.rel = "noopener";
