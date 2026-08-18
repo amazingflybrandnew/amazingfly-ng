@@ -14,9 +14,19 @@ async function admin() {
 
 export type BookingPassengerRecord = BookingPassenger & { id: string };
 
+export type BookingPassengerSummary = Pick<
+  BookingPassengerRecord,
+  "id" | "title" | "firstName" | "middleName" | "lastName" | "nationality"
+>;
+
 export type PassengerBundle = {
   contact: BookingContact | null;
   passengers: BookingPassengerRecord[];
+};
+
+export type PassengerSummaryBundle = {
+  contact: BookingContact | null;
+  passengers: BookingPassengerSummary[];
 };
 
 function toPassenger(row: Record<string, unknown>): BookingPassengerRecord {
@@ -35,6 +45,17 @@ function toPassenger(row: Record<string, unknown>): BookingPassengerRecord {
   };
 }
 
+function toPassengerSummary(row: Record<string, unknown>): BookingPassengerSummary {
+  return {
+    id: String(row["id"]),
+    title: (String(row["title"] ?? "mr") as BookingPassenger["title"]) ?? "mr",
+    firstName: String(row["first_name"] ?? ""),
+    middleName: row["middle_name"] ? String(row["middle_name"]) : "",
+    lastName: String(row["last_name"] ?? ""),
+    nationality: String(row["nationality"] ?? ""),
+  };
+}
+
 /** Confirms the request belongs to the signed-in customer. */
 async function ownedRequest(user: SessionUser, requestId: string) {
   const supabase = await admin();
@@ -45,6 +66,15 @@ async function ownedRequest(user: SessionUser, requestId: string) {
     .eq("user_id", user.id)
     .maybeSingle();
   return (data as Record<string, unknown> | null) ?? null;
+}
+
+function contactFromRequest(user: SessionUser, request: Record<string, unknown>): BookingContact {
+  return {
+    fullName: String(request["full_name"] ?? user.full_name ?? ""),
+    email: String(request["email"] ?? user.email ?? ""),
+    phone: String(request["phone"] ?? user.phone ?? "").replace(/^—$/, ""),
+    country: String(request["contact_country"] ?? user.nationality ?? ""),
+  };
 }
 
 export async function loadPassengers(
@@ -63,16 +93,36 @@ export async function loadPassengers(
 
   if (error) console.error("[passengers] load", error.message);
 
-  const contact: BookingContact = {
-    fullName: String(request["full_name"] ?? user.full_name ?? ""),
-    email: String(request["email"] ?? user.email ?? ""),
-    phone: String(request["phone"] ?? user.phone ?? "").replace(/^—$/, ""),
-    country: String(request["contact_country"] ?? user.nationality ?? ""),
+  return {
+    contact: contactFromRequest(user, request),
+    passengers: ((data ?? []) as Record<string, unknown>[]).map(toPassenger),
   };
+}
+
+/**
+ * Loads the customer-facing traveller fields only.
+ * Passport numbers, dates of birth, passport expiry dates and gender never
+ * cross the confirmation-page/PDF data boundary.
+ */
+export async function loadPassengerSummaries(
+  user: SessionUser,
+  requestId: string,
+): Promise<PassengerSummaryBundle | null> {
+  const request = await ownedRequest(user, requestId);
+  if (!request) return null;
+
+  const supabase = await admin();
+  const { data, error } = await supabase
+    .from("booking_passengers")
+    .select("id, title, first_name, middle_name, last_name, nationality")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: true });
+
+  if (error) console.error("[passengers] summary load", error.message);
 
   return {
-    contact,
-    passengers: ((data ?? []) as Record<string, unknown>[]).map(toPassenger),
+    contact: contactFromRequest(user, request),
+    passengers: ((data ?? []) as Record<string, unknown>[]).map(toPassengerSummary),
   };
 }
 
@@ -149,7 +199,6 @@ export async function savePassengers(
       message: `We could not save the traveller details (${error.message}).`,
     };
   }
-
 
   await supabase.from("request_updates").insert({
     request_id: input.requestId,

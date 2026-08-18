@@ -1,9 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   BedDouble,
   CheckCircle2,
+  Download,
   Loader2,
   Plane,
   ReceiptText,
@@ -14,8 +15,9 @@ import {
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
-import { TITLE_LABELS } from "@/lib/booking/passenger.types";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
+import { TITLE_LABELS } from "@/lib/booking/passenger.types";
+import { downloadHotelConfirmationPdf } from "@/lib/hotel-confirmation-pdf";
 import { formatMoney } from "@/lib/payment-status";
 import { getBookingConfirmation } from "@/lib/payment/verify.functions";
 import { formatDate } from "@/lib/request-status";
@@ -82,10 +84,22 @@ function ConfirmationPage() {
   const paid = review?.transaction?.status === "successful" ? review.transaction : null;
   const paidHotelBookingFailed =
     review?.kind === "hotel" && Boolean(paid) && review.bookingStatus === "failed";
-  const canCancelHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
+  const canManageConfirmedHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
+  const canDownloadHotelConfirmation = Boolean(data && canManageConfirmedHotel);
+
+  const downloadConfirmation = () => {
+    if (
+      !data ||
+      data.review.kind !== "hotel" ||
+      data.review.bookingStatus !== "confirmed"
+    ) {
+      return;
+    }
+    downloadHotelConfirmationPdf(data);
+  };
 
   const requestCancellation = () => {
-    if (!canCancelHotel || cancellation.isPending) return;
+    if (!canManageConfirmedHotel || cancellation.isPending) return;
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
         "Cancel this confirmed hotel booking? The supplier cancellation terms will apply and this action cannot be undone here.",
@@ -185,7 +199,10 @@ function ConfirmationPage() {
                   <Row label="Departure" value={dateTime(review.flight?.departureAt ?? null)} />
                   <Row label="Arrival" value={dateTime(review.flight?.arrivalAt ?? null)} />
                   <Row label="Cabin" value={review.flight?.cabinClass ?? "—"} />
-                  <Row label="Airline reference (PNR)" value={review.pnr ?? "Pending from airline"} />
+                  <Row
+                    label="Airline reference (PNR)"
+                    value={review.pnr ?? "Pending from airline"}
+                  />
                   <Row label="Airline order ID" value={review.duffelOrderId ?? "—"} />
                   <Row label="Ticket number" value={review.ticketNumber ?? "Being issued"} />
                 </div>
@@ -219,23 +236,52 @@ function ConfirmationPage() {
                       Visible only while the RateHawk integration is running in sandbox.
                     </p>
                     <div className="mt-3">
-                      <Row label="Partner order ID" value={data.rateHawkDiagnostics.partnerOrderId || "—"} />
-                      <Row label="RateHawk order ID" value={data.rateHawkDiagnostics.orderId ?? "—"} />
-                      <Row label="Provider status" value={(data.rateHawkDiagnostics.providerStatus ?? data.rateHawkDiagnostics.status) || "—"} />
-                      <Row label="Booking attempts" value={`${data.rateHawkDiagnostics.attempts}`} />
+                      <Row
+                        label="Partner order ID"
+                        value={data.rateHawkDiagnostics.partnerOrderId || "—"}
+                      />
+                      <Row
+                        label="RateHawk order ID"
+                        value={data.rateHawkDiagnostics.orderId ?? "—"}
+                      />
+                      <Row
+                        label="Provider status"
+                        value={
+                          (data.rateHawkDiagnostics.providerStatus ??
+                            data.rateHawkDiagnostics.status) || "—"
+                        }
+                      />
+                      <Row
+                        label="Booking attempts"
+                        value={`${data.rateHawkDiagnostics.attempts}`}
+                      />
                       {data.rateHawkDiagnostics.errorMessage ? (
-                        <Row label="Provider error" value={data.rateHawkDiagnostics.errorMessage} />
+                        <Row
+                          label="Provider error"
+                          value={data.rateHawkDiagnostics.errorMessage}
+                        />
                       ) : null}
                     </div>
                   </div>
                 ) : null}
 
-                {canCancelHotel ? (
+                {canManageConfirmedHotel ? (
                   <div className="mt-5 border-t border-white/60 pt-5">
+                    {canDownloadHotelConfirmation ? (
+                      <Button
+                        type="button"
+                        className="btn-gradient text-white"
+                        onClick={downloadConfirmation}
+                      >
+                        <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Download confirmation PDF
+                      </Button>
+                    ) : null}
+
                     <Button
                       type="button"
                       variant="secondary"
-                      className="text-coral"
+                      className="mt-3 text-coral"
                       disabled={cancellation.isPending}
                       onClick={requestCancellation}
                     >
@@ -247,7 +293,8 @@ function ConfirmationPage() {
                       Cancel hotel booking
                     </Button>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Supplier cancellation terms and any applicable penalties still apply. Payment refunds, when due, are handled separately.
+                      Supplier cancellation terms and any applicable penalties still apply. Payment
+                      refunds, when due, are handled separately.
                     </p>
                   </div>
                 ) : null}
