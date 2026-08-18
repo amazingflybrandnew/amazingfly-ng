@@ -317,17 +317,25 @@ export function createHotelConfirmationPdf(
   const amount = transaction?.amount ?? review.amount;
   const currency = transaction?.currency ?? review.currency;
   const guestCount = hotel.guests ?? review.passengerCount ?? 1;
-  const supplierReference =
-    confirmation.hotelSupplierReferences?.providerReference ??
-    confirmation.hotelSupplierReferences?.orderId ??
-    review.pnr;
+  const providerReference = confirmation.hotelSupplierReferences?.providerReference ?? null;
+  const orderId = confirmation.hotelSupplierReferences?.orderId ?? null;
+  const bookingReference = review.pnr;
+  const amountLabel = transaction?.status === "successful" ? "Amount paid" : "Booking amount";
 
   addSectionTitle(pages, "Confirmation summary");
   addRow(pages, "Amazingfly reference", review.reference || review.requestId);
   addRow(pages, "Booking status", "Confirmed");
-  addRow(pages, "Supplier reference", supplierReference);
+  addRow(pages, "Hotel supplier reference", providerReference);
+  addRow(pages, "RateHawk order ID", orderId && orderId !== providerReference ? orderId : null);
+  addRow(
+    pages,
+    "Booking reference",
+    bookingReference && bookingReference !== providerReference && bookingReference !== orderId
+      ? bookingReference
+      : null,
+  );
   addRow(pages, "Transaction reference", transaction?.transaction_reference ?? null);
-  addRow(pages, "Booking amount", money(amount, currency));
+  addRow(pages, amountLabel, money(amount, currency));
   addRow(pages, "Payment date", dateTime(transaction?.paid_at ?? null));
   addRow(pages, "Booking contact", confirmation.contactName || null);
   addRow(pages, "Contact email", confirmation.contactEmail || null);
@@ -347,11 +355,8 @@ export function createHotelConfirmationPdf(
   );
   addRow(pages, "Room type", hotel.roomType);
   addRow(pages, "Board basis", hotel.boardType);
-  addRow(
-    pages,
-    "Guests / rooms",
-    `${guestCount} guest(s)${hotel.rooms ? ` / ${hotel.rooms} room(s)` : ""}`,
-  );
+  addRow(pages, "Guests", `${guestCount}`);
+  addRow(pages, "Rooms", hotel.rooms != null ? `${hotel.rooms}` : null);
 
   if (confirmation.passengers.length > 0) {
     addSectionTitle(pages, "Travellers");
