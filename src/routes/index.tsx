@@ -16,8 +16,6 @@ import { HomeHero } from "@/components/HomeHero";
 import { FeaturedServicesCarousel } from "@/components/FeaturedServicesCarousel";
 import { SearchBookTravel } from "@/components/SearchBookTravel";
 import { SAMPLE_FEATURED_SERVICES } from "@/lib/featured-services";
-import { FlightSearch } from "@/components/FlightSearch";
-import { HotelSearch } from "@/components/HotelSearch";
 
 import { Disclaimer } from "@/components/PageParts";
 import { services, getService } from "@/data/services";
@@ -118,42 +116,6 @@ function Home() {
       />
 
       <SearchBookTravel />
-
-      <section className="relative overflow-hidden bg-[linear-gradient(135deg,_#edf6ff_0%,_#dfeeff_52%,_#fff1e6_100%)]">
-        <div className="pointer-events-none absolute -right-24 top-8 h-72 w-72 rounded-full bg-[#1268d8]/12 blur-3xl" />
-        <div className="container-page section-y relative">
-          <div className="max-w-2xl">
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#0756c7]">Flights</p>
-            <h2 className="mt-4 text-3xl font-extrabold text-[#123c73] md:text-4xl">Find Your Perfect Flight</h2>
-            <p className="mt-5 text-base leading-relaxed text-[#536f8c]">
-              Search live routes, fares and cabins, select your preferred flight and continue into
-              the dedicated passenger and payment flow.
-            </p>
-          </div>
-          <div className="mt-10 rounded-[2rem] border border-white/90 bg-white/88 p-3 shadow-[0_28px_60px_-42px_rgba(7,86,199,0.65)] backdrop-blur-lg md:p-5">
-            <FlightSearch compact />
-          </div>
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden bg-[linear-gradient(135deg,_#fff8ef_0%,_#ffeddd_50%,_#eef7ff_100%)]">
-        <div className="pointer-events-none absolute -left-24 bottom-4 h-72 w-72 rounded-full bg-[#ff651f]/12 blur-3xl" />
-        <div className="container-page section-y relative">
-          <div className="max-w-2xl">
-            <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#e95516]">Hotels</p>
-            <h2 className="mt-4 text-3xl font-extrabold text-[#123c73] md:text-4xl">Find Your Perfect Stay</h2>
-            <p className="mt-5 text-base leading-relaxed text-[#536f8c]">
-              Search live hotels by destination and dates, choose an available room and continue into
-              the dedicated hotel booking and payment flow.
-            </p>
-          </div>
-          <div className="mt-10 rounded-[2rem] border border-white/90 bg-white/90 p-3 shadow-[0_28px_60px_-42px_rgba(233,85,22,0.55)] backdrop-blur-lg md:p-5">
-            <HotelSearch compact />
-          </div>
-        </div>
-      </section>
-
-
 
       <section className="bg-[#f7fbff]">
         <div className="container-page section-y">
