@@ -4,7 +4,7 @@ export type StayInputShape = {
   destination: string;
   checkInDate: string;
   checkOutDate: string;
-  guests: { adults: number; children: number; childAges?: number[] };
+  guests: { adults: number; children: number; childAges?: number[] | undefined };
   rooms: number;
   nationality?: string | undefined;
   currency?: string | undefined;
