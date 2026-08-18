@@ -270,9 +270,9 @@ function mapBookingFormPaymentTypes(
 
 export async function createBookingProcess(input: {
   bookHash: string;
-  requestId?: string | null;
-  userIp?: string;
-  certificationScenario?: CertificationScenario | null;
+  requestId?: string | null | undefined;
+  userIp?: string | undefined;
+  certificationScenario?: CertificationScenario | null | undefined;
 }): Promise<CreateBookingResult> {
   let lastError: unknown = null;
   let lastPartnerOrderId = "";
@@ -492,14 +492,14 @@ export async function checkBookingProcess(partnerOrderId: string): Promise<Check
 
 export async function runBookingSequence(input: {
   bookHash: string;
-  requestId?: string | null;
-  userIp?: string;
+  requestId?: string | null | undefined;
+  userIp?: string | undefined;
   email: string;
   phone: string;
   guests: BookingGuest[];
   paymentType: HotelBookingPaymentType;
   comment?: string;
-  certificationScenario?: CertificationScenario | null;
+  certificationScenario?: CertificationScenario | null | undefined;
 }): Promise<{ partnerOrderId: string; orderId: string; result: CheckBookingResult }> {
   const created = await createBookingProcess({
     bookHash: input.bookHash,
