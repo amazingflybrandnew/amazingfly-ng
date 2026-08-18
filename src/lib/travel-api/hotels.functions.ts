@@ -3,6 +3,18 @@ import { z } from "zod";
 import { toHotelRequest } from "./hotel-stay";
 import type { HotelResult, HotelSearchResponse, RoomResult } from "./hotel.types";
 
+const HOTEL_INFO_TIMEOUT_MS = 5_000;
+const HOTEL_ROOMS_TIMEOUT_MS = 18_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(message)), timeoutMs);
+    }),
+  ]);
+}
+
 const guestsInput = z
   .object({
     adults: z.number().int().min(1).max(12),
@@ -67,10 +79,21 @@ export const getHotelStayDetails = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<HotelDetailsPayload> => {
     const { getHotelDetails, getHotelRooms } = await import("./hotels.server");
     try {
-      const [hotel, rooms] = await Promise.all([
+      // Room availability is the critical response for this action. Do not let
+      // the optional static hotel-info request hold the whole UI open forever.
+      const hotelPromise = withTimeout(
         getHotelDetails(data.hotelId),
-        getHotelRooms(data.hotelId, toHotelRequest(data.stay)).catch(() => [] as RoomResult[]),
-      ]);
+        HOTEL_INFO_TIMEOUT_MS,
+        "Hotel information took too long to load.",
+      ).catch(() => null);
+
+      const rooms = await withTimeout(
+        getHotelRooms(data.hotelId, toHotelRequest(data.stay)),
+        HOTEL_ROOMS_TIMEOUT_MS,
+        "Room availability is taking too long. Please try this hotel again or choose another hotel.",
+      );
+
+      const hotel = await hotelPromise;
       return { ok: true, hotel, rooms };
     } catch (error) {
       console.error("[Hotels] details failed", error);
