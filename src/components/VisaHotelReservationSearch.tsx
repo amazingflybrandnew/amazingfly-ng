@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/select";
 import { createVisaHotelReservationRequest } from "@/lib/visa-hotel-reservation.functions";
 import {
-  getHotelStayDetails,
   prebookHotelStayRate,
   searchHotelStays,
 } from "@/lib/travel-api/hotels.functions";
@@ -83,7 +82,6 @@ export function VisaHotelReservationSearch({
 }) {
   const navigate = useNavigate();
   const searchHotels = useServerFn(searchHotelStays);
-  const hotelDetails = useServerFn(getHotelStayDetails);
   const prebookRate = useServerFn(prebookHotelStayRate);
   const createRequest = useServerFn(createVisaHotelReservationRequest);
 
@@ -111,19 +109,17 @@ export function VisaHotelReservationSearch({
     },
   });
 
-  const detailsMutation = useMutation({
-    mutationFn: async (hotel: HotelResult) => {
-      if (!submittedStay) throw new Error("Please search for a stay first.");
-      const result = await hotelDetails({ data: { hotelId: hotel.hotelId, stay: submittedStay } });
-      return { hotel, result };
-    },
-    onSuccess: ({ hotel, result }) => {
-      setSelectedHotel(hotel);
-      setSelectedRoom(null);
-      setConfirmedRoom(null);
-      setActionError(result.ok ? null : result.error);
-    },
-  });
+  const openVisaRooms = (hotel: HotelResult) => {
+    setSelectedHotel(hotel);
+    setSelectedRoom(null);
+    setConfirmedRoom(null);
+    const eligible = hotel.rooms.filter(eligibleVisaRoom);
+    setActionError(
+      eligible.length > 0
+        ? null
+        : "We did not find a returned room at this hotel that is both refundable and payable at the property without a card guarantee. Please choose another hotel.",
+    );
+  };
 
   const prebookMutation = useMutation({
     mutationFn: async ({ hotel, room }: { hotel: HotelResult; room: RoomResult }) => {
@@ -152,6 +148,9 @@ export function VisaHotelReservationSearch({
       setSelectedRoom(result.room);
       setConfirmedRoom(result.room);
       setActionError(null);
+    },
+    onError: (error) => {
+      setActionError(error instanceof Error ? error.message : "We could not confirm this rate.");
     },
   });
 
@@ -246,10 +245,9 @@ export function VisaHotelReservationSearch({
     () => (searchMutation.data?.ok ? searchMutation.data.results : []),
     [searchMutation.data],
   );
-  const details = detailsMutation.data?.result;
   const visaRooms = useMemo(
-    () => (details?.ok ? details.rooms.filter(eligibleVisaRoom) : []),
-    [details],
+    () => (selectedHotel ? selectedHotel.rooms.filter(eligibleVisaRoom) : []),
+    [selectedHotel],
   );
   const selectedPayment = confirmedRoom ? eligiblePayment(confirmedRoom) : null;
 
@@ -376,7 +374,7 @@ export function VisaHotelReservationSearch({
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-orange">Step 2</p>
             <h2 className="mt-2 text-2xl font-extrabold text-navy">Choose a hotel</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Open a hotel to see only the live room rates that meet the visa-reservation rules.
+              Open a hotel to see only the room rates already returned by the live search that meet the visa-reservation rules.
             </p>
           </div>
           <div className="grid gap-5">
@@ -409,14 +407,9 @@ export function VisaHotelReservationSearch({
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={detailsMutation.isPending}
-                    onClick={() => detailsMutation.mutate(hotel)}
+                    onClick={() => openVisaRooms(hotel)}
                   >
-                    {detailsMutation.isPending && detailsMutation.variables?.hotelId === hotel.hotelId ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <BedDouble className="mr-2 h-4 w-4" />
-                    )}
+                    <BedDouble className="mr-2 h-4 w-4" />
                     See visa-suitable rooms
                   </Button>
                 </div>
@@ -426,7 +419,7 @@ export function VisaHotelReservationSearch({
         </section>
       ) : null}
 
-      {selectedHotel && details?.ok ? (
+      {selectedHotel ? (
         <section className="glass-card rounded-[2rem] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -440,7 +433,7 @@ export function VisaHotelReservationSearch({
 
           {visaRooms.length === 0 ? (
             <p className="mt-5 rounded-2xl bg-peach-tint p-4 text-sm text-navy">
-              We did not find a live room here that is both refundable and payable at the property without a card guarantee. Please choose another hotel.
+              We did not find a returned room here that is both refundable and payable at the property without a card guarantee. Please choose another hotel.
             </p>
           ) : (
             <div className="mt-6 grid gap-4">
