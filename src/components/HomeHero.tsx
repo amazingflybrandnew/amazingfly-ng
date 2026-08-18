@@ -39,6 +39,7 @@ const NEEDS = [
   { label: "Visa Application", slug: "visa-assistance" },
   { label: "Flight Booking", slug: "flights" },
   { label: "Hotel Booking", slug: "hotels" },
+  { label: "Visa Hotel Reservation", slug: "visa-hotel-reservation" },
   { label: "Travel Documents", slug: "proof-of-funds" },
 ];
 
@@ -120,6 +121,13 @@ export function HomeHero() {
     }
     if (selected?.slug === "hotels") {
       void navigate({ to: "/hotels" });
+      return;
+    }
+    if (selected?.slug === "visa-hotel-reservation") {
+      void navigate({
+        to: "/visa-hotel-reservation",
+        search: { from: origin, to: destination },
+      });
       return;
     }
 
