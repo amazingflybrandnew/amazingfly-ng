@@ -21,6 +21,14 @@ const MUTED: PdfColor = [0.42, 0.46, 0.52];
 const LIGHT: PdfColor = [0.95, 0.96, 0.98];
 const WHITE: PdfColor = [1, 1, 1];
 
+const PASSENGER_TITLE_LABELS: Record<string, string> = {
+  mr: "Mr",
+  ms: "Ms",
+  mrs: "Mrs",
+  miss: "Miss",
+  dr: "Dr",
+};
+
 function pdfNumber(value: number): string {
   return Number(value.toFixed(2)).toString();
 }
@@ -192,15 +200,11 @@ function addParagraph(pages: PdfPage[], text: string, color: PdfColor = TEXT) {
 }
 
 function money(amount: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${currency.toUpperCase()} ${amount.toFixed(2)}`;
-  }
+  const numeric = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${currency.toUpperCase()} ${numeric}`;
 }
 
 function date(value: string | null): string | null {
@@ -229,12 +233,9 @@ function dateTime(value: string | null): string | null {
   }).format(parsed);
 }
 
-function travellerName(
-  passenger: BookingConfirmation["passengers"][number],
-  titleLabels: Record<string, string>,
-): string {
+function travellerName(passenger: BookingConfirmation["passengers"][number]): string {
   return [
-    titleLabels[passenger.title] ?? passenger.title,
+    PASSENGER_TITLE_LABELS[passenger.title] ?? passenger.title,
     passenger.firstName,
     passenger.middleName,
     passenger.lastName,
@@ -303,7 +304,6 @@ function buildPdfBytes(pages: PdfPage[]): Uint8Array {
 
 export function createHotelConfirmationPdf(
   confirmation: BookingConfirmation,
-  titleLabels: Record<string, string>,
 ): { bytes: Uint8Array; filename: string } {
   const review = confirmation.review;
   const hotel = review.hotel;
@@ -356,7 +356,7 @@ export function createHotelConfirmationPdf(
   if (confirmation.passengers.length > 0) {
     addSectionTitle(pages, "Travellers");
     confirmation.passengers.forEach((passenger, index) => {
-      const name = travellerName(passenger, titleLabels);
+      const name = travellerName(passenger);
       addRow(
         pages,
         `Traveller ${index + 1}`,
@@ -399,13 +399,10 @@ export function createHotelConfirmationPdf(
   };
 }
 
-export function downloadHotelConfirmationPdf(
-  confirmation: BookingConfirmation,
-  titleLabels: Record<string, string>,
-) {
+export function downloadHotelConfirmationPdf(confirmation: BookingConfirmation) {
   if (typeof window === "undefined" || typeof document === "undefined") return;
 
-  const { bytes, filename } = createHotelConfirmationPdf(confirmation, titleLabels);
+  const { bytes, filename } = createHotelConfirmationPdf(confirmation);
   const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
