@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { Disclaimer, PageHero } from "@/components/PageParts";
@@ -31,6 +32,35 @@ export const Route = createFileRoute("/visa-hotel-reservation")({
 
 function VisaHotelReservationPage() {
   const search = Route.useSearch();
+  const [roomRevealMessage, setRoomRevealMessage] = useState("");
+
+  const revealRoomPanel = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    const button = target.closest("button");
+    if (!button?.textContent?.includes("See visa-suitable rooms")) return;
+
+    setRoomRevealMessage("Opening visa-suitable rooms…");
+
+    window.setTimeout(() => {
+      const headings = Array.from(document.querySelectorAll("h2"));
+      const roomHeading = headings.find((heading) =>
+        heading.textContent?.trim().startsWith("Eligible rooms at"),
+      );
+
+      if (!roomHeading) {
+        setRoomRevealMessage(
+          "The hotel was selected, but no room panel appeared. Please try another hotel.",
+        );
+        return;
+      }
+
+      roomHeading.setAttribute("tabindex", "-1");
+      roomHeading.scrollIntoView({ behavior: "smooth", block: "start" });
+      (roomHeading as HTMLElement).focus({ preventScroll: true });
+      setRoomRevealMessage("Visa-suitable room options are now open below.");
+    }, 80);
+  };
+
   return (
     <>
       <PageHero
@@ -38,7 +68,17 @@ function VisaHotelReservationPage() {
         title="Hotel reservation for your visa application"
         description="Choose a genuine live hotel reservation from eligible refundable pay-at-property rates. Amazingfly handles the reservation processing and documentation for a ₦15,000 service fee."
       />
-      <section className="container-page section-y">
+      <section className="container-page section-y" onClickCapture={revealRoomPanel}>
+        {roomRevealMessage ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mb-4 rounded-2xl border border-mint/30 bg-mint-tint/60 px-4 py-3 text-sm font-semibold text-navy"
+          >
+            {roomRevealMessage}
+          </div>
+        ) : null}
+
         <VisaHotelReservationSearch
           initialOrigin={search.from || "Nigeria"}
           initialDestination={search.to}
