@@ -3,6 +3,10 @@
  * Reads the existing service_requests row and prepares checkout data.
  */
 import type { SessionUser } from "../auth.server";
+import {
+  VISA_HOTEL_RESERVATION_CATEGORY,
+  isVisaHotelReservationServiceType,
+} from "../visa-hotel-reservation";
 import type { PaymentProvider, PaymentTransaction } from "./types";
 
 export type BookingReviewKind = "flight" | "hotel" | "other";
@@ -121,16 +125,24 @@ export async function loadBookingReview(
   const serviceType = String(row["service_type"] ?? "Travel service");
   const category = String(row["service_category"] ?? "").toLowerCase();
   const lowered = serviceType.toLowerCase();
+  const isVisaHotelReservation = category === VISA_HOTEL_RESERVATION_CATEGORY;
   const isFlight = category === "flights" || lowered.includes("flight");
-  const isHotel = category === "hotels" || lowered.includes("hotel");
+  const isHotel =
+    category === "hotels" || isVisaHotelReservation || lowered.includes("hotel");
   const kind: BookingReviewKind = isFlight ? "flight" : isHotel ? "hotel" : "other";
 
   const flightPrice = num(row["flight_price"]);
   const hotelPrice = num(row["hotel_price"]);
   const quoted = num(row["amount"]) ?? num(row["quoted_amount"]);
-  const amount = (isFlight ? flightPrice : isHotel ? hotelPrice : null) ?? quoted ?? 0;
-  const currency =
-    str(row["flight_currency"]) ?? str(row["hotel_currency"]) ?? str(row["currency"]) ?? "NGN";
+  const amount = isVisaHotelReservation
+    ? quoted ?? 0
+    : (isFlight ? flightPrice : isHotel ? hotelPrice : null) ?? quoted ?? 0;
+  const currency = isVisaHotelReservation
+    ? str(row["currency"]) ?? "NGN"
+    : str(row["flight_currency"]) ??
+      str(row["hotel_currency"]) ??
+      str(row["currency"]) ??
+      "NGN";
 
   const { listRequestTransactions } = await import("./transactions.server");
   const transactions = await listRequestTransactions(requestId);
@@ -213,7 +225,11 @@ export async function prepareCheckout(
   const review = await loadBookingReview(user, requestId);
   if (!review) return { ok: false, message: "We could not find that booking on your account." };
 
-  if (review.kind === "hotel" && review.hotel?.paymentType === "hotel") {
+  if (
+    review.kind === "hotel" &&
+    review.hotel?.paymentType === "hotel" &&
+    !isVisaHotelReservationServiceType(review.serviceType)
+  ) {
     return {
       ok: false,
       message: "This hotel rate is reserved directly and paid at the property; online payment is not required.",
