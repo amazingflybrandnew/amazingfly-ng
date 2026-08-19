@@ -35,15 +35,21 @@ const SUPPORTED_CURRENCIES = new Set(["USD", "EUR", "GBP", "AED", "PLN", "RUB"])
 const MAX_RATES_PER_HOTEL = 2;
 const MAX_HOTELS = 12;
 const PREBOOK_PRICE_INCREASE_PERCENT = 10;
+const SEARCH_TIMEOUT_MS = 30_000;
+const PREBOOK_TIMEOUT_MS = 60_000;
 
 function providerCurrency(requested: string | undefined): string {
   const code = (requested ?? "USD").toUpperCase();
   return SUPPORTED_CURRENCIES.has(code) ? code : "USD";
 }
 
-async function rateHawkFetch<T>(path: string, body: unknown): Promise<T | null> {
+async function rateHawkFetch<T>(
+  path: string,
+  body: unknown,
+  timeoutMs = SEARCH_TIMEOUT_MS,
+): Promise<T | null> {
   try {
-    return await ratehawkFetch<T>(`/api/b2b/v3${path}`, body);
+    return await ratehawkFetch<T>(`/api/b2b/v3${path}`, body, { timeoutMs });
   } catch (error) {
     if (error instanceof RateHawkAuthError) {
       throw new HotelApiNotConfiguredError(["RATEHAWK_KEY_ID", "RATEHAWK_API_TOKEN"]);
@@ -54,6 +60,9 @@ async function rateHawkFetch<T>(path: string, body: unknown): Promise<T | null> 
       }
       if (error.status === 429) {
         throw new HotelApiError("Too many hotel searches right now. Please retry shortly.");
+      }
+      if (error.code === "timeout" || error.status === 408) {
+        throw new HotelApiError("The hotel provider took too long to respond. Please try again.");
       }
       throw new HotelApiError(friendlyProviderError(error.code, error.status));
     }
@@ -97,6 +106,11 @@ function assertValidStay(request: HotelSearchRequest): number {
   if (Date.parse(request.checkInDate) < today.getTime()) {
     throw new HotelApiError("Check-in date cannot be in the past.");
   }
+  if (request.rooms !== 1) {
+    throw new HotelApiError(
+      "Amazingfly currently supports one room per online ETG booking. Please search for one room.",
+    );
+  }
   const expectedChildren = request.guests.children ?? 0;
   const childAges = request.guests.childAges ?? [];
   if (childAges.length !== expectedChildren) {
@@ -105,20 +119,31 @@ function assertValidStay(request: HotelSearchRequest): number {
   return nights;
 }
 
-/** RateHawk expects guests grouped per room. */
+/** RateHawk guests are grouped per room. Certification scope is one room. */
 function buildGuests(request: HotelSearchRequest) {
-  const rooms = Math.max(1, request.rooms || 1);
-  const adults = Math.max(1, request.guests.adults || 1);
-  const childAges = request.guests.childAges ?? [];
-  const perRoomAdults = Math.max(1, Math.ceil(adults / rooms));
-
-  return Array.from({ length: rooms }, (_, index) => ({
-    adults: index === rooms - 1 ? Math.max(1, adults - perRoomAdults * (rooms - 1)) : perRoomAdults,
-    children: index === 0 ? childAges : [],
-  }));
+  return [
+    {
+      adults: Math.max(1, request.guests.adults || 1),
+      children: request.guests.childAges ?? [],
+    },
+  ];
 }
 
 type RhDailyPrice = { amount?: string; currency_code?: string };
+
+type RhCancellationPeriod = {
+  start_at?: string | null;
+  end_at?: string | null;
+  amount_show?: string;
+  amount_charge?: string;
+};
+
+type RhTax = {
+  name?: string;
+  included_by_supplier?: boolean;
+  amount?: string;
+  currency_code?: string;
+};
 
 type RhPaymentType = {
   type?: string;
@@ -130,15 +155,20 @@ type RhPaymentType = {
   is_need_cvc?: boolean;
   cancellation_penalties?: {
     free_cancellation_before?: string | null;
-    policies?: { start_at?: string | null; end_at?: string | null; amount_show?: string }[];
+    policies?: RhCancellationPeriod[];
   };
+  tax_data?: { taxes?: RhTax[] };
 };
 
 type RhRate = {
   match_hash?: string;
   book_hash?: string;
   room_name?: string;
-  meal?: string;
+  meal_data?: {
+    value?: string;
+    has_breakfast?: boolean;
+    no_child_meal?: boolean;
+  };
   room_data_info?: { types?: { bedding_type?: string } };
   rg_ext?: { capacity?: number; bedding?: number; class?: number };
   payment_options?: { payment_types?: RhPaymentType[] };
@@ -171,10 +201,6 @@ function parseHotelRef(value: string): HotelRef {
   return { id: trimmed };
 }
 
-function refKey(ref: HotelRef): string {
-  return ref.hid ? `hid:${ref.hid}` : ref.id ?? "";
-}
-
 function serpRef(hotel: RhSerpHotel): string {
   return hotel.hid ? `hid:${hotel.hid}` : hotel.id ?? "";
 }
@@ -193,6 +219,48 @@ function numberOrZero(value: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function mapCancellation(
+  option: RhPaymentType | undefined,
+  fallbackCurrency: string,
+): CancellationPolicy {
+  const penalties = option?.cancellation_penalties;
+  const freeUntil = penalties?.free_cancellation_before ?? null;
+  const showCurrency = option?.show_currency_code ?? option?.currency_code ?? fallbackCurrency;
+  const chargeCurrency = option?.currency_code ?? fallbackCurrency;
+  const policyPeriods = (penalties?.policies ?? []).map((policy) => ({
+    startAt: policy.start_at ?? null,
+    endAt: policy.end_at ?? null,
+    amount: numberOrZero(policy.amount_show ?? policy.amount_charge),
+    currency: policy.amount_show !== undefined ? showCurrency : chargeCurrency,
+  }));
+
+  const hasZeroPenaltyWindow = policyPeriods.some((policy) => policy.amount === 0);
+  const refundable = Boolean(freeUntil) || hasZeroPenaltyWindow;
+  const description = freeUntil
+    ? `Free cancellation until ${freeUntil}`
+    : refundable
+      ? "Refundable subject to the listed cancellation periods"
+      : "Non-refundable rate";
+
+  return {
+    refundable,
+    freeCancellationUntil: freeUntil,
+    description,
+    penalties: policyPeriods,
+  };
+}
+
+function mapTaxes(option: RhPaymentType | undefined, fallbackCurrency: string) {
+  return (option?.tax_data?.taxes ?? [])
+    .map((tax) => ({
+      name: tax.name ?? "tax",
+      includedBySupplier: tax.included_by_supplier === true,
+      amount: numberOrZero(tax.amount),
+      currency: tax.currency_code ?? option?.show_currency_code ?? fallbackCurrency,
+    }))
+    .filter((tax) => tax.amount >= 0 && tax.currency.length === 3);
+}
+
 function mapPaymentOptions(rate: RhRate, fallbackCurrency: string): HotelPaymentOption[] {
   const mapped: HotelPaymentOption[] = [];
   for (const option of rate.payment_options?.payment_types ?? []) {
@@ -207,6 +275,8 @@ function mapPaymentOptions(rate: RhRate, fallbackCurrency: string): HotelPayment
       showCurrency,
       requiresCard: Boolean(option.is_need_credit_card_data),
       requiresCvc: Boolean(option.is_need_cvc),
+      cancellationPolicy: mapCancellation(option, fallbackCurrency),
+      taxes: mapTaxes(option, fallbackCurrency),
     });
   }
   return mapped;
@@ -219,31 +289,46 @@ function ratePrice(rate: RhRate, fallbackCurrency: string): { price: number; cur
   return { price: amount, currency };
 }
 
-function mapCancellation(rate: RhRate): CancellationPolicy {
-  const penalties = rate.payment_options?.payment_types?.[0]?.cancellation_penalties;
-  const freeUntil = penalties?.free_cancellation_before ?? null;
-  return {
-    refundable: Boolean(freeUntil),
-    freeCancellationUntil: freeUntil,
-    description: freeUntil ? `Free cancellation until ${freeUntil}` : "Non-refundable rate",
-  };
+function mealLabel(value: string | undefined): string | null {
+  if (!value || value === "nomeal") return "Room only";
+  return humanise(value);
 }
 
 function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
   const { price, currency } = ratePrice(rate, fallbackCurrency);
   const name = rate.room_name ?? "Standard room";
+  const paymentOptions = mapPaymentOptions(rate, fallbackCurrency);
+  const primaryCancellation =
+    paymentOptions[0]?.cancellationPolicy ??
+    ({
+      refundable: false,
+      freeCancellationUntil: null,
+      description: "Non-refundable rate",
+      penalties: [],
+    } satisfies CancellationPolicy);
+  const boardType = mealLabel(rate.meal_data?.value);
+  const nonBookingIdentity = [
+    name,
+    boardType ?? "room-only",
+    price.toFixed(2),
+    currency,
+    rate.room_data_info?.types?.bedding_type ?? "bed-unspecified",
+    String(rate.rg_ext?.capacity ?? 2),
+  ].join("|");
+
   return {
-    roomId: rate.book_hash ?? rate.match_hash ?? name,
+    // `match_hash` is intentionally never substituted for `book_hash`.
+    roomId: rate.book_hash ?? nonBookingIdentity,
     bookHash: rate.book_hash ?? null,
     roomName: name,
     roomType: name,
     bedType: rate.room_data_info?.types?.bedding_type ?? "Not specified",
     capacity: rate.rg_ext?.capacity ?? 2,
-    cancellationPolicy: mapCancellation(rate),
-    ...(rate.meal ? { boardType: humanise(rate.meal) } : {}),
+    cancellationPolicy: primaryCancellation,
+    ...(boardType ? { boardType } : {}),
     price,
     currency,
-    paymentOptions: mapPaymentOptions(rate, fallbackCurrency),
+    paymentOptions,
   };
 }
 
@@ -441,10 +526,14 @@ export async function prebookHotelRate(
 
   let data: { hotels?: RhSerpHotel[] } | null = null;
   try {
-    data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/hotel/prebook/", {
-      hash: bookHash,
-      price_increase_percent: PREBOOK_PRICE_INCREASE_PERCENT,
-    });
+    data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>(
+      "/hotel/prebook/",
+      {
+        hash: bookHash,
+        price_increase_percent: PREBOOK_PRICE_INCREASE_PERCENT,
+      },
+      PREBOOK_TIMEOUT_MS,
+    );
   } catch (error) {
     return {
       status: "unavailable",
