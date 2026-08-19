@@ -5,8 +5,10 @@
 
 const SANDBOX_BASE_URL = "https://api-sandbox.ratehawk.com";
 const DEFAULT_PRODUCTION_BASE_URL = "https://api.ratehawk.com";
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 export type RateHawkEnvironment = "sandbox" | "production";
+export type RateHawkRequestOptions = { timeoutMs?: number };
 
 export class RateHawkAuthError extends Error {
   constructor() {
@@ -97,19 +99,45 @@ function ageOnDate(dateOfBirth: string, stayDate: string): number | null {
   return age >= 0 ? age : null;
 }
 
+function applyB2BManagerEmail(root: UnknownRecord): UnknownRecord {
+  const payment = asRecord(root["payment_type"]);
+  if (String(payment?.["type"] ?? "").toLowerCase() !== "deposit") return root;
+
+  const managerEmail = process.env["RATEHAWK_B2B_EMAIL"]?.trim();
+  if (!managerEmail || !/^\S+@\S+\.\S+$/.test(managerEmail)) {
+    throw new Error(
+      "RATEHAWK_B2B_EMAIL must be configured with Amazingfly's fixed corporate booking email before deposit bookings can be sent to ETG.",
+    );
+  }
+
+  const user = asRecord(root["user"]) ?? {};
+  return {
+    ...root,
+    user: {
+      ...user,
+      email: managerEmail,
+    },
+  };
+}
+
 /**
  * Booking Finish needs explicit child metadata. Search already contains child ages,
  * but the booking flow stores traveller DOBs. Rehydrate those DOBs here and add
  * is_child/age to child guests before the provider request leaves our server.
+ *
+ * For B2B/deposit bookings ETG also requires a fixed partner/manager email in
+ * user.email. The traveller email remains in supplier_data.email.
  */
 async function enrichBookingFinishGuests(path: string, body: unknown): Promise<unknown> {
   if (!path.endsWith("/hotel/order/booking/finish/")) return body;
 
-  const root = asRecord(body);
-  const partner = asRecord(root?.["partner"]);
+  const originalRoot = asRecord(body);
+  if (!originalRoot) return body;
+  const root = applyB2BManagerEmail(originalRoot);
+  const partner = asRecord(root["partner"]);
   const partnerOrderId = String(partner?.["partner_order_id"] ?? "").trim();
-  const rooms = Array.isArray(root?.["rooms"]) ? (root?.["rooms"] as unknown[]) : [];
-  if (!root || !partnerOrderId || rooms.length === 0) return body;
+  const rooms = Array.isArray(root["rooms"]) ? (root["rooms"] as unknown[]) : [];
+  if (!partnerOrderId || rooms.length === 0) return root;
 
   const { createExternalSupabaseAdmin } = await import("@/lib/external-supabase.server");
   const db = createExternalSupabaseAdmin();
@@ -121,7 +149,7 @@ async function enrichBookingFinishGuests(path: string, body: unknown): Promise<u
   if (bookingError) throw new Error(`Could not resolve stored hotel booking: ${bookingError.message}`);
 
   const requestId = (booking as { request_id?: string | null } | null)?.request_id;
-  if (!requestId) return body;
+  if (!requestId) return root;
 
   const [{ data: request, error: requestError }, { data: passengers, error: passengerError }] =
     await Promise.all([
@@ -188,38 +216,88 @@ async function enrichBookingFinishGuests(path: string, body: unknown): Promise<u
   return { ...root, rooms: enrichedRooms };
 }
 
+function timeoutMs(options?: RateHawkRequestOptions): number {
+  const requested = Number(options?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS);
+  if (!Number.isFinite(requested) || requested < 1_000) return DEFAULT_REQUEST_TIMEOUT_MS;
+  return Math.min(requested, 120_000);
+}
+
+async function performRateHawkRequest<T>(
+  path: string,
+  requestBody: unknown,
+  options?: RateHawkRequestOptions,
+): Promise<RateHawkResponse<T>> {
+  const { username, password } = readCredentials();
+  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs(options));
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: basicAuthHeader(username, password),
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Amazingfly/1.0 (RateHawk B2B v3)",
+      },
+      body: JSON.stringify(requestBody ?? {}),
+      signal: controller.signal,
+    });
+
+    const payload = (await response.json().catch(() => null)) as RateHawkResponse<T> | null;
+    if (!response.ok || payload?.status === "error") {
+      throw new RateHawkApiError(
+        response.status,
+        payload?.error ?? `RateHawk request failed (${response.status}).`,
+      );
+    }
+    return payload ?? { status: response.ok ? "ok" : "error", data: null };
+  } catch (error) {
+    if (
+      controller.signal.aborted ||
+      (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError"))
+    ) {
+      throw new RateHawkApiError(408, "timeout");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Return the full ETG response envelope so booking status is not discarded. */
 export async function ratehawkRequest<T>(
   path: string,
   body: unknown,
+  options?: RateHawkRequestOptions,
 ): Promise<RateHawkResponse<T>> {
-  const { username, password } = readCredentials();
-  const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   const requestBody = await enrichBookingFinishGuests(path, body);
+  const isCancellation = path.endsWith("/hotel/order/cancel/");
+  const maxAttempts = isCancellation ? 2 : 1;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: basicAuthHeader(username, password),
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": "Amazingfly/1.0 (RateHawk B2B v3)",
-    },
-    body: JSON.stringify(requestBody ?? {}),
-  });
-
-  const payload = (await response.json().catch(() => null)) as RateHawkResponse<T> | null;
-  if (!response.ok || payload?.status === "error") {
-    throw new RateHawkApiError(
-      response.status,
-      payload?.error ?? `RateHawk request failed (${response.status}).`,
-    );
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await performRateHawkRequest<T>(path, requestBody, options);
+    } catch (error) {
+      const retryCancellation =
+        isCancellation &&
+        attempt === 1 &&
+        error instanceof RateHawkApiError &&
+        error.code === "timeout";
+      if (!retryCancellation) throw error;
+    }
   }
-  return payload ?? { status: response.ok ? "ok" : "error", data: null };
+
+  throw new RateHawkApiError(408, "timeout");
 }
 
 /** Convenience helper for endpoints where only the `data` object is needed. */
-export async function ratehawkFetch<T>(path: string, body: unknown): Promise<T | null> {
-  const payload = await ratehawkRequest<T>(path, body);
+export async function ratehawkFetch<T>(
+  path: string,
+  body: unknown,
+  options?: RateHawkRequestOptions,
+): Promise<T | null> {
+  const payload = await ratehawkRequest<T>(path, body, options);
   return payload.data ?? null;
 }
