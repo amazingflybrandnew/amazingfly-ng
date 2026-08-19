@@ -7,6 +7,7 @@ import {
   BedDouble,
   Check,
   CircleDollarSign,
+  CreditCard,
   Hotel,
   Loader2,
   MapPin,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { createVisaHotelReservationRequest } from "@/lib/visa-hotel-reservation.functions";
 import {
+  getVisaHotelStayRooms,
   prebookHotelStayRate,
   searchHotelStays,
 } from "@/lib/travel-api/hotels.functions";
@@ -54,11 +56,7 @@ function todayISO() {
 }
 
 function eligiblePayment(room: RoomResult): HotelPaymentOption | null {
-  return (
-    room.paymentOptions.find(
-      (option) => option.type === "hotel" && !option.requiresCard && !option.requiresCvc,
-    ) ?? null
-  );
+  return room.paymentOptions.find((option) => option.type === "hotel") ?? null;
 }
 
 function eligibleVisaRoom(room: RoomResult): boolean {
@@ -82,6 +80,7 @@ export function VisaHotelReservationSearch({
 }) {
   const navigate = useNavigate();
   const searchHotels = useServerFn(searchHotelStays);
+  const loadVisaRooms = useServerFn(getVisaHotelStayRooms);
   const prebookRate = useServerFn(prebookHotelStayRate);
   const createRequest = useServerFn(createVisaHotelReservationRequest);
 
@@ -94,6 +93,7 @@ export function VisaHotelReservationSearch({
   const [nationality, setNationality] = useState("NG");
   const [submittedStay, setSubmittedStay] = useState<StayInputShape | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<HotelResult | null>(null);
+  const [liveRooms, setLiveRooms] = useState<RoomResult[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
   const [confirmedRoom, setConfirmedRoom] = useState<RoomResult | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -103,23 +103,46 @@ export function VisaHotelReservationSearch({
     mutationFn: (stay: StayInputShape) => searchHotels({ data: stay }),
     onSuccess: () => {
       setSelectedHotel(null);
+      setLiveRooms([]);
       setSelectedRoom(null);
       setConfirmedRoom(null);
       setActionError(null);
     },
   });
 
-  const openVisaRooms = (hotel: HotelResult) => {
-    setSelectedHotel(hotel);
-    setSelectedRoom(null);
-    setConfirmedRoom(null);
-    const eligible = hotel.rooms.filter(eligibleVisaRoom);
-    setActionError(
-      eligible.length > 0
-        ? null
-        : "We did not find a returned room at this hotel that is both refundable and payable at the property without a card guarantee. Please choose another hotel.",
-    );
-  };
+  const roomMutation = useMutation({
+    mutationFn: async (hotel: HotelResult) => {
+      if (!submittedStay) throw new Error("Please search your stay again.");
+      const result = await loadVisaRooms({
+        data: { hotelId: hotel.hotelId, stay: submittedStay },
+      });
+      return { hotel, result };
+    },
+    onMutate: (hotel) => {
+      setSelectedHotel(hotel);
+      setLiveRooms([]);
+      setSelectedRoom(null);
+      setConfirmedRoom(null);
+      setActionError(null);
+    },
+    onSuccess: ({ hotel, result }) => {
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      setSelectedHotel(hotel);
+      setLiveRooms(result.rooms);
+      const eligible = result.rooms.filter(eligibleVisaRoom);
+      setActionError(
+        eligible.length > 0
+          ? null
+          : "No refundable pay-at-property room is available at this hotel for these dates. Try another hotel or different dates.",
+      );
+    },
+    onError: (error) => {
+      setActionError(error instanceof Error ? error.message : "We could not load live bookable rooms.");
+    },
+  });
 
   const prebookMutation = useMutation({
     mutationFn: async ({ hotel, room }: { hotel: HotelResult; room: RoomResult }) => {
@@ -181,6 +204,8 @@ export function VisaHotelReservationSearch({
           hotelPrice: payment.showAmount || confirmedRoom.price,
           hotelCurrency: payment.showCurrency || confirmedRoom.currency,
           bookHash: confirmedRoom.bookHash,
+          paymentRequiresCard: payment.requiresCard,
+          paymentRequiresCvc: payment.requiresCvc,
           providerPaymentAmount: payment.amount,
           providerPaymentCurrency: payment.currency,
           originCountry: initialOrigin || null,
@@ -245,10 +270,7 @@ export function VisaHotelReservationSearch({
     () => (searchMutation.data?.ok ? searchMutation.data.results : []),
     [searchMutation.data],
   );
-  const visaRooms = useMemo(
-    () => (selectedHotel ? selectedHotel.rooms.filter(eligibleVisaRoom) : []),
-    [selectedHotel],
-  );
+  const visaRooms = useMemo(() => liveRooms.filter(eligibleVisaRoom), [liveRooms]);
   const selectedPayment = confirmedRoom ? eligiblePayment(confirmedRoom) : null;
 
   return (
@@ -259,7 +281,7 @@ export function VisaHotelReservationSearch({
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-orange">Step 1</p>
             <h2 className="mt-2 text-2xl font-extrabold text-navy">Find a visa-suitable stay</h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              We only continue with refundable pay-at-property rates that do not require us to collect a hotel card guarantee online.
+              We continue with refundable pay-at-property rates. Some properties require a card guarantee, but the accommodation is not charged by Amazingfly at reservation time.
             </p>
           </div>
           <span className="rounded-2xl bg-mint-tint px-4 py-3 text-sm font-extrabold text-navy">
@@ -374,7 +396,7 @@ export function VisaHotelReservationSearch({
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-orange">Step 2</p>
             <h2 className="mt-2 text-2xl font-extrabold text-navy">Choose a hotel</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Open a hotel to see only the room rates already returned by the live search that meet the visa-reservation rules.
+              Open a hotel to load its current bookable pay-at-property rates from the accommodation provider.
             </p>
           </div>
           <div className="grid gap-5">
@@ -407,10 +429,17 @@ export function VisaHotelReservationSearch({
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => openVisaRooms(hotel)}
+                    disabled={roomMutation.isPending && roomMutation.variables?.hotelId === hotel.hotelId}
+                    onClick={() => roomMutation.mutate(hotel)}
                   >
-                    <BedDouble className="mr-2 h-4 w-4" />
-                    See visa-suitable rooms
+                    {roomMutation.isPending && roomMutation.variables?.hotelId === hotel.hotelId ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <BedDouble className="mr-2 h-4 w-4" />
+                    )}
+                    {roomMutation.isPending && roomMutation.variables?.hotelId === hotel.hotelId
+                      ? "Loading bookable rooms…"
+                      : "See visa-suitable rooms"}
                   </Button>
                 </div>
               </article>
@@ -431,9 +460,13 @@ export function VisaHotelReservationSearch({
             </span>
           </div>
 
-          {visaRooms.length === 0 ? (
+          {roomMutation.isPending ? (
+            <p className="mt-5 flex items-center gap-2 rounded-2xl bg-sky-tint p-4 text-sm text-navy">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading live bookable rooms…
+            </p>
+          ) : visaRooms.length === 0 ? (
             <p className="mt-5 rounded-2xl bg-peach-tint p-4 text-sm text-navy">
-              We did not find a returned room here that is both refundable and payable at the property without a card guarantee. Please choose another hotel.
+              No refundable pay-at-property room is available here for these dates. Please choose another hotel or different dates.
             </p>
           ) : (
             <div className="mt-6 grid gap-4">
@@ -448,6 +481,11 @@ export function VisaHotelReservationSearch({
                         <p className="mt-1 text-sm text-muted-foreground">{room.boardType || "Room only"} · {cancellationLabel(room)}</p>
                         <p className="mt-2 text-lg font-extrabold text-navy">{formatHotelPrice(payment.showAmount || room.price, payment.showCurrency || room.currency)}</p>
                         <p className="text-xs text-muted-foreground">Accommodation amount is paid separately according to the property's rate terms.</p>
+                        {payment.requiresCard ? (
+                          <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-navy">
+                            <CreditCard className="h-3.5 w-3.5 text-orange" /> Card guarantee required · no hotel debit by Amazingfly now
+                          </p>
+                        ) : null}
                       </div>
                       <Button
                         type="button"
@@ -485,7 +523,9 @@ export function VisaHotelReservationSearch({
               <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-navy">
                 <span className="rounded-full bg-white/80 px-3 py-1.5">Refundable</span>
                 <span className="rounded-full bg-white/80 px-3 py-1.5">Pay at property</span>
-                <span className="rounded-full bg-white/80 px-3 py-1.5">No online hotel card guarantee</span>
+                <span className="rounded-full bg-white/80 px-3 py-1.5">
+                  {selectedPayment.requiresCard ? "Card guarantee required" : "No card guarantee required"}
+                </span>
               </div>
             </div>
             <Button

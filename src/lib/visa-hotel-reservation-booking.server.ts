@@ -9,6 +9,8 @@
 import { runBookingSequence, type BookingStatus } from "./travel-api/hotel-booking.server";
 import { VISA_HOTEL_RESERVATION_CATEGORY } from "./visa-hotel-reservation";
 
+export type VisaHotelBookingStatus = BookingStatus | "awaiting_card_guarantee";
+
 async function admin() {
   const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
   return createExternalSupabaseAdmin();
@@ -16,7 +18,7 @@ async function admin() {
 
 export async function ensurePaidVisaHotelReservation(
   requestId: string,
-): Promise<{ partnerOrderId: string; orderId: string | null; status: BookingStatus }> {
+): Promise<{ partnerOrderId: string | null; orderId: string | null; status: VisaHotelBookingStatus }> {
   const db = await admin();
 
   const { data: existing } = await db
@@ -65,8 +67,28 @@ export async function ensurePaidVisaHotelReservation(
   if (String(row["hotel_payment_type"] ?? "") !== "hotel") {
     throw new Error("This visa reservation is not using an eligible pay-at-property rate.");
   }
+
   if (Boolean(row["hotel_payment_requires_card"]) || Boolean(row["hotel_payment_requires_cvc"])) {
-    throw new Error("This hotel rate now requires a card guarantee and cannot be used for this visa reservation flow.");
+    await db
+      .from("service_requests")
+      .update({
+        booking_status: "awaiting_card_guarantee",
+        request_status: "processing",
+      })
+      .eq("id", requestId);
+
+    await db.from("request_updates").insert({
+      request_id: requestId,
+      status: "awaiting_card_guarantee",
+      message:
+        "Amazingfly service fee received. This pay-at-property hotel rate requires a guarantee card before supplier confirmation.",
+    });
+
+    return {
+      partnerOrderId: null,
+      orderId: null,
+      status: "awaiting_card_guarantee",
+    };
   }
 
   const roomCount = Number(row["hotel_rooms"] ?? 1);
