@@ -58,6 +58,10 @@ export type HotelDetailsPayload =
     }
   | { ok: false; error: string };
 
+export type HotelRoomsPayload =
+  | { ok: true; rooms: RoomResult[] }
+  | { ok: false; error: string };
+
 export const searchHotelStays = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => stayInput.parse(data))
   .handler(async ({ data }): Promise<HotelSearchResponse> => {
@@ -70,6 +74,26 @@ export const searchHotelStays = createServerFn({ method: "POST" })
       return {
         ok: false,
         error: error instanceof Error ? error.message : "Unable to search hotels right now.",
+      };
+    }
+  });
+
+export const getVisaHotelStayRooms = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => detailsInput.parse(data))
+  .handler(async ({ data }): Promise<HotelRoomsPayload> => {
+    const { getHotelRooms } = await import("./hotels.server");
+    try {
+      const rooms = await withTimeout(
+        getHotelRooms(data.hotelId, toHotelRequest(data.stay)),
+        HOTEL_ROOMS_TIMEOUT_MS,
+        "Live bookable room availability is taking too long. Please try this hotel again or choose another hotel.",
+      );
+      return { ok: true, rooms };
+    } catch (error) {
+      console.error("[Visa hotel] room lookup failed", error);
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Unable to load live bookable rooms right now.",
       };
     }
   });
