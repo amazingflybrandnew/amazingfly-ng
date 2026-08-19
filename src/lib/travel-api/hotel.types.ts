@@ -16,10 +16,25 @@ export type HotelSearchRequest = {
   currency?: string; // preferred display currency, e.g. "NGN"
 };
 
+export type CancellationPenalty = {
+  startAt: string | null;
+  endAt: string | null;
+  amount: number;
+  currency: string;
+};
+
 export type CancellationPolicy = {
   refundable: boolean;
   freeCancellationUntil?: string | null; // ISO 8601 datetime
   description?: string;
+  penalties: CancellationPenalty[];
+};
+
+export type HotelTax = {
+  name: string;
+  amount: number;
+  currency: string;
+  includedBySupplier: boolean;
 };
 
 export type HotelPaymentType = "deposit" | "hotel" | "now";
@@ -37,6 +52,8 @@ export type HotelPaymentOption = {
   showCurrency: string;
   requiresCard: boolean;
   requiresCvc: boolean;
+  cancellationPolicy: CancellationPolicy;
+  taxes: HotelTax[];
 };
 
 export type RoomResult = {
