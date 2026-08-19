@@ -30,6 +30,19 @@ function SummaryItem({
   );
 }
 
+function formatPolicyMoment(value: string | null): string {
+  if (!value) return "open-ended";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /**
  * Confirmation step shown after a hotel or room is selected.
  * Summarises the stay before the request/payment flow continues.
@@ -62,6 +75,22 @@ export function HotelConfirmation({
     : refundable
       ? "Free cancellation available on selected rooms"
       : "Non-refundable rates";
+
+  const cancellationPenalties = room?.cancellationPolicy.penalties ?? [];
+  const excludedTaxes = room
+    ? Array.from(
+        new Map(
+          room.paymentOptions.flatMap((option) =>
+            option.taxes
+              .filter((tax) => !tax.includedBySupplier)
+              .map((tax) => [
+                `${option.type}|${tax.name}|${tax.amount}|${tax.currency}`,
+                { ...tax, paymentType: option.type },
+              ] as const),
+          ),
+        ).values(),
+      )
+    : [];
 
   return (
     <section className="overflow-hidden rounded-[2rem] border border-orange/30 bg-white/85 shadow-card backdrop-blur-md">
@@ -145,6 +174,42 @@ export function HotelConfirmation({
             </span>
           ) : null}
         </div>
+
+        {cancellationPenalties.length > 0 ? (
+          <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3">
+            <p className="text-xs font-extrabold uppercase tracking-wide text-navy">
+              Cancellation penalty periods
+            </p>
+            <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+              {cancellationPenalties.map((penalty, index) => (
+                <p key={`${penalty.startAt ?? "start"}-${penalty.endAt ?? "end"}-${index}`}>
+                  {formatPolicyMoment(penalty.startAt)} → {formatPolicyMoment(penalty.endAt)}:{" "}
+                  <strong className="text-navy">
+                    {penalty.amount === 0
+                      ? "No cancellation charge"
+                      : formatHotelPrice(penalty.amount, penalty.currency)}
+                  </strong>
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {excludedTaxes.length > 0 ? (
+          <div className="rounded-2xl border border-orange/20 bg-peach-tint/60 px-4 py-3">
+            <p className="text-xs font-extrabold uppercase tracking-wide text-navy">
+              Taxes payable separately
+            </p>
+            <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+              {excludedTaxes.map((tax, index) => (
+                <p key={`${tax.paymentType}-${tax.name}-${tax.currency}-${index}`}>
+                  {tax.name}: <strong className="text-navy">{formatHotelPrice(tax.amount, tax.currency)}</strong>{" "}
+                  <span>({tax.paymentType} payment option)</span>
+                </p>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {children}
 
