@@ -26,6 +26,8 @@ const reservationInput = z
     hotelPrice: z.number().nonnegative(),
     hotelCurrency: z.string().trim().length(3),
     bookHash: z.string().trim().min(1).max(2000),
+    paymentRequiresCard: z.boolean(),
+    paymentRequiresCvc: z.boolean(),
     providerPaymentAmount: z.number().nonnegative(),
     providerPaymentCurrency: z.string().trim().length(3),
     originCountry: z.string().trim().max(80).nullable().optional(),
@@ -57,6 +59,8 @@ export type VisaHotelReservationSummary = {
     cancellationPolicy: string;
     price: number;
     currency: string;
+    paymentRequiresCard: boolean;
+    paymentRequiresCvc: boolean;
   };
 };
 
@@ -110,6 +114,9 @@ export const createVisaHotelReservationRequest = createServerFn({ method: "POST"
       data.boardType ? `Board: ${data.boardType}` : "",
       `Cancellation: ${data.cancellationPolicy}`,
       `Accommodation amount payable to property/provider under the rate terms: ${data.hotelCurrency} ${data.hotelPrice.toLocaleString()}`,
+      data.paymentRequiresCard
+        ? `Card guarantee required${data.paymentRequiresCvc ? " with CVC" : ""}; accommodation is not charged by Amazingfly at reservation time.`
+        : "No card guarantee is required by this rate.",
       `Amazingfly visa reservation service fee: NGN ${VISA_HOTEL_RESERVATION_FEE_NGN.toLocaleString()}`,
       "The Amazingfly service fee is separate from the accommodation cost and is not credited toward the hotel stay.",
     ]
@@ -158,8 +165,8 @@ export const createVisaHotelReservationRequest = createServerFn({ method: "POST"
       hotel_currency: data.hotelCurrency,
       hotel_book_hash: data.bookHash,
       hotel_payment_type: "hotel",
-      hotel_payment_requires_card: false,
-      hotel_payment_requires_cvc: false,
+      hotel_payment_requires_card: data.paymentRequiresCard,
+      hotel_payment_requires_cvc: data.paymentRequiresCvc,
       hotel_provider_payment_amount: data.providerPaymentAmount,
       hotel_provider_payment_currency: data.providerPaymentCurrency,
     };
@@ -255,6 +262,8 @@ export const getVisaHotelReservationRequest = createServerFn({ method: "POST" })
         cancellationPolicy: String(value["hotel_cancellation_policy"] ?? "Supplier terms apply"),
         price: Number(value["hotel_price"] ?? 0),
         currency: String(value["hotel_currency"] ?? "USD"),
+        paymentRequiresCard: Boolean(value["hotel_payment_requires_card"]),
+        paymentRequiresCvc: Boolean(value["hotel_payment_requires_cvc"]),
       },
     };
   });
