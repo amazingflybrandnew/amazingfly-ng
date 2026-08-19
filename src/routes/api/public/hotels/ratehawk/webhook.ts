@@ -69,6 +69,11 @@ function mappedBookingStatus(providerStatus: string): "ok" | "failed" | "process
   return "failed";
 }
 
+function safeProviderError(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  return text ? text.slice(0, 500) : null;
+}
+
 export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
   server: {
     handlers: {
@@ -154,6 +159,7 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
           body.status ?? event?.status ?? "processing",
         ).toLowerCase();
         const status = mappedBookingStatus(providerStatus);
+        const providerError = safeProviderError(body.error ?? event?.error);
 
         const { data: auditRow, error: auditError } = await db
           .from("ratehawk_webhook_events")
@@ -195,9 +201,8 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/webhook")({
             orderId: orderId != null ? String(orderId) : null,
             errorMessage:
               status === "failed"
-                ? (body.error ?? event?.error ?? "Booking failed at the hotel provider.")
+                ? providerError ?? "Booking failed at the hotel provider."
                 : null,
-            payload: event,
           });
 
           const { error: processedError } = await db
