@@ -4,7 +4,6 @@ import { toHotelRequest } from "./hotel-stay";
 import type { HotelResult, HotelSearchResponse, RoomResult } from "./hotel.types";
 
 const HOTEL_INFO_TIMEOUT_MS = 5_000;
-const HOTEL_ROOMS_TIMEOUT_MS = 18_000;
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
   return Promise.race([
@@ -37,7 +36,9 @@ const stayInput = z
     checkInDate: z.string().trim().min(8).max(32),
     checkOutDate: z.string().trim().min(8).max(32),
     guests: guestsInput,
-    rooms: z.number().int().min(1).max(8),
+    rooms: z.literal(1, {
+      errorMap: () => ({ message: "Only one room booking is currently supported." }),
+    }),
     nationality: z.string().trim().min(2).max(2).optional(),
     currency: z.string().trim().min(3).max(3).optional(),
   })
@@ -83,11 +84,8 @@ export const getVisaHotelStayRooms = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<HotelRoomsPayload> => {
     const { getHotelRooms } = await import("./hotels.server");
     try {
-      const rooms = await withTimeout(
-        getHotelRooms(data.hotelId, toHotelRequest(data.stay)),
-        HOTEL_ROOMS_TIMEOUT_MS,
-        "Live bookable room availability is taking too long. Please try this hotel again or choose another hotel.",
-      );
+      // The provider transport enforces the ETG-aligned 30-second Hotelpage timeout.
+      const rooms = await getHotelRooms(data.hotelId, toHotelRequest(data.stay));
       return { ok: true, rooms };
     } catch (error) {
       console.error("[Visa hotel] room lookup failed", error);
@@ -103,20 +101,16 @@ export const getHotelStayDetails = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<HotelDetailsPayload> => {
     const { getHotelDetails, getHotelRooms } = await import("./hotels.server");
     try {
-      // Room availability is the critical response for this action. Do not let
-      // the optional static hotel-info request hold the whole UI open forever.
+      // Static hotel content is optional for this interaction; cap that lookup
+      // independently while live room availability uses the ETG-aligned 30s
+      // provider transport timeout.
       const hotelPromise = withTimeout(
         getHotelDetails(data.hotelId),
         HOTEL_INFO_TIMEOUT_MS,
         "Hotel information took too long to load.",
       ).catch(() => null);
 
-      const rooms = await withTimeout(
-        getHotelRooms(data.hotelId, toHotelRequest(data.stay)),
-        HOTEL_ROOMS_TIMEOUT_MS,
-        "Room availability is taking too long. Please try this hotel again or choose another hotel.",
-      );
-
+      const rooms = await getHotelRooms(data.hotelId, toHotelRequest(data.stay));
       const hotel = await hotelPromise;
       return { ok: true, hotel, rooms };
     } catch (error) {
