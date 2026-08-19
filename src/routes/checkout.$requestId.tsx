@@ -23,6 +23,7 @@ import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
 import { holdBooking } from "@/lib/booking/hold.functions";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
+import { isVisaHotelReservationServiceType } from "@/lib/visa-hotel-reservation";
 
 type CheckoutSearch = { reference?: string; trxref?: string };
 
@@ -111,6 +112,24 @@ function CheckoutPage() {
     mutationFn: (reference: string) => verifyFn({ data: { reference } }),
     onSuccess: async (result) => {
       if (result.ok && result.status === "successful") {
+        const refreshed = await review.refetch();
+        const latest = refreshed.data ?? review.data;
+        const needsVisaHotelGuarantee = Boolean(
+          latest &&
+            isVisaHotelReservationServiceType(latest.serviceType) &&
+            latest.hotel &&
+            (latest.hotel.paymentRequiresCard || latest.hotel.paymentRequiresCvc),
+        );
+
+        if (needsVisaHotelGuarantee) {
+          void navigate({
+            to: "/visa-hotel-guarantee/$requestId",
+            params: { requestId },
+            replace: true,
+          });
+          return;
+        }
+
         void navigate({
           to: "/booking-confirmation/$requestId",
           params: { requestId },
