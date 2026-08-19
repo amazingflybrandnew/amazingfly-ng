@@ -6,6 +6,7 @@
 const SANDBOX_BASE_URL = "https://api-sandbox.ratehawk.com";
 const DEFAULT_PRODUCTION_BASE_URL = "https://api.ratehawk.com";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+const DEFAULT_B2B_MANAGER_EMAIL = "amazingflyinternational@gmail.com";
 
 export type RateHawkEnvironment = "sandbox" | "production";
 export type RateHawkRequestOptions = { timeoutMs?: number };
@@ -103,11 +104,10 @@ function applyB2BManagerEmail(root: UnknownRecord): UnknownRecord {
   const payment = asRecord(root["payment_type"]);
   if (String(payment?.["type"] ?? "").toLowerCase() !== "deposit") return root;
 
-  const managerEmail = process.env["RATEHAWK_B2B_EMAIL"]?.trim();
-  if (!managerEmail || !/^\S+@\S+\.\S+$/.test(managerEmail)) {
-    throw new Error(
-      "RATEHAWK_B2B_EMAIL must be configured with Amazingfly's fixed corporate booking email before deposit bookings can be sent to ETG.",
-    );
+  const managerEmail =
+    process.env["RATEHAWK_B2B_EMAIL"]?.trim() || DEFAULT_B2B_MANAGER_EMAIL;
+  if (!/^\S+@\S+\.\S+$/.test(managerEmail)) {
+    throw new Error("Amazingfly's fixed ETG B2B manager email is invalid.");
   }
 
   const user = asRecord(root["user"]) ?? {};
