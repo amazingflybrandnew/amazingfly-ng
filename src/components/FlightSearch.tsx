@@ -218,7 +218,10 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           duration: flight.duration,
           stops: flight.stops,
           cabinClass: flight.cabinClass,
-          passengers: flight.passengers.adults,
+          passengers:
+            flight.passengers.adults +
+            (flight.passengers.children ?? 0) +
+            (flight.passengers.infants ?? 0),
           price: flight.price,
           currency: flight.currency,
         },
@@ -249,6 +252,8 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const [departureDate, setDepartureDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [adults, setAdults] = useState("1");
+  const [children, setChildren] = useState("0");
+  const [infants, setInfants] = useState("0");
   const [cabinClass, setCabinClass] = useState<CabinClass>("economy");
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -268,7 +273,11 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           destination,
           departureDate,
           ...(returnDate ? { returnDate } : {}),
-          passengers: { adults: Number(adults) },
+          passengers: {
+            adults: Number(adults),
+            children: Number(children),
+            infants: Number(infants),
+          },
           cabinClass,
         },
       }),
@@ -296,6 +305,10 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
     const passengerCount = Number(adults);
     if (!passengerCount || passengerCount < 1)
       return "Please select at least one passenger.";
+    if (Number(infants) > passengerCount)
+      return "Each infant must travel with an adult.";
+    if (passengerCount + Number(children) + Number(infants) > 9)
+      return "A maximum of 9 travellers can be searched at once.";
     return null;
   }
 
@@ -428,6 +441,28 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
                   <SelectItem key={n} value={String(n)}>
                     {n} {n === 1 ? "passenger" : "passengers"}
                   </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="flight-children">Children (2–11)</Label>
+            <Select value={children} onValueChange={setChildren}>
+              <SelectTrigger id="flight-children"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="flight-infants">Infants (under 2)</Label>
+            <Select value={infants} onValueChange={setInfants}>
+              <SelectTrigger id="flight-infants"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

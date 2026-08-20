@@ -101,7 +101,8 @@ async function fetchLiveRate(from: string, to: string): Promise<number | null> {
 
 /**
  * Resolves what the customer should be charged for a supplier-priced booking.
- * Returns the original amount untouched when the currency is already supported.
+ * Amazingfly is Naira-first: convert every non-settlement supplier fare even
+ * when the Paystack account could technically accept that supplier currency.
  */
 export async function resolveCustomerCharge(
   sourceAmount: number,
@@ -113,7 +114,12 @@ export async function resolveCustomerCharge(
     return { ok: false, message: "This booking has no amount payable yet." };
   }
 
-  if (isPaystackSupportedCurrency(sourceCurrency)) {
+  const target = settlementCurrency();
+  if (!isPaystackSupportedCurrency(target)) {
+    return { ok: false, message: `Customer payments are not enabled for ${target}.` };
+  }
+
+  if (sourceCurrency === target) {
     return {
       ok: true,
       conversion: {
@@ -129,7 +135,6 @@ export async function resolveCustomerCharge(
     };
   }
 
-  const target = settlementCurrency();
   const manual = envNumber(`PAYMENT_FX_RATE_${sourceCurrency}_${target}`);
   const live = manual ?? (await fetchLiveRate(sourceCurrency, target));
 

@@ -20,7 +20,8 @@ import {
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
-import { getBookingReview, startBookingCheckout } from "@/lib/payment/checkout.functions";
+import { getBookingReview, saveFlightAddOns, startBookingCheckout } from "@/lib/payment/checkout.functions";
+import { FLIGHT_ADD_ONS } from "@/lib/booking/flight-addons";
 import { formatMoney } from "@/lib/payment-status";
 import { formatStayDate, nightsBetween } from "@/lib/travel-api/hotel-format";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
@@ -81,6 +82,7 @@ function BookingReviewPage() {
 
   const fetchReview = useServerFn(getBookingReview);
   const startCheckout = useServerFn(startBookingCheckout);
+  const saveAddOns = useServerFn(saveFlightAddOns);
 
   const review = useQuery({
     queryKey: ["booking-review", requestId],
@@ -109,6 +111,11 @@ function BookingReviewPage() {
     onSuccess: (result) => {
       if (result.ok) void navigate({ to: "/checkout/$requestId", params: { requestId } });
     },
+  });
+
+  const addOns = useMutation({
+    mutationFn: (ids: string[]) => saveAddOns({ data: { request_id: requestId, add_ons: ids } }),
+    onSuccess: (result) => { if (result.ok) void review.refetch(); },
   });
 
   const data = review.data;
@@ -293,6 +300,24 @@ function BookingReviewPage() {
               </p>
             ) : null}
 
+            {data.kind === "flight" && data.catalogueId !== "visa-flight-reservation" ? (
+              <div className="mt-6 rounded-2xl border border-white/70 bg-white/60 p-5">
+                <p className="text-sm font-bold text-navy">Optional Amazingfly services</p>
+                <p className="mt-1 text-xs text-muted-foreground">Select only what you need. These fees are added in Naira.</p>
+                <div className="mt-4 space-y-3">
+                  {FLIGHT_ADD_ONS.map((item) => {
+                    const checked = data.selectedAddOns.includes(item.id);
+                    return <label key={item.id} className="flex cursor-pointer gap-3 rounded-xl border border-white/80 bg-white/70 p-3">
+                      <input type="checkbox" checked={checked} disabled={addOns.isPending}
+                        onChange={() => addOns.mutate(checked ? data.selectedAddOns.filter((id) => id !== item.id) : [...data.selectedAddOns, item.id])}
+                        className="mt-1 h-4 w-4 accent-orange" />
+                      <span className="min-w-0 flex-1"><span className="flex justify-between gap-3 text-sm font-bold text-navy"><span>{item.name}</span><span>{formatMoney(item.priceNgn, "NGN")}</span></span><span className="mt-1 block text-xs text-muted-foreground">{item.description}</span></span>
+                    </label>;
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             {data.kind === "hotel" ? (
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
@@ -319,9 +344,15 @@ function BookingReviewPage() {
                 Total price
               </p>
               <p className="mt-2 text-4xl font-extrabold text-navy">
-                {formatMoney(data.amount, data.currency)}
+                {formatMoney(data.chargeAmount, data.chargeCurrency)}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">Currency: {data.currency}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Currency: {data.chargeCurrency}</p>
+              {data.kind === "flight" && data.addOnTotal > 0 ? (
+                <div className="mt-4 space-y-2 border-t border-white/70 pt-4 text-sm">
+                  <p className="flex justify-between"><span className="text-muted-foreground">Flight fare</span><span className="font-semibold text-navy">{formatMoney(data.chargeAmount - data.addOnTotal, data.chargeCurrency)}</span></p>
+                  <p className="flex justify-between"><span className="text-muted-foreground">Selected services</span><span className="font-semibold text-navy">{formatMoney(data.addOnTotal, "NGN")}</span></p>
+                </div>
+              ) : null}
 
               {proceed.data && !proceed.data.ok ? (
                 <p className="mt-4 rounded-2xl bg-peach-tint px-4 py-3 text-sm text-navy">

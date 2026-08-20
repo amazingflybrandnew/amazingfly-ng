@@ -9,6 +9,11 @@ import {
 } from "../visa-hotel-reservation";
 import type { PaymentProvider, PaymentTransaction } from "./types";
 import { isVisaFlightReservation } from "../visa-flight-reservation";
+import {
+  flightAddOnTotal,
+  normalizeFlightAddOns,
+  type FlightAddOnId,
+} from "../booking/flight-addons";
 
 export type BookingReviewKind = "flight" | "hotel" | "other";
 export type HotelReviewPaymentType = "deposit" | "hotel" | "now";
@@ -26,6 +31,8 @@ export type BookingReview = {
   chargeAmount: number;
   chargeCurrency: string;
   chargeConverted: boolean;
+  selectedAddOns: FlightAddOnId[];
+  addOnTotal: number;
   requiresQuote: boolean;
   bookingStatus: string;
   offerId: string | null;
@@ -154,6 +161,9 @@ export async function loadBookingReview(
   const { resolveCustomerCharge } = await import("./currency.server");
   const fx = await resolveCustomerCharge(amount, currency);
   const charge = fx.ok ? fx.conversion : { amount, currency, converted: false };
+  const selectedAddOns =
+    kind === "flight" && !isVisaFlight ? normalizeFlightAddOns(row["flight_add_ons"]) : [];
+  const addOnTotal = flightAddOnTotal(selectedAddOns);
 
   const { count: passengerCount } = await supabase
     .from("booking_passengers")
@@ -179,9 +189,11 @@ export async function loadBookingReview(
     kind,
     amount,
     currency,
-    chargeAmount: charge.amount,
+    chargeAmount: charge.amount + addOnTotal,
     chargeCurrency: charge.currency,
     chargeConverted: charge.converted,
+    selectedAddOns,
+    addOnTotal,
     flight: isFlight
       ? {
           airline: str(row["airline"]),
@@ -241,7 +253,7 @@ export async function prepareCheckout(
     };
   }
 
-  if (review.requiresQuote || !review.amount || review.amount <= 0) {
+  if (review.requiresQuote || !review.chargeAmount || review.chargeAmount <= 0) {
     return {
       ok: false,
       message:
@@ -258,8 +270,8 @@ export async function prepareCheckout(
   const created = await createPendingTransaction({
     user_id: user.id,
     request_id: requestId,
-    amount: review.amount,
-    currency: review.currency,
+    amount: review.chargeAmount,
+    currency: review.chargeCurrency,
     provider: options?.provider ?? "manual",
     payment_type: paymentTypeForService(review.serviceType),
   });
