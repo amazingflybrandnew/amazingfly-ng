@@ -22,6 +22,8 @@ export type FlightSearchRequest = {
   returnDate?: string; // ISO 8601 date; omit for one-way
   passengers: FlightPassengers;
   cabinClass: CabinClass;
+  additionalSlices?: { origin: string; destination: string; departureDate: string }[];
+  maxConnections?: 0 | 1 | 2;
 };
 
 export type FlightResult = {

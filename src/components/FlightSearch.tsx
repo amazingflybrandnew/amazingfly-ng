@@ -5,11 +5,14 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Check,
+  CalendarRange,
   Loader2,
+  Plus,
   PlaneTakeoff,
   Search,
   SlidersHorizontal,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +35,8 @@ import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
 import { FlightPlaceAutocomplete } from "@/components/FlightPlaceAutocomplete";
 
 type SortKey = "recommended" | "price" | "duration" | "stops";
+type TripType = "one_way" | "round_trip" | "multi_city";
+type MultiCityLeg = { origin: string; destination: string; departureDate: string };
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "recommended", label: "Recommended" },
@@ -82,6 +87,13 @@ function todayISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+
+function shiftISODate(value: string, days: number) {
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 function FlightCard({
@@ -255,6 +267,15 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const [children, setChildren] = useState("0");
   const [infants, setInfants] = useState("0");
   const [cabinClass, setCabinClass] = useState<CabinClass>("economy");
+  const [tripType, setTripType] = useState<TripType>("round_trip");
+  const [multiCityLegs, setMultiCityLegs] = useState<MultiCityLeg[]>([
+    { origin: "LHR", destination: "", departureDate: "" },
+  ]);
+  const [directOnly, setDirectOnly] = useState(false);
+  const [flexibleDates, setFlexibleDates] = useState(false);
+  const [nearbyAirports, setNearbyAirports] = useState(false);
+  const [preferredAirline, setPreferredAirline] = useState("");
+  const [baggagePreference, setBaggagePreference] = useState<"any" | "checked">("any");
   const [formError, setFormError] = useState<string | null>(null);
 
   const [sortKey, setSortKey] = useState<SortKey>("recommended");
@@ -266,13 +287,15 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const [detailFlight, setDetailFlight] = useState<FlightResult | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (overrideDepartureDate?: string) =>
       search({
         data: {
           origin,
           destination,
-          departureDate,
-          ...(returnDate ? { returnDate } : {}),
+          departureDate: overrideDepartureDate ?? departureDate,
+          ...(tripType === "round_trip" && returnDate ? { returnDate } : {}),
+          ...(tripType === "multi_city" ? { additionalSlices: multiCityLegs } : {}),
+          maxConnections: directOnly ? 0 : 1,
           passengers: {
             adults: Number(adults),
             children: Number(children),
@@ -300,8 +323,23 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       return "Your departure and destination cannot be the same place.";
     if (!departureDate) return "Please choose a departure date.";
     if (departureDate < today) return "Departure date cannot be in the past.";
-    if (returnDate && returnDate < departureDate)
+    if (tripType === "round_trip" && !returnDate) return "Please choose a return date.";
+    if (tripType === "round_trip" && returnDate && returnDate < departureDate)
       return "Your return date must be on or after the departure date.";
+    if (tripType === "multi_city") {
+      for (const [index, leg] of multiCityLegs.entries()) {
+        if (
+          !/^[A-Z]{3}$/.test(leg.origin) ||
+          !/^[A-Z]{3}$/.test(leg.destination) ||
+          !leg.departureDate
+        )
+          return `Please complete cities and date for flight ${index + 2}.`;
+        if (leg.origin === leg.destination) return `Flight ${index + 2} must use different airports.`;
+        const previousDate = index === 0 ? departureDate : multiCityLegs[index - 1]?.departureDate;
+        if (previousDate && leg.departureDate < previousDate)
+          return `Flight ${index + 2} cannot depart before the previous flight.`;
+      }
+    }
     const passengerCount = Number(adults);
     if (!passengerCount || passengerCount < 1)
       return "Please select at least one passenger.";
@@ -317,7 +355,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
     const error = validate();
     setFormError(error);
     if (error) return;
-    mutation.mutate();
+    mutation.mutate(undefined);
   };
 
   const result = mutation.data;
@@ -343,6 +381,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
     const filtered = results.filter(
       (flight) =>
         (airlineFilter.length === 0 || airlineFilter.includes(flight.airline)) &&
+        (!preferredAirline.trim() || flight.airline.toLowerCase().includes(preferredAirline.trim().toLowerCase())) &&
         flight.stops <= stopLimit &&
         (cabinFilter === "all" || flight.cabinClass === cabinFilter) &&
         (priceBounds.max === 0 || customerPrice(flight).amount <= priceLimit),
@@ -370,7 +409,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       }
     }
     return scored;
-  }, [results, airlineFilter, stopsFilter, cabinFilter, maxPrice, priceBounds.max, sortKey]);
+  }, [results, airlineFilter, preferredAirline, stopsFilter, cabinFilter, maxPrice, priceBounds.max, sortKey]);
 
   const toggleAirline = (airline: string) =>
     setAirlineFilter((prev) =>
@@ -391,6 +430,34 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         noValidate
         className="glass-card rounded-[2rem] border border-white/70 p-6 md:p-8"
       >
+        <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Trip type">
+          {([
+            ["one_way", "One way"],
+            ["round_trip", "Round trip"],
+            ["multi_city", "Multi-city"],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tripType === value}
+              onClick={() => {
+                setTripType(value);
+                if (value !== "round_trip") setReturnDate("");
+                if (value === "multi_city" && multiCityLegs.length === 0) {
+                  setMultiCityLegs([{ origin: destination, destination: "", departureDate: "" }]);
+                }
+              }}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+                tripType === value
+                  ? "bg-navy text-white shadow-card"
+                  : "border border-white/80 bg-white/70 text-navy hover:bg-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="flight-from">From</Label>
@@ -420,8 +487,8 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
               onChange={(e) => setDepartureDate(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="flight-return">Return date (optional)</Label>
+          {tripType === "round_trip" ? <div className="space-y-2">
+            <Label htmlFor="flight-return">Return date</Label>
             <Input
               id="flight-return"
               type="date"
@@ -429,7 +496,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
               value={returnDate}
               onChange={(e) => setReturnDate(e.target.value)}
             />
-          </div>
+          </div> : null}
           <div className="space-y-2">
             <Label htmlFor="flight-passengers">Passengers</Label>
             <Select value={adults} onValueChange={setAdults}>
@@ -484,6 +551,63 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           </div>
         </div>
 
+        {tripType === "multi_city" ? (
+          <div className="mt-5 space-y-3 rounded-2xl border border-white/80 bg-white/55 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-navy">Additional flights</p>
+                <p className="text-xs text-muted-foreground">Build one itinerary with up to five flight sectors.</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={multiCityLegs.length >= 4}
+                onClick={() => setMultiCityLegs((legs) => [...legs, { origin: legs[legs.length - 1]?.destination || destination, destination: "", departureDate: "" }])}
+              >
+                <Plus className="mr-1 h-4 w-4" /> Add flight
+              </Button>
+            </div>
+            {multiCityLegs.map((leg, index) => (
+              <div key={index} className="grid gap-3 rounded-xl bg-white/70 p-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+                <FlightPlaceAutocomplete id={`multi-origin-${index}`} value={leg.origin} onValueChange={(value) => setMultiCityLegs((legs) => legs.map((item, i) => i === index ? { ...item, origin: value } : item))} placeholder="From city or airport" />
+                <FlightPlaceAutocomplete id={`multi-destination-${index}`} value={leg.destination} onValueChange={(value) => setMultiCityLegs((legs) => legs.map((item, i) => i === index ? { ...item, destination: value } : item))} placeholder="To city or airport" />
+                <Input type="date" min={index === 0 ? departureDate || todayISO() : multiCityLegs[index - 1]?.departureDate || departureDate || todayISO()} value={leg.departureDate} onChange={(event) => setMultiCityLegs((legs) => legs.map((item, i) => i === index ? { ...item, departureDate: event.target.value } : item))} aria-label={`Flight ${index + 2} departure date`} />
+                <Button type="button" variant="ghost" size="icon" disabled={multiCityLegs.length === 1} onClick={() => setMultiCityLegs((legs) => legs.filter((_, i) => i !== index))} aria-label={`Remove flight ${index + 2}`}><X className="h-4 w-4" /></Button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 rounded-2xl border border-white/80 bg-white/55 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="flex items-start gap-3 text-sm text-navy">
+            <Checkbox checked={directOnly} onCheckedChange={(value) => setDirectOnly(value === true)} />
+            <span><span className="block font-bold">Direct flights only</span><span className="text-xs text-muted-foreground">Requests zero connections from airlines.</span></span>
+          </label>
+          <label className="flex items-start gap-3 text-sm text-navy">
+            <Checkbox checked={flexibleDates} onCheckedChange={(value) => setFlexibleDates(value === true)} />
+            <span><span className="block font-bold">Flexible dates</span><span className="text-xs text-muted-foreground">Compare departures up to three days either side.</span></span>
+          </label>
+          <label className="flex items-start gap-3 text-sm text-navy">
+            <Checkbox checked={nearbyAirports} onCheckedChange={(value) => setNearbyAirports(value === true)} />
+            <span><span className="block font-bold">Nearby airports</span><span className="text-xs text-muted-foreground">Choose a city suggestion to include its supported airports.</span></span>
+          </label>
+          <div className="space-y-1">
+            <Label htmlFor="preferred-airline">Preferred airline (optional)</Label>
+            <Input id="preferred-airline" value={preferredAirline} onChange={(event) => setPreferredAirline(event.target.value)} placeholder="e.g. British Airways" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="baggage-preference">Baggage preference</Label>
+            <Select value={baggagePreference} onValueChange={(value) => setBaggagePreference(value as "any" | "checked")}>
+              <SelectTrigger id="baggage-preference"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="any">Any baggage allowance</SelectItem><SelectItem value="checked">Checked baggage preferred</SelectItem></SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end text-xs text-muted-foreground">
+            Airline baggage inclusion and any extra-bag price are confirmed on the selected live offer.
+          </div>
+        </div>
+
         {formError ? (
           <p
             role="alert"
@@ -513,6 +637,35 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           ) : null}
         </div>
       </form>
+
+      {flexibleDates && result?.ok && departureDate ? (
+        <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card backdrop-blur-sm">
+          <p className="mb-3 flex items-center gap-2 text-sm font-bold text-navy">
+            <CalendarRange className="h-4 w-4 text-orange" /> Compare nearby departure dates
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {[-3, -2, -1, 0, 1, 2, 3].map((offset) => {
+              const date = shiftISODate(departureDate, offset);
+              return (
+                <button
+                  key={offset}
+                  type="button"
+                  disabled={date < todayISO() || mutation.isPending}
+                  onClick={() => {
+                    setDepartureDate(date);
+                    mutation.mutate(date);
+                  }}
+                  className={`min-w-28 rounded-xl border px-3 py-2 text-sm font-semibold ${
+                    offset === 0 ? "border-orange bg-orange-tint text-navy" : "border-white bg-white text-navy"
+                  } disabled:opacity-40`}
+                >
+                  {new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {selected ? (
         <div

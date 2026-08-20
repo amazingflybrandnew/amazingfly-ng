@@ -14,6 +14,17 @@ const searchInput = z
       infants: z.number().int().min(0).max(8).default(0),
     }),
     cabinClass: z.enum(["economy", "premium_economy", "business", "first"]),
+    additionalSlices: z
+      .array(
+        z.object({
+          origin: z.string().trim().min(2).max(60),
+          destination: z.string().trim().min(2).max(60),
+          departureDate: z.string().trim().min(4).max(32),
+        }),
+      )
+      .max(4)
+      .optional(),
+    maxConnections: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional(),
   })
   .strict();
 
@@ -22,9 +33,14 @@ export const searchFlightOffers = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<FlightSearchResponse> => {
     const { searchFlights } = await import("./flights.server");
     try {
-      const { returnDate, ...rest } = data;
+      const { returnDate, additionalSlices, maxConnections, ...rest } = data;
       const results = await searchFlights(
-        returnDate ? { ...rest, returnDate } : rest,
+        {
+          ...rest,
+          ...(returnDate ? { returnDate } : {}),
+          ...(additionalSlices?.length ? { additionalSlices } : {}),
+          ...(maxConnections !== undefined ? { maxConnections } : {}),
+        },
       );
       return { ok: true, results };
     } catch (error) {

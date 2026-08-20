@@ -220,6 +220,11 @@ export async function searchFlights(
           },
         ]
       : []),
+    ...(request.additionalSlices ?? []).map((slice) => ({
+      origin: slice.origin.toUpperCase(),
+      destination: slice.destination.toUpperCase(),
+      departure_date: slice.departureDate,
+    })),
   ];
 
   const data = await duffelFetch<{ offers?: DuffelOffer[] }>(
@@ -230,6 +235,7 @@ export async function searchFlights(
         slices,
         passengers: buildPassengerPayload(request.passengers),
         cabin_class: request.cabinClass,
+        max_connections: request.maxConnections ?? 1,
       },
     },
   );
