@@ -20,6 +20,8 @@ export type BaggageAllowance = {
 
 export type FlightOfferInfo = {
   offerId: string;
+  totalAmount: number;
+  totalCurrency: string;
   expiresAt: string | null;
   /** null = Duffel did not tell us; show the fallback copy. */
   refund: FareRule;

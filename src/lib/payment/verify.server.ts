@@ -224,6 +224,21 @@ async function ensurePaidHotelBooking(requestId: string): Promise<void> {
   }
 }
 
+async function ensurePaidFlightBooking(requestId: string): Promise<void> {
+  try {
+    const flight = await import("../booking/flight-booking.server");
+    await flight.ensurePaidFlightBooking(requestId);
+  } catch (error) {
+    // Payment remains successful. The flight fulfilment adapter records manual review.
+    console.error("[paystack] paid flight supplier booking failed", error);
+  }
+}
+
+async function ensurePaidSupplierBooking(requestId: string): Promise<void> {
+  await ensurePaidFlightBooking(requestId);
+  await ensurePaidHotelBooking(requestId);
+}
+
 async function setRequestPaymentState(requestId: string, paymentStatus: string) {
   const supabase = await admin();
   const { error } = await supabase
@@ -268,7 +283,7 @@ export async function finalizePaystackPayment(input: {
 
   // A callback refresh can safely re-enter here; supplier booking is also idempotent by request_id.
   if (currentStatus === "successful") {
-    if (requestId) await ensurePaidHotelBooking(requestId);
+    if (requestId) await ensurePaidSupplierBooking(requestId);
     return {
       ok: true,
       status: "successful",
@@ -369,7 +384,7 @@ export async function finalizePaystackPayment(input: {
   }
 
   if (!claimedRows?.length) {
-    if (requestId) await ensurePaidHotelBooking(requestId);
+    if (requestId) await ensurePaidSupplierBooking(requestId);
     return {
       ok: true,
       status: "successful",
@@ -383,7 +398,7 @@ export async function finalizePaystackPayment(input: {
 
   if (requestId) {
     await confirmBooking(requestId);
-    await ensurePaidHotelBooking(requestId);
+    await ensurePaidSupplierBooking(requestId);
 
     try {
       const { notifyPaymentReceived, notifyAdminPaidRequest } = await import(

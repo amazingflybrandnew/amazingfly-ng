@@ -22,6 +22,7 @@ import { formatMoney } from "@/lib/payment-status";
 import { getBookingConfirmation } from "@/lib/payment/verify.functions";
 import { formatDate } from "@/lib/request-status";
 import { cancelHotelBooking } from "@/lib/travel-api/hotel-booking.functions";
+import { isVisaFlightReservation } from "@/lib/visa-flight-reservation";
 
 export const Route = createFileRoute("/booking-confirmation/$requestId")({
   head: () => ({
@@ -84,6 +85,10 @@ function ConfirmationPage() {
   const paid = review?.transaction?.status === "successful" ? review.transaction : null;
   const paidHotelBookingFailed =
     review?.kind === "hotel" && Boolean(paid) && review.bookingStatus === "failed";
+  const paidFlightBookingFailed =
+    review?.kind === "flight" && Boolean(paid) && review.bookingStatus === "failed";
+  const visaFlightReservation = isVisaFlightReservation(review?.catalogueId);
+  const bookingFailed = paidHotelBookingFailed || paidFlightBookingFailed;
   const canManageConfirmedHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
   const canDownloadHotelConfirmation = Boolean(data && canManageConfirmedHotel);
 
@@ -111,10 +116,12 @@ function ConfirmationPage() {
 
   return (
     <AccountShell
-      title={paidHotelBookingFailed ? "Booking requires attention" : "Booking confirmed"}
+      title={bookingFailed ? "Booking requires attention" : "Booking confirmed"}
       subtitle={
-        paidHotelBookingFailed
-          ? "Your payment is recorded, but the accommodation provider did not confirm the booking."
+        bookingFailed
+          ? "Your payment is recorded, but the supplier did not confirm the booking."
+          : visaFlightReservation
+            ? "Your genuine temporary airline reservation and its expiry are shown below."
           : "Your booking details are saved to your account."
       }
     >
@@ -139,15 +146,17 @@ function ConfirmationPage() {
                 <CheckCircle2 className="h-6 w-6 text-navy" aria-hidden="true" />
               </span>
               <h2 className="mt-4 text-2xl font-extrabold text-navy">
-                {paidHotelBookingFailed
-                  ? "Payment received — hotel booking not confirmed"
+                {bookingFailed
+                  ? `Payment received — ${review.kind} booking not confirmed`
                   : paid
                     ? "Payment successful"
                     : "Booking summary"}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                {paidHotelBookingFailed
-                  ? "Your payment was received successfully, but the accommodation provider could not confirm the reservation. Please do not make another payment for this request while we review the booking."
+                {bookingFailed
+                  ? "Your payment was received successfully, but the supplier could not confirm the reservation. Please do not make another payment for this request while we review the booking."
+                  : visaFlightReservation
+                    ? "Payment was received for Amazingfly's processing and documentation service. The reservation below is temporary and is not a paid airline ticket."
                   : paid
                     ? "Thank you. We have received your payment and your booking details are below."
                     : "Your booking details and current supplier status are shown below."}
@@ -204,7 +213,17 @@ function ConfirmationPage() {
                     value={review.pnr ?? "Pending from airline"}
                   />
                   <Row label="Airline order ID" value={review.duffelOrderId ?? "—"} />
-                  <Row label="Ticket number" value={review.ticketNumber ?? "Being issued"} />
+                  <Row
+                    label="Ticket number"
+                    value={
+                      visaFlightReservation
+                        ? "Not applicable — temporary reservation"
+                        : (review.ticketNumber ?? "Being issued")
+                    }
+                  />
+                  {visaFlightReservation ? (
+                    <Row label="Reservation expires" value={dateTime(review.holdExpiresAt)} />
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -342,8 +361,10 @@ function ConfirmationPage() {
                 What happens next
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {paidHotelBookingFailed
+                {bookingFailed
                   ? "Your payment is recorded. Our team will review the failed supplier booking and contact you about rebooking or any applicable refund. Please do not make another payment for this request."
+                  : visaFlightReservation
+                    ? "Download or submit this itinerary only where a temporary reservation is accepted. Requirements vary by embassy or consulate, and visa approval is never guaranteed."
                   : "Our specialists are finalising your booking documents. You will receive an email confirmation, and everything stays available in your account."}
               </p>
               <Button asChild className="btn-gradient mt-4 w-full text-white">

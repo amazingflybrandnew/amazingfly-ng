@@ -41,6 +41,10 @@ export async function holdFlightBooking(
   const row = (data as Record<string, unknown> | null) ?? null;
   if (!row) return { ok: false, message: "We could not find that booking on your account." };
 
+  if (String(row["service_category"] ?? "").toLowerCase() !== "flights") {
+    return { ok: false, message: "Book on Hold is available only for flight requests." };
+  }
+
   const offerId = row["flight_offer_id"] ? String(row["flight_offer_id"]) : "";
   if (!offerId) {
     return { ok: false, message: "Holding is only available on live airline flight offers." };

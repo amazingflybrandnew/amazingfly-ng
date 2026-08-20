@@ -3,6 +3,7 @@
 export const BOOKING_STATUSES = [
   "pending",
   "processing",
+  "ticketing",
   "on_hold",
   "awaiting_payment",
   "paid",
@@ -17,6 +18,7 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   pending: "Pending",
   processing: "Processing",
+  ticketing: "Confirming with airline",
   on_hold: "On hold",
   awaiting_payment: "Awaiting payment",
   paid: "Paid",
@@ -29,6 +31,7 @@ export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
 const TONES: Record<BookingStatus, string> = {
   pending: "border-white/70 bg-white/70 text-navy-soft",
   processing: "border-sky/60 bg-sky-tint text-navy",
+  ticketing: "border-sky/60 bg-sky-tint text-navy",
   on_hold: "border-peach/60 bg-peach-tint text-navy",
   awaiting_payment: "border-peach/60 bg-peach-tint text-navy",
   paid: "border-mint/60 bg-mint-tint text-navy",

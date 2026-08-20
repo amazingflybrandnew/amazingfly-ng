@@ -21,9 +21,13 @@ import { verifyPayment } from "@/lib/payment/verify.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
-import { holdBooking } from "@/lib/booking/hold.functions";
+import { prepareVisaFlightReservation } from "@/lib/booking/visa-flight-reservation.functions";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 import { isVisaHotelReservationServiceType } from "@/lib/visa-hotel-reservation";
+import {
+  VISA_FLIGHT_RESERVATION_FEE_NGN,
+  isVisaFlightReservation,
+} from "@/lib/visa-flight-reservation";
 
 type CheckoutSearch = { reference?: string; trxref?: string };
 
@@ -78,7 +82,7 @@ function CheckoutPage() {
   });
 
   const fetchOfferInfo = useServerFn(getFlightOfferInfo);
-  const holdFn = useServerFn(holdBooking);
+  const prepareVisaFlight = useServerFn(prepareVisaFlightReservation);
 
   const offerId = review.data?.offerId ?? null;
   const offer = useQuery({
@@ -87,8 +91,8 @@ function CheckoutPage() {
     enabled: Boolean(offerId),
   });
 
-  const hold = useMutation({
-    mutationFn: () => holdFn({ data: { request_id: requestId } }),
+  const visaFlight = useMutation({
+    mutationFn: () => prepareVisaFlight({ data: { request_id: requestId } }),
     onSuccess: (result) => {
       if (result.ok) void review.refetch();
     },
@@ -171,7 +175,7 @@ function CheckoutPage() {
   const transaction = data?.transaction ?? null;
   const canHold = Boolean(offer.data?.ok && offer.data.info.supportsHold);
   const heldAlready = data?.bookingStatus === "on_hold" || Boolean(data?.pnr);
-  const holdError = hold.data && !hold.data.ok ? hold.data.message : null;
+  const visaFlightSelected = isVisaFlightReservation(data?.catalogueId);
   const deadline = data?.paymentDeadline ?? null;
 
   const summary =
@@ -319,7 +323,7 @@ function CheckoutPage() {
                 size="lg"
                 className="btn-gradient mt-6 w-full text-white"
                 onClick={() => pay.mutate()}
-                disabled={redirecting || transaction?.status === "successful"}
+                disabled={redirecting || visaFlight.isPending || transaction?.status === "successful"}
               >
                 {redirecting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
@@ -340,27 +344,35 @@ function CheckoutPage() {
                 </p>
               )}
 
-              {data.kind === "flight" && !heldAlready && canHold ? (
+              {data.kind === "flight" && !heldAlready && canHold && !visaFlightSelected ? (
                 <>
                   <Button
                     size="lg"
                     variant="outline"
                     className="mt-3 w-full border-navy/20 text-navy"
-                    onClick={() => hold.mutate()}
-                    disabled={hold.isPending}
+                    onClick={() => visaFlight.mutate()}
+                    disabled={visaFlight.isPending}
                   >
-                    {hold.isPending ? (
+                    {visaFlight.isPending ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                     ) : (
                       <Timer className="mr-2 h-4 w-4" aria-hidden="true" />
                     )}
-                    Book on Hold (pay later)
+                    Visa Flight Reservation — {formatMoney(VISA_FLIGHT_RESERVATION_FEE_NGN, "NGN")}
                   </Button>
                   <p className="mt-2 text-center text-xs text-muted-foreground">
-                    Reserves your seat with the airline. The fare is only guaranteed until the
-                    airline's payment deadline.
+                    A genuine temporary airline reservation for visa documentation—not a paid
+                    ticket. Airline expiry is shown after creation; visa acceptance is not guaranteed.
                   </p>
                 </>
+              ) : null}
+
+              {visaFlightSelected && !heldAlready ? (
+                <div className="mt-4 rounded-2xl border border-navy/10 bg-white/70 p-4 text-xs text-navy-soft">
+                  The amount above is Amazingfly's processing and documentation fee, not airfare.
+                  After Paystack verifies payment, we will create the eligible airline hold and show
+                  its real PNR and expiry. Do not use this as a paid ticket.
+                </div>
               ) : null}
 
               {data.kind === "flight" && !canHold && !heldAlready && offer.data?.ok ? (
@@ -369,10 +381,10 @@ function CheckoutPage() {
                 </p>
               ) : null}
 
-              {holdError ? (
+              {visaFlight.data && !visaFlight.data.ok ? (
                 <p className="mt-3 flex items-start gap-2 text-xs font-medium text-coral">
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  {holdError}
+                  {visaFlight.data.message}
                 </p>
               ) : null}
 

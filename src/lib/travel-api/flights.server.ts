@@ -13,18 +13,44 @@ import type {
   FlightSearchRequest,
 } from "./flight.types";
 
+type DuffelMode = "test" | "live";
 type DuffelCredentials = { baseUrl: string; token: string };
+
+function readMode(): DuffelMode {
+  return process.env["DUFFEL_MODE"]?.trim().toLowerCase() === "live" ? "live" : "test";
+}
 
 function readCredentials(): DuffelCredentials {
   const baseUrl = process.env["DUFFEL_API_BASE_URL"] || "https://api.duffel.com";
-  const token = process.env["DUFFEL_API_TOKEN"] || process.env["FLIGHT_API_KEY"];
+  const mode = readMode();
+  const legacyToken = process.env["DUFFEL_API_TOKEN"] || process.env["FLIGHT_API_KEY"];
+  const token =
+    (mode === "live"
+      ? process.env["DUFFEL_LIVE_API_TOKEN"]
+      : process.env["DUFFEL_TEST_API_TOKEN"]) || legacyToken;
 
   if (!token) {
     throw new Error(
-      "Flight search is not configured yet. Missing DUFFEL_API_TOKEN.",
+      `Flight search is not configured yet. Missing DUFFEL_${mode.toUpperCase()}_API_TOKEN.`,
     );
   }
+
+  const expectedPrefix = mode === "live" ? "duffel_live_" : "duffel_test_";
+  if (!token.startsWith(expectedPrefix)) {
+    throw new Error(
+      `Duffel credential mismatch: DUFFEL_MODE is ${mode}, but the selected token is not a ${mode} token.`,
+    );
+  }
+
   return { baseUrl: baseUrl.replace(/\/$/, ""), token };
+}
+
+function assertBookingEnabled(): void {
+  if (readMode() === "live" && process.env["DUFFEL_LIVE_BOOKING_ENABLED"] !== "true") {
+    throw new Error(
+      "Live flight booking is temporarily disabled. Search remains available, but no Duffel balance will be spent.",
+    );
+  }
 }
 
 async function duffelFetch<T>(
@@ -264,6 +290,8 @@ export async function getOfferInfo(offerId: string): Promise<FlightOfferInfo | n
 
   return {
     offerId: offer.id,
+    totalAmount: Number(offer.total_amount ?? 0),
+    totalCurrency: offer.total_currency ?? "",
     expiresAt: offer.expires_at ?? null,
     refund: mapCondition(offer.conditions?.refund_before_departure ?? null),
     change: mapCondition(offer.conditions?.change_before_departure ?? null),
@@ -290,6 +318,12 @@ export type HoldOrderPassenger = {
   gender: string;
   email: string;
   phone_number: string;
+  identity_documents?: {
+    type: "passport";
+    unique_identifier: string;
+    issuing_country_code: string;
+    expires_on: string;
+  }[];
 };
 
 export type HoldOrderResult = {
@@ -309,6 +343,7 @@ export async function createHoldOrder(input: {
   amount: number;
   currency: string;
 }): Promise<HoldOrderResult> {
+  assertBookingEnabled();
   const order = await duffelFetch<{
     id: string;
     booking_reference?: string | null;
@@ -328,5 +363,49 @@ export async function createHoldOrder(input: {
     bookingReference: order.booking_reference ?? null,
     paymentRequiredBy: order.payment_status?.payment_required_by ?? null,
     awaitingPayment: order.payment_status?.awaiting_payment ?? order.awaiting_payment ?? true,
+  };
+}
+
+export type InstantOrderResult = {
+  orderId: string;
+  bookingReference: string | null;
+  ticketNumbers: string[];
+};
+
+/** Creates and pays a Duffel order from the configured Duffel Balance. */
+export async function createInstantOrder(input: {
+  offerId: string;
+  passengers: HoldOrderPassenger[];
+  amount: number;
+  currency: string;
+}): Promise<InstantOrderResult> {
+  assertBookingEnabled();
+  const order = await duffelFetch<{
+    id: string;
+    booking_reference?: string | null;
+    documents?: { type?: string; unique_identifier?: string | null }[];
+  }>("/air/orders", {
+    method: "POST",
+    body: {
+      type: "instant",
+      selected_offers: [input.offerId],
+      passengers: input.passengers,
+      payments: [
+        {
+          type: "balance",
+          amount: input.amount.toFixed(2),
+          currency: input.currency.toUpperCase(),
+        },
+      ],
+    },
+  });
+
+  return {
+    orderId: order.id,
+    bookingReference: order.booking_reference ?? null,
+    ticketNumbers: (order.documents ?? [])
+      .filter((document) => document.type === "electronic_ticket")
+      .map((document) => String(document.unique_identifier ?? ""))
+      .filter(Boolean),
   };
 }

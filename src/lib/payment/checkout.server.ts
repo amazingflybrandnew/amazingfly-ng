@@ -8,6 +8,7 @@ import {
   isVisaHotelReservationServiceType,
 } from "../visa-hotel-reservation";
 import type { PaymentProvider, PaymentTransaction } from "./types";
+import { isVisaFlightReservation } from "../visa-flight-reservation";
 
 export type BookingReviewKind = "flight" | "hotel" | "other";
 export type HotelReviewPaymentType = "deposit" | "hotel" | "now";
@@ -16,6 +17,7 @@ export type BookingReview = {
   requestId: string;
   reference: string;
   serviceType: string;
+  catalogueId: string | null;
   requestStatus: string;
   paymentStatus: string;
   kind: BookingReviewKind;
@@ -126,7 +128,9 @@ export async function loadBookingReview(
   const category = String(row["service_category"] ?? "").toLowerCase();
   const lowered = serviceType.toLowerCase();
   const isVisaHotelReservation = category === VISA_HOTEL_RESERVATION_CATEGORY;
+  const catalogueId = str(row["catalogue_id"]);
   const isFlight = category === "flights" || lowered.includes("flight");
+  const isVisaFlight = isFlight && isVisaFlightReservation(catalogueId);
   const isHotel =
     category === "hotels" || isVisaHotelReservation || lowered.includes("hotel");
   const kind: BookingReviewKind = isFlight ? "flight" : isHotel ? "hotel" : "other";
@@ -134,10 +138,10 @@ export async function loadBookingReview(
   const flightPrice = num(row["flight_price"]);
   const hotelPrice = num(row["hotel_price"]);
   const quoted = num(row["amount"]) ?? num(row["quoted_amount"]);
-  const amount = isVisaHotelReservation
+  const amount = isVisaHotelReservation || isVisaFlight
     ? quoted ?? 0
     : (isFlight ? flightPrice : isHotel ? hotelPrice : null) ?? quoted ?? 0;
-  const currency = isVisaHotelReservation
+  const currency = isVisaHotelReservation || isVisaFlight
     ? str(row["currency"]) ?? "NGN"
     : str(row["flight_currency"]) ??
       str(row["hotel_currency"]) ??
@@ -169,6 +173,7 @@ export async function loadBookingReview(
     passengerCount: passengerCount ?? 0,
     reference: String(row["request_reference"] ?? ""),
     serviceType,
+    catalogueId,
     requestStatus: String(row["request_status"] ?? "new_request"),
     paymentStatus: String(row["payment_status"] ?? "pending_payment"),
     kind,
