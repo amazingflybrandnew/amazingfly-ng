@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowRight,
   BedDouble,
+  BellRing,
   Briefcase,
   CalendarCheck,
   CalendarX,
@@ -20,7 +21,11 @@ import {
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
-import { getBookingReview, saveFlightAddOns, startBookingCheckout } from "@/lib/payment/checkout.functions";
+import {
+  getBookingReview,
+  saveFlightAddOns,
+  startBookingCheckout,
+} from "@/lib/payment/checkout.functions";
 import { FLIGHT_ADD_ONS } from "@/lib/booking/flight-addons";
 import { formatMoney } from "@/lib/payment-status";
 import { formatStayDate, nightsBetween } from "@/lib/travel-api/hotel-format";
@@ -75,6 +80,11 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+function selectedAddOnDetails(ids: readonly string[]) {
+  const selected = new Set(ids);
+  return FLIGHT_ADD_ONS.filter((item) => selected.has(item.id));
+}
+
 function BookingReviewPage() {
   const { requestId } = Route.useParams();
   const navigate = useNavigate();
@@ -115,14 +125,16 @@ function BookingReviewPage() {
 
   const addOns = useMutation({
     mutationFn: (ids: string[]) => saveAddOns({ data: { request_id: requestId, add_ons: ids } }),
-    onSuccess: (result) => { if (result.ok) void review.refetch(); },
+    onSuccess: (result) => {
+      if (result.ok) void review.refetch();
+    },
   });
 
   const data = review.data;
   const needsPassengers =
     data?.kind === "flight" && (passengers.data?.passengers.length ?? 0) === 0;
-  const nights =
-    data?.hotel?.nights ?? nightsBetween(data?.hotel?.checkIn, data?.hotel?.checkOut);
+  const nights = data?.hotel?.nights ?? nightsBetween(data?.hotel?.checkIn, data?.hotel?.checkOut);
+  const selectedAddOns = selectedAddOnDetails(data?.selectedAddOns ?? []);
 
   return (
     <AccountShell
@@ -180,11 +192,7 @@ function BookingReviewPage() {
                 />
                 <Row
                   label="Passengers"
-                  value={
-                    data.flight.passengers
-                      ? `${data.flight.passengers} passenger(s)`
-                      : "—"
-                  }
+                  value={data.flight.passengers ? `${data.flight.passengers} passenger(s)` : "—"}
                 />
               </div>
             ) : null}
@@ -200,10 +208,7 @@ function BookingReviewPage() {
                   />
                 ) : null}
                 <Row label="Hotel" value={data.hotel.name ?? "—"} />
-                <Row
-                  label="Location"
-                  value={data.hotel.location ?? data.hotel.address ?? "—"}
-                />
+                <Row label="Location" value={data.hotel.location ?? data.hotel.address ?? "—"} />
                 <Row label="Room type" value={data.hotel.roomType ?? "To be confirmed"} />
                 <Row label="Check-in" value={formatStayDate(data.hotel.checkIn)} />
                 <Row label="Check-out" value={formatStayDate(data.hotel.checkOut)} />
@@ -212,10 +217,7 @@ function BookingReviewPage() {
                   label="Guests"
                   value={data.hotel.guests ? `${data.hotel.guests} guest(s)` : "—"}
                 />
-                <Row
-                  label="Rooms"
-                  value={data.hotel.rooms ? `${data.hotel.rooms} room(s)` : "—"}
-                />
+                <Row label="Rooms" value={data.hotel.rooms ? `${data.hotel.rooms} room(s)` : "—"} />
                 <Row label="Meal plan" value={data.hotel.boardType ?? "Room only"} />
                 <Row
                   label="Cancellation policy"
@@ -235,22 +237,34 @@ function BookingReviewPage() {
                 ) : offer.data?.ok ? (
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <p className="flex items-start gap-2 text-sm text-navy">
-                      <RefreshCcw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      <RefreshCcw
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft"
+                        aria-hidden="true"
+                      />
                       {fareRuleLabel(offer.data.info.refund, "refund")}
                     </p>
                     <p className="flex items-start gap-2 text-sm text-navy">
-                      <CalendarCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      <CalendarCheck
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft"
+                        aria-hidden="true"
+                      />
                       {fareRuleLabel(offer.data.info.change, "change")}
                     </p>
                     <p className="flex items-start gap-2 text-sm text-navy">
-                      <Briefcase className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      <Briefcase
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft"
+                        aria-hidden="true"
+                      />
                       {offer.data.info.baggage.checked === null &&
                       offer.data.info.baggage.carryOn === null
                         ? INFO_FALLBACK
                         : `${offer.data.info.baggage.carryOn ?? 0} carry-on · ${offer.data.info.baggage.checked ?? 0} checked bag(s)`}
                     </p>
                     <p className="flex items-start gap-2 text-sm text-navy">
-                      <Plane className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft" aria-hidden="true" />
+                      <Plane
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-soft"
+                        aria-hidden="true"
+                      />
                       {offer.data.info.fareBrandName ??
                         offer.data.info.cabinMarketingName ??
                         INFO_FALLBACK}
@@ -302,19 +316,77 @@ function BookingReviewPage() {
 
             {data.kind === "flight" && data.catalogueId !== "visa-flight-reservation" ? (
               <div className="mt-6 rounded-2xl border border-white/70 bg-white/60 p-5">
-                <p className="text-sm font-bold text-navy">Optional Amazingfly services</p>
-                <p className="mt-1 text-xs text-muted-foreground">Select only what you need. These fees are added in Naira.</p>
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-tint">
+                    <BellRing className="h-4 w-4 text-navy" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-navy">Enhance your trip</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      All add-ons are optional. Select only what you need; the total updates
+                      automatically.
+                    </p>
+                  </div>
+                </div>
                 <div className="mt-4 space-y-3">
                   {FLIGHT_ADD_ONS.map((item) => {
                     const checked = data.selectedAddOns.includes(item.id);
-                    return <label key={item.id} className="flex cursor-pointer gap-3 rounded-xl border border-white/80 bg-white/70 p-3">
-                      <input type="checkbox" checked={checked} disabled={addOns.isPending}
-                        onChange={() => addOns.mutate(checked ? data.selectedAddOns.filter((id) => id !== item.id) : [...data.selectedAddOns, item.id])}
-                        className="mt-1 h-4 w-4 accent-orange" />
-                      <span className="min-w-0 flex-1"><span className="flex justify-between gap-3 text-sm font-bold text-navy"><span>{item.name}</span><span>{formatMoney(item.priceNgn, "NGN")}</span></span><span className="mt-1 block text-xs text-muted-foreground">{item.description}</span></span>
-                    </label>;
+                    const nextIds = checked
+                      ? data.selectedAddOns.filter((id) => id !== item.id)
+                      : [...data.selectedAddOns, item.id];
+                    return (
+                      <div
+                        key={item.id}
+                        className={`rounded-2xl border p-4 transition-colors ${
+                          checked ? "border-sky/60 bg-sky-tint/70" : "border-white/80 bg-white/70"
+                        }`}
+                      >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-bold text-navy">{item.name}</p>
+                              {checked ? (
+                                <span className="rounded-full bg-navy px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                                  Selected
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                              {item.description}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end">
+                            <span className="text-sm font-extrabold text-navy">
+                              {formatMoney(item.priceNgn, "NGN")}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={checked ? "outline" : "default"}
+                              disabled={addOns.isPending}
+                              aria-pressed={checked}
+                              onClick={() => addOns.mutate(nextIds)}
+                              className={
+                                checked ? "border-coral/50 text-coral" : "btn-gradient text-white"
+                              }
+                            >
+                              {addOns.isPending ? (
+                                <Loader2
+                                  className="mr-1.5 h-3.5 w-3.5 animate-spin"
+                                  aria-hidden="true"
+                                />
+                              ) : null}
+                              {checked ? "Remove" : "Add"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
                   })}
                 </div>
+                {addOns.data && !addOns.data.ok ? (
+                  <p className="mt-3 text-xs font-medium text-coral">{addOns.data.message}</p>
+                ) : null}
               </div>
             ) : null}
 
@@ -349,8 +421,28 @@ function BookingReviewPage() {
               <p className="mt-1 text-sm text-muted-foreground">Currency: {data.chargeCurrency}</p>
               {data.kind === "flight" && data.addOnTotal > 0 ? (
                 <div className="mt-4 space-y-2 border-t border-white/70 pt-4 text-sm">
-                  <p className="flex justify-between"><span className="text-muted-foreground">Flight fare</span><span className="font-semibold text-navy">{formatMoney(data.chargeAmount - data.addOnTotal, data.chargeCurrency)}</span></p>
-                  <p className="flex justify-between"><span className="text-muted-foreground">Selected services</span><span className="font-semibold text-navy">{formatMoney(data.addOnTotal, "NGN")}</span></p>
+                  <p className="flex justify-between">
+                    <span className="text-muted-foreground">Flight fare</span>
+                    <span className="font-semibold text-navy">
+                      {formatMoney(data.chargeAmount - data.addOnTotal, data.chargeCurrency)}
+                    </span>
+                  </p>
+                  <p className="flex justify-between">
+                    <span className="font-semibold text-navy">Selected add-ons</span>
+                    <span className="font-semibold text-navy">
+                      {formatMoney(data.addOnTotal, "NGN")}
+                    </span>
+                  </p>
+                  <ul className="space-y-1.5 border-t border-white/70 pt-2">
+                    {selectedAddOns.map((item) => (
+                      <li key={item.id} className="flex justify-between gap-3 text-xs">
+                        <span className="text-muted-foreground">{item.name}</span>
+                        <span className="shrink-0 font-semibold text-navy">
+                          {formatMoney(item.priceNgn, "NGN")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
 
@@ -390,8 +482,8 @@ function BookingReviewPage() {
 
               <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
                 <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                No card details are collected here. Amazingfly Travels re-confirms every rate
-                with the airline or property before any payment is taken.
+                No card details are collected here. Amazingfly Travels re-confirms every rate with
+                the airline or property before any payment is taken.
               </p>
             </div>
 

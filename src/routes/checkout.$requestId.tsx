@@ -19,6 +19,7 @@ import { getBookingReview } from "@/lib/payment/checkout.functions";
 import { initializePayment } from "@/lib/payment/paystack.functions";
 import { verifyPayment } from "@/lib/payment/verify.functions";
 import { formatMoney } from "@/lib/payment-status";
+import { FLIGHT_ADD_ONS } from "@/lib/booking/flight-addons";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
 import { holdBooking } from "@/lib/booking/hold.functions";
@@ -129,9 +130,9 @@ function CheckoutPage() {
         const latest = refreshed.data ?? review.data;
         const needsVisaHotelGuarantee = Boolean(
           latest &&
-            isVisaHotelReservationServiceType(latest.serviceType) &&
-            latest.hotel &&
-            (latest.hotel.paymentRequiresCard || latest.hotel.paymentRequiresCvc),
+          isVisaHotelReservationServiceType(latest.serviceType) &&
+          latest.hotel &&
+          (latest.hotel.paymentRequiresCard || latest.hotel.paymentRequiresCvc),
         );
 
         if (needsVisaHotelGuarantee) {
@@ -187,6 +188,7 @@ function CheckoutPage() {
   const visaFlightSelected = isVisaFlightReservation(data?.catalogueId);
   const holdError = hold.data && !hold.data.ok ? hold.data.message : null;
   const deadline = data?.paymentDeadline ?? null;
+  const selectedAddOns = FLIGHT_ADD_ONS.filter((item) => data?.selectedAddOns.includes(item.id));
 
   const summary =
     data?.kind === "hotel"
@@ -270,6 +272,26 @@ function CheckoutPage() {
                 value={transaction?.transaction_reference ?? "Not created yet"}
               />
               <Row label="Currency" value={data.currency} />
+              {data.kind === "flight" && selectedAddOns.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm font-bold text-navy">Selected add-ons</p>
+                    <span className="text-sm font-extrabold text-navy">
+                      {formatMoney(data.addOnTotal, "NGN")}
+                    </span>
+                  </div>
+                  <ul className="mt-3 space-y-2">
+                    {selectedAddOns.map((item) => (
+                      <li key={item.id} className="flex justify-between gap-4 text-xs">
+                        <span className="text-muted-foreground">{item.name}</span>
+                        <span className="shrink-0 font-semibold text-navy">
+                          {formatMoney(item.priceNgn, "NGN")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               {data.kind === "flight" ? (
                 <>
                   <Row
@@ -303,8 +325,8 @@ function CheckoutPage() {
               </p>
               {data.chargeConverted ? (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Fare quoted by the airline as {formatMoney(data.amount, data.currency)} and charged
-                  in {data.chargeCurrency} at today's rate. Your booking is still issued in{" "}
+                  Fare quoted by the airline as {formatMoney(data.amount, data.currency)} and
+                  charged in {data.chargeCurrency} at today's rate. Your booking is still issued in{" "}
                   {data.currency}.
                 </p>
               ) : null}
@@ -333,7 +355,9 @@ function CheckoutPage() {
                 size="lg"
                 className="btn-gradient mt-6 w-full text-white"
                 onClick={() => pay.mutate()}
-                disabled={redirecting || visaFlight.isPending || transaction?.status === "successful"}
+                disabled={
+                  redirecting || visaFlight.isPending || transaction?.status === "successful"
+                }
               >
                 {redirecting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
@@ -371,8 +395,9 @@ function CheckoutPage() {
                     Hold this fare and pay before expiry
                   </Button>
                   <p className="mt-2 text-center text-xs text-muted-foreground">
-                    For customers who need a short time to pay. No visa-document service is included;
-                    the airline decides the deadline and may release the reservation afterward.
+                    For customers who need a short time to pay. No visa-document service is
+                    included; the airline decides the deadline and may release the reservation
+                    afterward.
                   </p>
                   <Button
                     size="lg"
@@ -390,7 +415,8 @@ function CheckoutPage() {
                   </Button>
                   <p className="mt-2 text-center text-xs text-muted-foreground">
                     A genuine temporary airline reservation for visa documentation—not a paid
-                    ticket. Airline expiry is shown after creation; visa acceptance is not guaranteed.
+                    ticket. Airline expiry is shown after creation; visa acceptance is not
+                    guaranteed.
                   </p>
                 </>
               ) : null}
@@ -460,16 +486,16 @@ function CheckoutPage() {
 
               <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
                 <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                All payment records are created securely on our servers — no card details are
-                stored in your browser.
+                All payment records are created securely on our servers — no card details are stored
+                in your browser.
               </p>
             </div>
 
             <div className="glass-card rounded-3xl p-6">
               <p className="text-sm font-bold text-navy">Need a change?</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Message your specialist from the request page and we will update this booking
-                before payment.
+                Message your specialist from the request page and we will update this booking before
+                payment.
               </p>
               <Button asChild variant="ghost" className="mt-3 text-navy-soft">
                 <Link to="/requests/$id" params={{ id: requestId }}>
