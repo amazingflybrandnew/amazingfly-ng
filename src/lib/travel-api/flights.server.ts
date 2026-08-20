@@ -243,7 +243,7 @@ export async function searchFlights(
   const { resolveCustomerCharge } = await import("../payment/currency.server");
   return Promise.all(
     results.map(async (result) => {
-      const converted = await resolveCustomerCharge(result.price, result.currency);
+      const converted = await resolveCustomerCharge(result.price, result.currency, true);
       return converted.ok
         ? {
             ...result,

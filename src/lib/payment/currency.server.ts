@@ -107,6 +107,7 @@ async function fetchLiveRate(from: string, to: string): Promise<number | null> {
 export async function resolveCustomerCharge(
   sourceAmount: number,
   sourceCurrencyRaw: string,
+  forceSettlement = false,
 ): Promise<FxResult> {
   const sourceCurrency = (sourceCurrencyRaw || DEFAULT_SETTLEMENT).trim().toUpperCase();
 
@@ -119,7 +120,7 @@ export async function resolveCustomerCharge(
     return { ok: false, message: `Customer payments are not enabled for ${target}.` };
   }
 
-  if (sourceCurrency === target) {
+  if (sourceCurrency === target || (!forceSettlement && isPaystackSupportedCurrency(sourceCurrency))) {
     return {
       ok: true,
       conversion: {

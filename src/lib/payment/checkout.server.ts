@@ -159,7 +159,7 @@ export async function loadBookingReview(
   const transactions = await listRequestTransactions(requestId);
 
   const { resolveCustomerCharge } = await import("./currency.server");
-  const fx = await resolveCustomerCharge(amount, currency);
+  const fx = await resolveCustomerCharge(amount, currency, kind === "flight");
   const charge = fx.ok ? fx.conversion : { amount, currency, converted: false };
   const selectedAddOns =
     kind === "flight" && !isVisaFlight ? normalizeFlightAddOns(row["flight_add_ons"]) : [];
