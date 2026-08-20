@@ -21,6 +21,7 @@ import { verifyPayment } from "@/lib/payment/verify.functions";
 import { formatMoney } from "@/lib/payment-status";
 import { transactionStatusLabel, transactionTone } from "@/lib/payment/types";
 import { getFlightOfferInfo } from "@/lib/travel-api/flight-offer.functions";
+import { holdBooking } from "@/lib/booking/hold.functions";
 import { prepareVisaFlightReservation } from "@/lib/booking/visa-flight-reservation.functions";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 import { isVisaHotelReservationServiceType } from "@/lib/visa-hotel-reservation";
@@ -82,6 +83,7 @@ function CheckoutPage() {
   });
 
   const fetchOfferInfo = useServerFn(getFlightOfferInfo);
+  const holdFn = useServerFn(holdBooking);
   const prepareVisaFlight = useServerFn(prepareVisaFlightReservation);
 
   const offerId = review.data?.offerId ?? null;
@@ -93,6 +95,13 @@ function CheckoutPage() {
 
   const visaFlight = useMutation({
     mutationFn: () => prepareVisaFlight({ data: { request_id: requestId } }),
+    onSuccess: (result) => {
+      if (result.ok) void review.refetch();
+    },
+  });
+
+  const hold = useMutation({
+    mutationFn: () => holdFn({ data: { request_id: requestId } }),
     onSuccess: (result) => {
       if (result.ok) void review.refetch();
     },
@@ -176,6 +185,7 @@ function CheckoutPage() {
   const canHold = Boolean(offer.data?.ok && offer.data.info.supportsHold);
   const heldAlready = data?.bookingStatus === "on_hold" || Boolean(data?.pnr);
   const visaFlightSelected = isVisaFlightReservation(data?.catalogueId);
+  const holdError = hold.data && !hold.data.ok ? hold.data.message : null;
   const deadline = data?.paymentDeadline ?? null;
 
   const summary =
@@ -350,6 +360,24 @@ function CheckoutPage() {
                     size="lg"
                     variant="outline"
                     className="mt-3 w-full border-navy/20 text-navy"
+                    onClick={() => hold.mutate()}
+                    disabled={hold.isPending || visaFlight.isPending}
+                  >
+                    {hold.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Clock className="mr-2 h-4 w-4" aria-hidden="true" />
+                    )}
+                    Hold this fare and pay before expiry
+                  </Button>
+                  <p className="mt-2 text-center text-xs text-muted-foreground">
+                    For customers who need a short time to pay. No visa-document service is included;
+                    the airline decides the deadline and may release the reservation afterward.
+                  </p>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="mt-3 w-full border-navy/20 text-navy"
                     onClick={() => visaFlight.mutate()}
                     disabled={visaFlight.isPending}
                   >
@@ -385,6 +413,13 @@ function CheckoutPage() {
                 <p className="mt-3 flex items-start gap-2 text-xs font-medium text-coral">
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   {visaFlight.data.message}
+                </p>
+              ) : null}
+
+              {holdError ? (
+                <p className="mt-3 flex items-start gap-2 text-xs font-medium text-coral">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  {holdError}
                 </p>
               ) : null}
 

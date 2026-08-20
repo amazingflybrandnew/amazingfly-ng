@@ -119,6 +119,18 @@ export async function startPaystackCheckout(
     return { ok: false, message: "This payment has already been processed." };
   }
 
+  // Never take a real customer payment for a flight while Duffel is in test
+  // mode: test orders are not genuine airline reservations or tickets.
+  const paystackIsLive = process.env["PAYSTACK_SECRET_KEY"]?.startsWith("sk_live_") ?? false;
+  const duffelIsLive = process.env["DUFFEL_MODE"]?.trim().toLowerCase() === "live";
+  if (review.kind === "flight" && paystackIsLive && !duffelIsLive) {
+    return {
+      ok: false,
+      message:
+        "Flight payments are temporarily paused while the airline connection is in test mode. No charge was made.",
+    };
+  }
+
   // Paystack can only charge currencies enabled on the merchant account (NGN
   // for Nigerian accounts). Duffel/RateHawk fares are often USD, so we convert
   // the CUSTOMER charge only — the supplier booking keeps its own currency.

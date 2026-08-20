@@ -12,6 +12,7 @@ type PdfColor = [number, number, number];
 type PdfPage = {
   commands: string[];
   cursorY: number;
+  documentTitle: string;
 };
 
 const NAVY: PdfColor = [0.055, 0.12, 0.23];
@@ -129,13 +130,13 @@ function drawHeader(page: PdfPage) {
   addFilledRect(page, 0, PAGE_HEIGHT - 92, PAGE_WIDTH, 92, NAVY);
   addFilledRect(page, 0, PAGE_HEIGHT - 96, PAGE_WIDTH, 4, ORANGE);
   addText(page, "AMAZINGFLY TRAVELS", MARGIN, PAGE_HEIGHT - 45, 20, "F2", WHITE);
-  addText(page, "Hotel Booking Confirmation", MARGIN, PAGE_HEIGHT - 67, 11, "F1", WHITE);
+  addText(page, page.documentTitle, MARGIN, PAGE_HEIGHT - 67, 11, "F1", WHITE);
   addText(page, "Amazingfly.ng", PAGE_WIDTH - MARGIN - 78, PAGE_HEIGHT - 50, 9, "F2", WHITE);
   page.cursorY = PAGE_HEIGHT - 125;
 }
 
-function makePage(): PdfPage {
-  const page: PdfPage = { commands: [], cursorY: PAGE_HEIGHT - 125 };
+function makePage(documentTitle: string): PdfPage {
+  const page: PdfPage = { commands: [], cursorY: PAGE_HEIGHT - 125, documentTitle };
   drawHeader(page);
   return page;
 }
@@ -143,14 +144,15 @@ function makePage(): PdfPage {
 function ensureSpace(pages: PdfPage[], required: number): PdfPage {
   let page = pages[pages.length - 1];
   if (!page || page.cursorY - required < BOTTOM_LIMIT) {
-    page = makePage();
+    page = makePage(pages[0]?.documentTitle ?? "Booking Outcome");
     pages.push(page);
   }
   return page;
 }
 
 function addSectionTitle(pages: PdfPage[], title: string) {
-  const page = ensureSpace(pages, 42);
+  const page = ensureSpace(pages, 52);
+  page.cursorY -= 10;
   addFilledRect(page, MARGIN, page.cursorY - 3, CONTENT_WIDTH, 28, LIGHT);
   addFilledRect(page, MARGIN, page.cursorY - 3, 4, 28, ORANGE);
   addText(page, title, MARGIN + 14, page.cursorY + 6, 12, "F2", NAVY);
@@ -312,7 +314,7 @@ export function createHotelConfirmationPdf(
     throw new Error("A confirmed hotel booking is required to generate this document.");
   }
 
-  const pages: PdfPage[] = [makePage()];
+  const pages: PdfPage[] = [makePage("Hotel Booking Confirmation")];
   const transaction = review.transaction;
   const amount = transaction?.amount ?? review.amount;
   const currency = transaction?.currency ?? review.currency;
@@ -402,6 +404,120 @@ export function createHotelConfirmationPdf(
     bytes: buildPdfBytes(pages),
     filename: `Amazingfly-Hotel-Confirmation-${reference}.pdf`,
   };
+}
+
+function outcomeTitle(confirmation: BookingConfirmation): string {
+  const { review } = confirmation;
+  const visaReservation =
+    review.kind === "flight" && review.catalogueId === "visa-flight-reservation";
+  if (review.bookingStatus === "failed") return "Payment Receipt & Booking Status";
+  if (visaReservation && review.bookingStatus === "on_hold") {
+    return "Visa Flight Reservation - Temporary Itinerary";
+  }
+  if (review.bookingStatus === "confirmed") return "Booking Confirmation";
+  return "Booking Status Document";
+}
+
+export function createBookingOutcomePdf(
+  confirmation: BookingConfirmation,
+): { bytes: Uint8Array; filename: string } {
+  const { review } = confirmation;
+  if (review.kind === "hotel" && review.bookingStatus === "confirmed") {
+    return createHotelConfirmationPdf(confirmation);
+  }
+
+  const title = outcomeTitle(confirmation);
+  const pages: PdfPage[] = [makePage(title)];
+  const transaction = review.transaction;
+  const paid = transaction?.status === "successful";
+  const visaReservation =
+    review.kind === "flight" && review.catalogueId === "visa-flight-reservation";
+
+  addSectionTitle(pages, "Booking outcome");
+  addRow(pages, "Amazingfly reference", review.reference || review.requestId);
+  addRow(pages, "Service", review.serviceType);
+  addRow(pages, "Payment status", paid ? "Payment received" : review.paymentStatus);
+  addRow(pages, "Supplier booking status", review.bookingStatus);
+  addRow(pages, "Transaction reference", transaction?.transaction_reference ?? null);
+  addRow(
+    pages,
+    paid ? "Amount paid" : "Booking amount",
+    money(transaction?.amount ?? review.amount, transaction?.currency ?? review.currency),
+  );
+  addRow(pages, "Payment date", dateTime(transaction?.paid_at ?? null));
+  addRow(pages, "Booking contact", confirmation.contactName || null);
+  addRow(pages, "Contact email", confirmation.contactEmail || null);
+
+  if (review.kind === "flight" && review.flight) {
+    addSectionTitle(pages, "Flight details");
+    addRow(pages, "Airline", review.flight.airline);
+    addRow(pages, "Flight number", review.flight.flightNumber);
+    addRow(
+      pages,
+      "Route",
+      review.flight.origin && review.flight.destination
+        ? `${review.flight.origin} to ${review.flight.destination}`
+        : null,
+    );
+    addRow(pages, "Departure", dateTime(review.flight.departureAt));
+    addRow(pages, "Arrival", dateTime(review.flight.arrivalAt));
+    addRow(pages, "Cabin", review.flight.cabinClass);
+    addRow(pages, "Airline reference (PNR)", review.pnr);
+    addRow(pages, "Airline order ID", review.duffelOrderId);
+    if (!visaReservation) addRow(pages, "Ticket number", review.ticketNumber);
+    if (visaReservation) addRow(pages, "Reservation expiry", dateTime(review.holdExpiresAt));
+  }
+
+  if (confirmation.passengers.length > 0) {
+    addSectionTitle(pages, "Travellers");
+    confirmation.passengers.forEach((passenger, index) => {
+      addRow(pages, `Traveller ${index + 1}`, travellerName(passenger));
+    });
+  }
+
+  addSectionTitle(pages, "Important status notice");
+  if (review.bookingStatus === "failed") {
+    addParagraph(
+      pages,
+      "Payment was received, but the supplier did not confirm the booking. This document is a payment receipt and status record only. It is not a ticket, confirmed reservation, PNR or visa-support itinerary. Do not make another payment for this request while Amazingfly Travels reviews rebooking or any applicable refund.",
+    );
+  } else if (visaReservation) {
+    addParagraph(
+      pages,
+      "This is a temporary airline reservation for visa-application support, not a paid airline ticket. It is valid only until the stated expiry and only when genuine airline reference details are shown. Embassy and consulate requirements vary, and this document does not guarantee visa approval.",
+    );
+  } else if (review.bookingStatus === "on_hold") {
+    addParagraph(
+      pages,
+      "This fare is temporarily held subject to the airline's expiry and payment deadline. It is not a ticket until full payment and airline ticket issuance are confirmed.",
+    );
+  } else {
+    addParagraph(
+      pages,
+      "This document records the booking outcome currently held by Amazingfly Travels. Supplier references and ticket numbers are shown only when genuinely returned by the supplier.",
+    );
+  }
+
+  const reference = (review.reference || review.requestId).replace(/[^a-zA-Z0-9_-]+/g, "-");
+  return {
+    bytes: buildPdfBytes(pages),
+    filename: `Amazingfly-Booking-${reference}.pdf`,
+  };
+}
+
+export function downloadBookingOutcomePdf(confirmation: BookingConfirmation) {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const { bytes, filename } = createBookingOutcomePdf(confirmation);
+  const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function downloadHotelConfirmationPdf(confirmation: BookingConfirmation) {

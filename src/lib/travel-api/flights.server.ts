@@ -235,10 +235,24 @@ export async function searchFlights(
   );
 
   const offers = data?.offers ?? [];
-  return offers
+  const results = offers
     .map((offer) => mapOffer(offer, request))
     .sort((a, b) => a.price - b.price)
     .slice(0, 30);
+
+  const { resolveCustomerCharge } = await import("../payment/currency.server");
+  return Promise.all(
+    results.map(async (result) => {
+      const converted = await resolveCustomerCharge(result.price, result.currency);
+      return converted.ok
+        ? {
+            ...result,
+            customerPrice: converted.conversion.amount,
+            customerCurrency: converted.conversion.currency,
+          }
+        : result;
+    }),
+  );
 }
 
 /** Fetch the full offer record for a single Duffel offer id. */
@@ -406,6 +420,59 @@ export type InstantOrderResult = {
   bookingReference: string | null;
   ticketNumbers: string[];
 };
+
+type DuffelOrderSummary = {
+  id: string;
+  booking_reference?: string | null;
+  total_amount?: string;
+  total_currency?: string;
+  documents?: { type?: string; unique_identifier?: string | null }[];
+};
+
+/** Pays an existing hold order from Duffel Balance after customer payment is verified. */
+export async function payHeldOrder(orderId: string): Promise<InstantOrderResult> {
+  assertBookingEnabled();
+  const current = await duffelFetch<DuffelOrderSummary>(
+    `/air/orders/${encodeURIComponent(orderId)}`,
+    { method: "GET" },
+  );
+  const amount = Number(current.total_amount ?? 0);
+  const currency = String(current.total_currency ?? "").toUpperCase();
+  if (!(amount > 0) || !currency) {
+    throw new Error("The held airline order did not return a payable amount.");
+  }
+
+  const payment = await duffelFetch<{ status?: string; failure_reason?: string | null }>(
+    "/air/payments",
+    {
+      method: "POST",
+      body: {
+        order_id: orderId,
+        payment: { type: "balance", amount: amount.toFixed(2), currency },
+      },
+    },
+  );
+  if (payment.status !== "succeeded") {
+    throw new Error(
+      payment.failure_reason
+        ? `Duffel could not pay the held order: ${payment.failure_reason}.`
+        : "Duffel has not confirmed payment of the held order.",
+    );
+  }
+
+  const paid = await duffelFetch<DuffelOrderSummary>(
+    `/air/orders/${encodeURIComponent(orderId)}`,
+    { method: "GET" },
+  );
+  return {
+    orderId: paid.id,
+    bookingReference: paid.booking_reference ?? current.booking_reference ?? null,
+    ticketNumbers: (paid.documents ?? [])
+      .filter((document) => document.type === "electronic_ticket")
+      .map((document) => String(document.unique_identifier ?? ""))
+      .filter(Boolean),
+  };
+}
 
 /** Creates and pays a Duffel order from the configured Duffel Balance. */
 export async function createInstantOrder(input: {

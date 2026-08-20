@@ -75,6 +75,16 @@ export async function holdFlightBooking(
   }
 
   const contact = bundle.contact;
+  const { normalizeBookingPhone } = await import("./phone");
+  let phoneNumber: string;
+  try {
+    phoneNumber = normalizeBookingPhone(
+      contact?.phone ?? user.phone,
+      contact?.country ?? user.nationality,
+    );
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Enter a valid phone number." };
+  }
   const passengers = bundle.passengers.map((passenger, index) => ({
     id: info.passengerIds[index] as string,
     title: passenger.title,
@@ -83,7 +93,7 @@ export async function holdFlightBooking(
     born_on: passenger.dateOfBirth,
     gender: passenger.gender,
     email: contact?.email ?? user.email,
-    phone_number: contact?.phone ?? user.phone ?? "",
+    phone_number: phoneNumber,
   }));
 
   let order;

@@ -58,7 +58,9 @@ export function FlightDetailsModal({
     flight.passengers.adults +
     (flight.passengers.children ?? 0) +
     (flight.passengers.infants ?? 0);
-  const perTraveller = travellers > 0 ? flight.price / travellers : flight.price;
+  const displayedPrice = flight.customerPrice ?? flight.price;
+  const displayedCurrency = flight.customerCurrency ?? flight.currency;
+  const perTraveller = travellers > 0 ? displayedPrice / travellers : displayedPrice;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,7 +135,7 @@ export function FlightDetailsModal({
                 Adults × {flight.passengers.adults}
               </span>
               <span className="font-semibold">
-                {formatPrice(perTraveller * flight.passengers.adults, flight.currency)}
+                {formatPrice(perTraveller * flight.passengers.adults, displayedCurrency)}
               </span>
             </div>
             {flight.passengers.children ? (
@@ -142,7 +144,7 @@ export function FlightDetailsModal({
                   Children × {flight.passengers.children}
                 </span>
                 <span className="font-semibold">
-                  {formatPrice(perTraveller * flight.passengers.children, flight.currency)}
+                  {formatPrice(perTraveller * flight.passengers.children, displayedCurrency)}
                 </span>
               </div>
             ) : null}
@@ -152,7 +154,7 @@ export function FlightDetailsModal({
                   Infants × {flight.passengers.infants}
                 </span>
                 <span className="font-semibold">
-                  {formatPrice(perTraveller * flight.passengers.infants, flight.currency)}
+                  {formatPrice(perTraveller * flight.passengers.infants, displayedCurrency)}
                 </span>
               </div>
             ) : null}
@@ -160,12 +162,14 @@ export function FlightDetailsModal({
             <div className="flex justify-between text-base">
               <span className="font-semibold">Total fare</span>
               <span className="font-extrabold">
-                {formatPrice(flight.price, flight.currency)}
+                {formatPrice(displayedPrice, displayedCurrency)}
               </span>
             </div>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            Fares are quoted by the airline and confirmed by Amazingfly Travels before any payment.
+            Displayed in {displayedCurrency}. Amazingfly collects the customer payment through
+            Paystack, then settles Duffel separately in {flight.currency} from the funded Duffel
+            Balance.
           </p>
         </div>
 

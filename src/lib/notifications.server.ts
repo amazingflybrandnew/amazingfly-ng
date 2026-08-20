@@ -29,6 +29,7 @@ export type ComposedEmail = {
   subject: string;
   body: string;
   kind: AutomationEvent;
+  attachments?: Array<{ filename: string; content: string }>;
 };
 
 export type RequestNotificationContext = {
@@ -298,6 +299,7 @@ async function deliver(message: ComposedEmail): Promise<EmailDeliveryResult> {
     to: message.to,
     subject: message.subject,
     text: message.body,
+    ...(message.attachments ? { attachments: message.attachments } : {}),
   });
 
   if (result.ok) {
@@ -397,12 +399,16 @@ export async function requestRecipient(requestId: string): Promise<{
   email: string;
   userId: string | null;
   serviceLabel: string;
+  phone: string;
+  nationality: string;
 } | null> {
   try {
     const supabase = await db();
     const { data } = await supabase
       .from("service_requests")
-      .select("id, request_reference, full_name, email, user_id, service_type, service_category")
+      .select(
+        "id, request_reference, full_name, email, user_id, service_type, service_category, phone, contact_country",
+      )
       .eq("id", requestId)
       .maybeSingle();
     if (!data) return null;
@@ -414,9 +420,38 @@ export async function requestRecipient(requestId: string): Promise<{
       email: String(row["email"] ?? ""),
       userId: row["user_id"] ? String(row["user_id"]) : null,
       serviceLabel: String(row["service_type"] ?? row["service_category"] ?? "Travel service"),
+      phone: String(row["phone"] ?? ""),
+      nationality: String(row["contact_country"] ?? ""),
     };
   } catch (error) {
     console.error("[automation] recipient lookup failed", error);
+    return null;
+  }
+}
+
+async function bookingOutcomeAttachment(
+  requestId: string,
+  who: NonNullable<Awaited<ReturnType<typeof requestRecipient>>>,
+): Promise<{ filename: string; content: string } | null> {
+  if (!who.userId) return null;
+  try {
+    const { loadBookingConfirmationForUser } = await import("./payment/confirmation.server");
+    const { createBookingOutcomePdf } = await import("./hotel-confirmation-pdf");
+    const confirmation = await loadBookingConfirmationForUser(
+      {
+        id: who.userId,
+        email: who.email,
+        full_name: who.fullName,
+        phone: who.phone,
+        nationality: who.nationality,
+      },
+      requestId,
+    );
+    if (!confirmation) return null;
+    const pdf = createBookingOutcomePdf(confirmation);
+    return { filename: pdf.filename, content: Buffer.from(pdf.bytes).toString("base64") };
+  } catch (error) {
+    console.error("[automation] booking PDF generation failed", requestId, error);
     return null;
   }
 }
@@ -462,15 +497,19 @@ export async function notifyRequestReceived(
 export async function notifyStatusChanged(requestId: string, status: string, note?: string) {
   const who = await requestRecipient(requestId);
   if (!who?.email) return;
+  const attachment = await bookingOutcomeAttachment(requestId, who);
 
   if (status === "completed") {
     await sendAutomated(
-      composeCompletion({
-        reference: who.reference,
-        fullName: who.fullName,
-        email: who.email,
-        serviceLabel: who.serviceLabel,
-      }),
+      {
+        ...composeCompletion({
+          reference: who.reference,
+          fullName: who.fullName,
+          email: who.email,
+          serviceLabel: who.serviceLabel,
+        }),
+        ...(attachment ? { attachments: [attachment] } : {}),
+      },
       {
         requestId,
         userId: who.userId,
@@ -486,11 +525,14 @@ export async function notifyStatusChanged(requestId: string, status: string, not
 
   const copy = STATUS_COPY[status];
   await sendAutomated(
-    composeStatusUpdate(
-      { reference: who.reference, fullName: who.fullName, email: who.email },
-      status,
-      note,
-    ),
+    {
+      ...composeStatusUpdate(
+        { reference: who.reference, fullName: who.fullName, email: who.email },
+        status,
+        note,
+      ),
+      ...(attachment ? { attachments: [attachment] } : {}),
+    },
     {
       requestId,
       userId: who.userId,
@@ -578,14 +620,18 @@ export async function notifyPaymentReceived(input: {
 }) {
   const who = await requestRecipient(input.requestId);
   if (!who?.email) return;
+  const attachment = await bookingOutcomeAttachment(input.requestId, who);
   await sendAutomated(
-    composePaymentConfirmation({
-      reference: who.reference,
-      fullName: who.fullName,
-      email: who.email,
-      amountLabel: input.amountLabel,
-      ...(input.transactionReference ? { transactionReference: input.transactionReference } : {}),
-    }),
+    {
+      ...composePaymentConfirmation({
+        reference: who.reference,
+        fullName: who.fullName,
+        email: who.email,
+        amountLabel: input.amountLabel,
+        ...(input.transactionReference ? { transactionReference: input.transactionReference } : {}),
+      }),
+      ...(attachment ? { attachments: [attachment] } : {}),
+    },
     {
       requestId: input.requestId,
       userId: who.userId,

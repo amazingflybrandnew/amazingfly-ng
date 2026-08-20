@@ -41,6 +41,9 @@ export type FlightResult = {
   passengers: FlightPassengers;
   price: number;
   currency: string;
+  /** Customer-facing settlement estimate; supplier payment remains price/currency above. */
+  customerPrice?: number;
+  customerCurrency?: string;
 };
 
 export type FlightSearchResponse =

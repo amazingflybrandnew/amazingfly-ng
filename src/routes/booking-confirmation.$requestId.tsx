@@ -17,7 +17,7 @@ import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { Button } from "@/components/ui/button";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
 import { TITLE_LABELS } from "@/lib/booking/passenger.types";
-import { downloadHotelConfirmationPdf } from "@/lib/hotel-confirmation-pdf";
+import { downloadBookingOutcomePdf } from "@/lib/hotel-confirmation-pdf";
 import { formatMoney } from "@/lib/payment-status";
 import { getBookingConfirmation } from "@/lib/payment/verify.functions";
 import { formatDate } from "@/lib/request-status";
@@ -90,17 +90,10 @@ function ConfirmationPage() {
   const visaFlightReservation = isVisaFlightReservation(review?.catalogueId);
   const bookingFailed = paidHotelBookingFailed || paidFlightBookingFailed;
   const canManageConfirmedHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
-  const canDownloadHotelConfirmation = Boolean(data && canManageConfirmedHotel);
 
   const downloadConfirmation = () => {
-    if (
-      !data ||
-      data.review.kind !== "hotel" ||
-      data.review.bookingStatus !== "confirmed"
-    ) {
-      return;
-    }
-    downloadHotelConfirmationPdf(data);
+    if (!data) return;
+    downloadBookingOutcomePdf(data);
   };
 
   const requestCancellation = () => {
@@ -186,6 +179,16 @@ function ConfirmationPage() {
               >
                 Booking: {bookingStatusLabel(review.bookingStatus)}
               </span>
+              <div className="mt-5 border-t border-white/60 pt-5">
+                <Button type="button" className="btn-gradient text-white" onClick={downloadConfirmation}>
+                  <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {bookingFailed
+                    ? "Download payment & status PDF"
+                    : visaFlightReservation
+                      ? "Download visa reservation PDF"
+                      : "Download booking PDF"}
+                </Button>
+              </div>
             </div>
 
             {review.kind === "flight" ? (
@@ -286,21 +289,10 @@ function ConfirmationPage() {
 
                 {canManageConfirmedHotel ? (
                   <div className="mt-5 border-t border-white/60 pt-5">
-                    {canDownloadHotelConfirmation ? (
-                      <Button
-                        type="button"
-                        className="btn-gradient text-white"
-                        onClick={downloadConfirmation}
-                      >
-                        <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-                        Download confirmation PDF
-                      </Button>
-                    ) : null}
-
                     <Button
                       type="button"
                       variant="secondary"
-                      className="mt-3 text-coral"
+                      className="text-coral"
                       disabled={cancellation.isPending}
                       onClick={requestCancellation}
                     >

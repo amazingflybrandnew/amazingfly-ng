@@ -71,6 +71,13 @@ function formatPrice(amount: number, currency: string) {
   }
 }
 
+function customerPrice(flight: FlightResult): { amount: number; currency: string } {
+  return {
+    amount: flight.customerPrice ?? flight.price,
+    currency: flight.customerCurrency ?? flight.currency,
+  };
+}
+
 function todayISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
@@ -90,6 +97,7 @@ function FlightCard({
   isSelected: boolean;
   isPending: boolean;
 }) {
+  const displayed = customerPrice(flight);
   return (
     <article
       role="button"
@@ -155,8 +163,8 @@ function FlightCard({
 
         <div className="flex items-center justify-between gap-4 md:flex-col md:items-end">
           <div className="text-right">
-            <p className="text-xl font-extrabold">{formatPrice(flight.price, flight.currency)}</p>
-            <p className="text-[11px] text-muted-foreground">{flight.currency} · total</p>
+            <p className="text-xl font-extrabold">{formatPrice(displayed.amount, displayed.currency)}</p>
+            <p className="text-[11px] text-muted-foreground">{displayed.currency} · estimated total payable</p>
           </div>
           <Button
             size="sm"
@@ -312,7 +320,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   );
   const priceBounds = useMemo(() => {
     if (results.length === 0) return { min: 0, max: 0 };
-    const prices = results.map((f) => f.price);
+    const prices = results.map((f) => customerPrice(f).amount);
     return { min: Math.floor(Math.min(...prices)), max: Math.ceil(Math.max(...prices)) };
   }, [results]);
 
@@ -324,27 +332,27 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         (airlineFilter.length === 0 || airlineFilter.includes(flight.airline)) &&
         flight.stops <= stopLimit &&
         (cabinFilter === "all" || flight.cabinClass === cabinFilter) &&
-        (priceBounds.max === 0 || flight.price <= priceLimit),
+        (priceBounds.max === 0 || customerPrice(flight).amount <= priceLimit),
     );
 
     const scored = [...filtered];
     switch (sortKey) {
       case "price":
-        scored.sort((a, b) => a.price - b.price);
+        scored.sort((a, b) => customerPrice(a).amount - customerPrice(b).amount);
         break;
       case "duration":
         scored.sort((a, b) => a.durationMinutes - b.durationMinutes);
         break;
       case "stops":
-        scored.sort((a, b) => a.stops - b.stops || a.price - b.price);
+        scored.sort((a, b) => a.stops - b.stops || customerPrice(a).amount - customerPrice(b).amount);
         break;
       default: {
-        const maxP = Math.max(...filtered.map((f) => f.price), 1);
+        const maxP = Math.max(...filtered.map((f) => customerPrice(f).amount), 1);
         const maxD = Math.max(...filtered.map((f) => f.durationMinutes), 1);
         scored.sort(
           (a, b) =>
-            (a.price / maxP + a.durationMinutes / maxD + a.stops * 0.15) -
-            (b.price / maxP + b.durationMinutes / maxD + b.stops * 0.15),
+            (customerPrice(a).amount / maxP + a.durationMinutes / maxD + a.stops * 0.15) -
+            (customerPrice(b).amount / maxP + b.durationMinutes / maxD + b.stops * 0.15),
         );
       }
     }
@@ -484,7 +492,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
               </p>
               <p className="text-muted-foreground">
                 {formatDate(selected.departureTime)} · {selected.duration} ·{" "}
-                {formatPrice(selected.price, selected.currency)}
+                {formatPrice(customerPrice(selected).amount, customerPrice(selected).currency)}
               </p>
             </div>
             {createRequest.isPending ? (

@@ -21,7 +21,65 @@ export async function ensurePaidFlightBooking(requestId: string): Promise<void> 
   // This hard boundary prevents flight fulfilment from ever touching hotels.
   if (!row || String(row["service_category"] ?? "").toLowerCase() !== "flights") return;
   if (String(row["payment_status"] ?? "") !== "payment_received") return;
-  if (row["duffel_order_id"]) return;
+
+  const { isVisaFlightReservation } = await import("../visa-flight-reservation");
+  const existingOrderId = String(row["duffel_order_id"] ?? "");
+  if (existingOrderId) {
+    // A visa reservation is intentionally left unpaid. An ordinary hold must be
+    // paid from Duffel Balance only after Paystack has verified the customer.
+    if (isVisaFlightReservation(row["catalogue_id"])) return;
+    if (String(row["booking_status"] ?? "") !== "on_hold") return;
+
+    const { data: claimed } = await supabase
+      .from("service_requests")
+      .update({ booking_status: "ticketing" })
+      .eq("id", requestId)
+      .eq("service_category", "flights")
+      .eq("booking_status", "on_hold")
+      .eq("duffel_order_id", existingOrderId)
+      .select("id");
+    if (!claimed?.length) return;
+
+    try {
+      const { payHeldOrder } = await import("../travel-api/flights.server");
+      const order = await payHeldOrder(existingOrderId);
+      const now = new Date().toISOString();
+      const ticketNumber = order.ticketNumbers.join(", ") || null;
+      await supabase
+        .from("service_requests")
+        .update({
+          booking_status: "confirmed",
+          request_status: "completed",
+          booking_reference: order.bookingReference,
+          pnr: order.bookingReference,
+          airline_reference: order.bookingReference,
+          ticket_number: ticketNumber,
+          booking_confirmed_at: now,
+        })
+        .eq("id", requestId)
+        .eq("service_category", "flights")
+        .eq("duffel_order_id", existingOrderId);
+      await supabase.from("request_updates").insert({
+        request_id: requestId,
+        status: "completed",
+        message: `Held flight paid and confirmed${order.bookingReference ? ` (PNR ${order.bookingReference})` : ""}.`,
+      });
+      return;
+    } catch (error) {
+      await supabase
+        .from("service_requests")
+        .update({ booking_status: "failed", request_status: "processing" })
+        .eq("id", requestId)
+        .eq("service_category", "flights")
+        .eq("duffel_order_id", existingOrderId);
+      await supabase.from("request_updates").insert({
+        request_id: requestId,
+        status: "processing",
+        message: "Payment is confirmed, but the held airline order needs manual review. Do not pay again.",
+      });
+      throw error;
+    }
+  }
 
   const offerId = String(row["flight_offer_id"] ?? "");
   if (!offerId) throw new Error("This paid flight request has no Duffel offer ID.");
@@ -34,7 +92,6 @@ export async function ensurePaidFlightBooking(requestId: string): Promise<void> 
   if (!passengerRows?.length) throw new Error("This paid flight request has no travellers.");
 
   const { getOfferInfo, createHoldOrder, createInstantOrder } = await import("../travel-api/flights.server");
-  const { isVisaFlightReservation } = await import("../visa-flight-reservation");
   const offer = await getOfferInfo(offerId);
   if (!offer) throw new Error("The airline offer expired before ticketing.");
 
@@ -49,6 +106,12 @@ export async function ensurePaidFlightBooking(requestId: string): Promise<void> 
   if (offer.passengerIds.length !== passengerRows.length) {
     throw new Error("Traveller count no longer matches the airline offer.");
   }
+
+  const { normalizeBookingPhone } = await import("./phone");
+  const phoneNumber = normalizeBookingPhone(
+    row["phone"],
+    row["contact_country"] ?? passengerRows[0]?.["passport_country"],
+  );
 
   const passengers = passengerRows.map((raw, index) => {
     const passenger = raw as Record<string, unknown>;
@@ -67,7 +130,7 @@ export async function ensurePaidFlightBooking(requestId: string): Promise<void> 
       born_on: String(passenger["date_of_birth"] ?? "").slice(0, 10),
       gender: String(passenger["gender"] ?? "m"),
       email: String(row["email"] ?? ""),
-      phone_number: String(row["phone"] ?? ""),
+      phone_number: phoneNumber,
       ...(passportNumber && passportCountry && passportExpiry
         ? {
             identity_documents: [

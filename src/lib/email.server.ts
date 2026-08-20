@@ -22,6 +22,7 @@ export async function sendTransactionalEmail(input: {
   to: string;
   subject: string;
   text: string;
+  attachments?: Array<{ filename: string; content: string }>;
 }): Promise<EmailDeliveryResult> {
   const apiKey = env("RESEND_API_KEY");
   const from = env("EMAIL_FROM");
@@ -50,6 +51,7 @@ export async function sendTransactionalEmail(input: {
         to: [input.to.trim()],
         subject: input.subject,
         text: input.text,
+        ...(input.attachments?.length ? { attachments: input.attachments } : {}),
         ...(replyTo ? { reply_to: replyTo } : {}),
       }),
     });
