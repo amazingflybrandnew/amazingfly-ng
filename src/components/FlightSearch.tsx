@@ -276,6 +276,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const [nearbyAirports, setNearbyAirports] = useState(false);
   const [preferredAirline, setPreferredAirline] = useState("");
   const [baggagePreference, setBaggagePreference] = useState<"any" | "checked">("any");
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const [sortKey, setSortKey] = useState<SortKey>("recommended");
@@ -514,40 +515,42 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="flight-children">Children (2–11)</Label>
-            <Select value={children} onValueChange={setChildren}>
-              <SelectTrigger id="flight-children"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              id="flight-children"
+              value={children}
+              onChange={(event) => setChildren(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+            >
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={String(n)}>{n}</option>
+              ))}
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="flight-infants">Infants (under 2)</Label>
-            <Select value={infants} onValueChange={setInfants}>
-              <SelectTrigger id="flight-infants"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              id="flight-infants"
+              value={infants}
+              onChange={(event) => setInfants(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+            >
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={String(n)}>{n}</option>
+              ))}
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="flight-cabin">Cabin class</Label>
-            <Select value={cabinClass} onValueChange={(v) => setCabinClass(v as CabinClass)}>
-              <SelectTrigger id="flight-cabin">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CABIN_CLASSES.map((cabin) => (
-                  <SelectItem key={cabin.value} value={cabin.value}>
-                    {cabin.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              id="flight-cabin"
+              value={cabinClass}
+              onChange={(event) => setCabinClass(event.target.value as CabinClass)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+            >
+              {CABIN_CLASSES.map((cabin) => (
+                <option key={cabin.value} value={cabin.value}>{cabin.label}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -579,7 +582,17 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-3 rounded-2xl border border-white/80 bg-white/55 p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => setShowMoreOptions((shown) => !shown)}
+          aria-expanded={showMoreOptions}
+          className="mt-5 inline-flex items-center gap-2 rounded-full border border-navy/10 bg-white/70 px-4 py-2 text-sm font-bold text-navy hover:bg-white"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          {showMoreOptions ? "Hide flight options" : "More flight options (optional)"}
+        </button>
+
+        {showMoreOptions ? <div className="mt-3 grid gap-3 rounded-2xl border border-white/80 bg-white/55 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <label className="flex items-start gap-3 text-sm text-navy">
             <Checkbox checked={directOnly} onCheckedChange={(value) => setDirectOnly(value === true)} />
             <span><span className="block font-bold">Direct flights only</span><span className="text-xs text-muted-foreground">Requests zero connections from airlines.</span></span>
@@ -598,15 +611,20 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           </div>
           <div className="space-y-1">
             <Label htmlFor="baggage-preference">Baggage preference</Label>
-            <Select value={baggagePreference} onValueChange={(value) => setBaggagePreference(value as "any" | "checked")}>
-              <SelectTrigger id="baggage-preference"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="any">Any baggage allowance</SelectItem><SelectItem value="checked">Checked baggage preferred</SelectItem></SelectContent>
-            </Select>
+            <select
+              id="baggage-preference"
+              value={baggagePreference}
+              onChange={(event) => setBaggagePreference(event.target.value as "any" | "checked")}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+            >
+              <option value="any">Any baggage allowance</option>
+              <option value="checked">Checked baggage preferred</option>
+            </select>
           </div>
           <div className="flex items-end text-xs text-muted-foreground">
             Airline baggage inclusion and any extra-bag price are confirmed on the selected live offer.
           </div>
-        </div>
+        </div> : null}
 
         {formError ? (
           <p
