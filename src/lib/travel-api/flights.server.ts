@@ -84,6 +84,41 @@ async function duffelFetch<T>(
   return (payload?.data ?? null) as T;
 }
 
+export type FlightPlaceSuggestion = {
+  id: string;
+  type: "airport" | "city";
+  name: string;
+  cityName: string | null;
+  iataCode: string;
+  countryCode: string;
+};
+
+/** Resolves a customer-entered city, airport name or IATA code with Duffel. */
+export async function searchFlightPlaces(query: string): Promise<FlightPlaceSuggestion[]> {
+  const places = await duffelFetch<
+    {
+      id?: string;
+      type?: "airport" | "city";
+      name?: string;
+      city_name?: string | null;
+      iata_code?: string;
+      iata_country_code?: string;
+    }[]
+  >(`/places/suggestions?query=${encodeURIComponent(query.trim())}`, { method: "GET" });
+
+  return (places ?? [])
+    .filter((place) => place.iata_code && (place.type === "airport" || place.type === "city"))
+    .map((place) => ({
+      id: String(place.id ?? place.iata_code),
+      type: place.type as "airport" | "city",
+      name: String(place.name ?? place.city_name ?? place.iata_code),
+      cityName: place.city_name ?? null,
+      iataCode: String(place.iata_code).toUpperCase(),
+      countryCode: String(place.iata_country_code ?? "").toUpperCase(),
+    }))
+    .slice(0, 10);
+}
+
 /** Converts an ISO-8601 duration such as "PT7H35M" into total minutes. */
 function durationToMinutes(iso: string | null | undefined): number {
   if (!iso) return 0;

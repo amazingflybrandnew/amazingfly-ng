@@ -29,6 +29,7 @@ import { CABIN_CLASSES, type CabinClass, type FlightResult } from "@/lib/travel-
 import { selectFlight, useSelectedFlight } from "@/lib/travel-api/selected-flight";
 import { createFlightRequest } from "@/lib/flight-request.functions";
 import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
+import { FlightPlaceAutocomplete } from "@/components/FlightPlaceAutocomplete";
 
 type SortKey = "recommended" | "price" | "duration" | "stops";
 
@@ -276,6 +277,8 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
     const today = todayISO();
     if (!origin.trim()) return "Please tell us which city or airport you are flying from.";
     if (!destination.trim()) return "Please tell us where you are flying to.";
+    if (!/^[A-Z]{3}$/.test(origin)) return "Please choose a departure city or airport from the suggestions.";
+    if (!/^[A-Z]{3}$/.test(destination)) return "Please choose an arrival city or airport from the suggestions.";
     if (origin.trim().toUpperCase() === destination.trim().toUpperCase())
       return "Your departure and destination cannot be the same place.";
     if (!departureDate) return "Please choose a departure date.";
@@ -370,22 +373,20 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
             <Label htmlFor="flight-from">From</Label>
-            <Input
+            <FlightPlaceAutocomplete
               id="flight-from"
               value={origin}
-              onChange={(e) => setOrigin(e.target.value.toUpperCase())}
-              placeholder="LOS"
-              maxLength={40}
+              onValueChange={setOrigin}
+              placeholder="Type a city or airport"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="flight-to">To</Label>
-            <Input
+            <FlightPlaceAutocomplete
               id="flight-to"
               value={destination}
-              onChange={(e) => setDestination(e.target.value.toUpperCase())}
-              placeholder="LHR"
-              maxLength={40}
+              onValueChange={setDestination}
+              placeholder="Type a city or airport"
             />
           </div>
           <div className="space-y-2">
