@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Award, Building2, Headphones, Plane, PlaneTakeoff, ShieldCheck, Sparkles } from "lucide-react";
+import { Award, Headphones, Plane, ShieldCheck } from "lucide-react";
 import { FlightSearch } from "@/components/FlightSearch";
 import { HotelSearch } from "@/components/HotelSearch";
+import { TravelInsuranceSearch } from "@/components/TravelInsuranceSearch";
 import { FLIGHT_BACKGROUND, HOTEL_BACKGROUND } from "@/lib/home-search-backgrounds";
 
-type Mode = "flights" | "hotels";
+type Mode = "flights" | "hotels" | "insurance";
 
 const trustIndicators = [
   { icon: ShieldCheck, title: "Secure Booking", subtitle: "100% secure payments" },
@@ -15,24 +16,33 @@ const trustIndicators = [
 export function SearchBookTravel() {
   const [mode, setMode] = useState<Mode>("flights");
   const isFlights = mode === "flights";
+  const isInsurance = mode === "insurance";
 
   return (
     <section className="relative isolate overflow-hidden bg-[#0b1f3a]">
       <div className="absolute inset-0 -z-10">
-        <img src={FLIGHT_BACKGROUND} alt="Aircraft parked at an airport gate at sunset" loading="eager" decoding="async" className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ease-out ${isFlights ? "opacity-100" : "opacity-0"}`} />
-        <img src={HOTEL_BACKGROUND} alt="Warmly lit hotel exterior in the evening" loading="eager" decoding="async" className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-700 ease-out ${isFlights ? "opacity-0" : "opacity-100"}`} />
+        <img src={FLIGHT_BACKGROUND} alt="Aircraft parked at an airport gate at sunset" className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${isFlights ? "opacity-100" : "opacity-0"}`} />
+        <img src={HOTEL_BACKGROUND} alt="Warmly lit hotel exterior" className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${isFlights ? "opacity-0" : "opacity-100"}`} />
         <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/15 to-white/75" />
       </div>
-      <div className="container-page relative pb-14 pt-12 md:pt-16">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-xl">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 text-sm font-bold text-[#6b4bd4] shadow-[0_10px_24px_-18px_rgba(11,31,58,0.8)] backdrop-blur"><Plane className="h-4 w-4 text-[#0756c7]" aria-hidden="true" />Your journey starts here</span>
-            <h2 className="mt-6 text-4xl font-extrabold tracking-tight text-[#123c73] md:text-6xl">Search. Book. Travel.</h2>
-            <p className="mt-5 max-w-md text-base font-medium leading-relaxed text-[#33507a]">{isFlights ? "Find the best flights at great prices and enjoy a seamless booking experience with Amazingfly." : "Find the best hotels at great prices and enjoy a seamless booking experience with Amazingfly."}</p>
+      <div className="container-page relative pb-14 pt-12">
+        <div className="flex flex-col gap-8 lg:flex-row lg:justify-between">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 text-sm font-bold text-[#6b4bd4]"><Plane className="h-4 w-4" /> Your journey starts here</span>
+            <h2 className="mt-6 text-4xl font-extrabold text-[#123c73] md:text-6xl">Search. Book. Travel.</h2>
           </div>
-          <ul className="flex flex-wrap gap-6 lg:justify-end">{trustIndicators.map((item)=><li key={item.title} className="flex items-center gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/90 shadow-[0_10px_24px_-18px_rgba(11,31,58,0.9)] backdrop-blur"><item.icon className="h-5 w-5 text-[#0756c7]" aria-hidden="true" /></span><span className="text-left"><span className="block text-sm font-extrabold text-[#123c73]">{item.title}</span><span className="block text-xs font-medium text-[#41608c]">{item.subtitle}</span></span></li>)}</ul>
+          <ul className="flex flex-wrap gap-6">{trustIndicators.map((item)=><li key={item.title} className="flex items-center gap-3"><item.icon className="h-5 w-5 text-[#0756c7]" /><span><b className="block text-[#123c73]">{item.title}</b><small>{item.subtitle}</small></span></li>)}</ul>
         </div>
-        <div className="mt-12 md:mt-20"><div className="mx-auto flex w-fit items-center gap-1 rounded-full border border-white/70 bg-white/45 p-1.5 shadow-[0_18px_44px_-30px_rgba(11,31,58,0.9)] backdrop-blur-md"><button type="button" aria-pressed={isFlights} onClick={()=>setMode("flights")} className="rounded-full px-6 py-3 text-sm font-bold">Flight Search</button><button type="button" aria-pressed={!isFlights} onClick={()=>setMode("hotels")} className="rounded-full px-6 py-3 text-sm font-bold">Hotel Booking</button></div><div className="mt-4 rounded-[2rem] border border-white/80 bg-white/95 p-3 shadow-[0_30px_70px_-40px_rgba(11,31,58,0.85)] backdrop-blur-lg md:p-6">{isFlights ? <FlightSearch compact /> : <HotelSearch compact />}</div></div>
+        <div className="mt-12 md:mt-20">
+          <div className="mx-auto flex w-fit flex-wrap items-center gap-1 rounded-full border bg-white/45 p-1.5">
+            <button type="button" onClick={()=>setMode("flights")} className="rounded-full px-6 py-3 text-sm font-bold">Flight Search</button>
+            <button type="button" onClick={()=>setMode("hotels")} className="rounded-full px-6 py-3 text-sm font-bold">Hotel Booking</button>
+            <button type="button" onClick={()=>setMode("insurance")} className="rounded-full px-6 py-3 text-sm font-bold">Travel Insurance</button>
+          </div>
+          <div className="mt-4 rounded-[2rem] border bg-white/95 p-3 shadow-xl md:p-6">
+            {isFlights ? <FlightSearch compact /> : isInsurance ? <TravelInsuranceSearch /> : <HotelSearch compact />}
+          </div>
+        </div>
       </div>
     </section>
   );
