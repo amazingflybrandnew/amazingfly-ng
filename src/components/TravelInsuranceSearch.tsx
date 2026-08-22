@@ -1,8 +1,9 @@
-import { useNavigate } from "react-router-dom";
 import { ShieldCheck, Plane, HeartPulse, Luggage } from "lucide-react";
 
 export function TravelInsuranceSearch() {
-  const navigate = useNavigate();
+  const goToRequest = () => {
+    window.location.href = "/request?service=travel-insurance";
+  };
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -26,7 +27,7 @@ export function TravelInsuranceSearch() {
         </div>
         <button
           type="button"
-          onClick={() => navigate("/request?service=travel-insurance")}
+          onClick={goToRequest}
           className="rounded-full bg-[#0756c7] px-7 py-3 font-bold text-white transition hover:opacity-90"
         >
           Get Travel Insurance
