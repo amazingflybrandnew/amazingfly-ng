@@ -1,4 +1,5 @@
 import { ShieldCheck, Plane, HeartPulse, Luggage } from "lucide-react";
+import insuranceHero from "@/assets/travel-insurance-hero.jpeg";
 
 export function TravelInsuranceSearch() {
   const goToRequest = () => {
@@ -6,8 +7,15 @@ export function TravelInsuranceSearch() {
   };
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+    <div
+      className="relative overflow-hidden rounded-2xl p-6 shadow-sm"
+      style={{
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.88), rgba(255,255,255,0.88)), url(${insuranceHero})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="mb-3 flex items-center gap-2 text-[#0756c7]">
             <ShieldCheck className="h-6 w-6" />
