@@ -36,15 +36,29 @@ function Card({
   );
 }
 
-function PrimaryServiceLink({ service }: { service: Service }) {
+function PrimaryServiceLink({
+  service,
+  className,
+}: {
+  service: Service;
+  className?: string;
+}) {
   if (service.slug === "flights") {
-    return <Link to="/flights">{service.ctaLabel}</Link>;
+    return (
+      <Link to="/flights" className={className}>
+        {service.ctaLabel}
+      </Link>
+    );
   }
   if (service.slug === "hotels") {
-    return <Link to="/hotels">{service.ctaLabel}</Link>;
+    return (
+      <Link to="/hotels" className={className}>
+        {service.ctaLabel}
+      </Link>
+    );
   }
   return (
-    <Link to="/request" search={{ service: service.slug }}>
+    <Link to="/request" search={{ service: service.slug }} className={className}>
       {service.ctaLabel}
     </Link>
   );
