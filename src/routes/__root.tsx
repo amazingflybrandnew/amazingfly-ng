@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { LiveChatWidget } from "@/components/LiveChatWidget";
 
 function NotFoundComponent() {
   return (
@@ -137,6 +138,7 @@ function RootComponent() {
           <Outlet />
         </main>
         <SiteFooter />
+        <LiveChatWidget />
       </div>
     </QueryClientProvider>
   );
