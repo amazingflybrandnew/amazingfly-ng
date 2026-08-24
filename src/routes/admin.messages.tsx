@@ -57,7 +57,7 @@ function AdminMessagesPage() {
   const threads = useQuery({
     queryKey: ["admin", "messages"],
     queryFn: () => fetchThreads(),
-    refetchInterval: 60_000,
+    refetchInterval: 5_000,
   });
 
   const list = threads.data ?? [];
