@@ -266,6 +266,10 @@ async function sendStaffMessageEmail(input: {
         user_id: null,
         request_reference: null,
         delivery_status: delivery.ok ? "sent" : "failed",
+        provider_message_id: delivery.ok ? delivery.id : null,
+        error_message: delivery.ok ? null : delivery.error,
+        attempt_count: delivery.attempts,
+        last_attempt_at: new Date().toISOString(),
       });
       if (error) console.error("[admin] message email audit", error.message);
     } catch (error) {

@@ -333,6 +333,10 @@ async function logEmail(
       user_id: meta.userId ?? null,
       request_reference: meta.reference ?? null,
       delivery_status: delivery.ok ? "sent" : "failed",
+      provider_message_id: delivery.ok ? delivery.id : null,
+      error_message: delivery.ok ? null : delivery.error,
+      attempt_count: delivery.attempts,
+      last_attempt_at: new Date().toISOString(),
     });
     if (error) console.error("[automation] email log failed", error.message);
   } catch (error) {

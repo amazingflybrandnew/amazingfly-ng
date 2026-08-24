@@ -15,8 +15,18 @@ create table if not exists public.email_notifications (
   user_id uuid,
   request_reference text,
   delivery_status text not null default 'logged',
+  provider_message_id text,
+  error_message text,
+  attempt_count integer not null default 1,
+  last_attempt_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+
+alter table public.email_notifications
+  add column if not exists provider_message_id text,
+  add column if not exists error_message text,
+  add column if not exists attempt_count integer not null default 1,
+  add column if not exists last_attempt_at timestamptz not null default now();
 
 create index if not exists email_notifications_created_idx
   on public.email_notifications (created_at desc);
