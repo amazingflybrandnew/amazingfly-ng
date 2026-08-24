@@ -18,6 +18,8 @@ export const PROOF_OF_FUNDS_BANKS = Object.keys(
 ) as ProofOfFundsBank[];
 
 export const YELLOW_FEVER_CARD_PRICE_NGN = 25_000;
+export const POLICE_CERTIFICATE_NIGERIA_PRICE_NGN = 50_000;
+export const POLICE_CERTIFICATE_DIASPORA_PRICE_NGN = 145_000;
 
 export function proofOfFundsRate(bank: string | null | undefined): number | null {
   if (!bank) return null;
