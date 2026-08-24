@@ -607,7 +607,6 @@ export async function loadLiveChatConversation(
     .from("customer_messages")
     .select("id, sender, author_name, body, created_at")
     .ilike("email", user.email)
-    .is("request_id", null)
     .order("created_at", { ascending: true })
     .limit(300);
   if (error) {
@@ -619,7 +618,6 @@ export async function loadLiveChatConversation(
     .from("customer_messages")
     .update({ read_by_customer: true })
     .ilike("email", user.email)
-    .is("request_id", null)
     .eq("sender", "admin");
 
   return (data ?? []).map((entry) => {
