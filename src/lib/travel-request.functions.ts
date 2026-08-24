@@ -152,9 +152,11 @@ export const createDocumentUploadUrl = createServerFn({ method: "POST" })
     }): Promise<
       { ok: true; path: string; uploadUrl: string } | { ok: false; message: string }
     > => {
+      const { requireUser } = await import("./auth.server");
+      const { user } = await requireUser();
       const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
       const supabase = createExternalSupabaseAdmin();
-      const path = `${data.request_reference}/${data.document_type}/${Date.now()}-${safeName(
+      const path = `${user.id}/${data.request_reference}/${data.document_type}/${Date.now()}-${safeName(
         data.file_name,
       )}`;
       const { data: signed, error } = await supabase.storage
@@ -174,6 +176,25 @@ export const createDocumentUploadUrl = createServerFn({ method: "POST" })
 export const submitTravelRequest = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submissionSchema.parse(data))
   .handler(async ({ data }): Promise<SubmitResult> => {
+    const { requireUser } = await import("./auth.server");
+    const { user } = await requireUser();
+    if (!user.email || data.email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      return {
+        ok: false,
+        code: "AUTH_EMAIL_MISMATCH",
+        message: "Please use the email address connected to your signed-in account.",
+      };
+    }
+
+    const documentPrefix = `${user.id}/${data.request_reference}/`;
+    if (data.documents.some((document) => !document.file_url.startsWith(documentPrefix))) {
+      return {
+        ok: false,
+        code: "INVALID_DOCUMENT_OWNER",
+        message: "One or more uploaded documents do not belong to this signed-in request.",
+      };
+    }
+
     const { createExternalSupabaseAdmin } = await import("./external-supabase.server");
     const {
       calculateProofOfFundsFee,
@@ -318,6 +339,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       request_reference: data.request_reference,
       service_id: service.id,
       customer_id: customer?.id ?? null,
+      user_id: user.id,
       service_type: serviceType,
       origin_country: data.origin_country || null,
       destination_country: data.destination_country || null,
@@ -394,7 +416,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       const { createPendingTransaction } = await import("./payment/transactions.server");
       const { paymentTypeForService } = await import("./payment/types");
       const created = await createPendingTransaction({
-        user_id: null,
+        user_id: user.id,
         request_id: request.id,
         amount: serviceAmount,
         currency: serviceCurrency,
