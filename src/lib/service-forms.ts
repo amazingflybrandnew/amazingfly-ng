@@ -550,10 +550,18 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
       },
     ],
     documents: [
-      { value: "passport_bio_page", label: "Passport bio page" },
-      { value: "passport_photograph", label: "Passport photograph" },
-      { value: "supporting_document", label: "Supporting document" },
-      { value: "additional_file", label: "Any other document" },
+      { value: "passport_bio_page", label: "Passport bio page", required: true },
+      { value: "passport_photograph", label: "Passport photograph", required: true },
+      {
+        value: "supporting_document",
+        label: "Supporting document",
+        hint: "Optional",
+      },
+      {
+        value: "additional_file",
+        label: "Any other document",
+        hint: "Optional",
+      },
     ],
   },
   {
