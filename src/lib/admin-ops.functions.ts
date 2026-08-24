@@ -315,6 +315,7 @@ export const sendAdminMessage = createServerFn({ method: "POST" })
         email: z.string().trim().email(),
         request_id: z.string().uuid().nullish(),
         body: z.string().trim().min(2).max(4000),
+        message_id: z.string().uuid(),
       })
       .strict()
       .parse(data),
@@ -327,8 +328,13 @@ export const sendAdminMessage = createServerFn({ method: "POST" })
       email: data.email,
       request_id: data.request_id ?? null,
       body: data.body,
+      client_message_id: data.message_id,
     });
     if (!result.ok) return result;
+
+    if (result.created === false) {
+      return { ok: true, message: "Message already sent." };
+    }
 
     const email = await sendStaffMessageEmail({
       email: data.email,

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -265,20 +265,38 @@ function RequestDetailPage() {
 function RequestConversation({ requestId }: { requestId: string }) {
   const queryClient = useQueryClient();
   const [body, setBody] = useState("");
+  const [messageFeedback, setMessageFeedback] = useState<string | null>(null);
+  const messageIdRef = useRef<string | null>(null);
   const fetchConversation = useServerFn(getRequestConversation);
   const replyFn = useServerFn(replyToAmazingfly);
 
   const conversation = useQuery({
     queryKey: ["account", "conversation", requestId],
     queryFn: () => fetchConversation({ data: { id: requestId } }),
+    refetchInterval: 3_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    retry: 3,
   });
 
   const reply = useMutation({
-    mutationFn: () => replyFn({ data: { id: requestId, body: body.trim() } }),
-    onSuccess: () => {
+    mutationFn: () => {
+      messageIdRef.current ??= globalThis.crypto.randomUUID();
+      return replyFn({
+        data: { id: requestId, body: body.trim(), message_id: messageIdRef.current },
+      });
+    },
+    onSuccess: (result) => {
+      if (!result.ok) {
+        setMessageFeedback(result.message ?? "Your message could not be sent.");
+        return;
+      }
+      messageIdRef.current = null;
       setBody("");
+      setMessageFeedback("Message sent.");
       void queryClient.invalidateQueries({ queryKey: ["account", "conversation", requestId] });
     },
+    onError: () => setMessageFeedback("Your message could not be sent. Please try again."),
   });
 
   const messages = conversation.data ?? [];
@@ -291,7 +309,9 @@ function RequestConversation({ requestId }: { requestId: string }) {
       </p>
 
       <ul className="space-y-3">
-        {messages.length === 0 ? (
+        {conversation.isError ? (
+          <li className="text-sm text-destructive">The conversation could not be refreshed.</li>
+        ) : messages.length === 0 ? (
           <li className="text-sm text-muted-foreground">No messages yet.</li>
         ) : (
           messages.map((message) => (
@@ -325,12 +345,18 @@ function RequestConversation({ requestId }: { requestId: string }) {
       >
         <Textarea
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => {
+            if (!reply.isPending) messageIdRef.current = null;
+            setBody(event.target.value);
+          }}
           rows={3}
           placeholder="Write a message to our team"
           aria-label="Message to Amazingfly Travels"
           className="rounded-2xl border-white/60 bg-white/80"
         />
+        {messageFeedback ? (
+          <p className="text-xs text-muted-foreground">{messageFeedback}</p>
+        ) : null}
         <Button
           type="submit"
           className="btn-gradient text-white"

@@ -36,10 +36,14 @@ create table if not exists public.customer_messages (
   admin_id uuid references public.admin_profiles(id) on delete set null,
   author_name text,
   body text not null,
+  client_message_id uuid,
   read_by_admin boolean not null default false,
   read_by_customer boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.customer_messages
+  add column if not exists client_message_id uuid;
 
 alter table public.customer_messages drop constraint if exists customer_messages_sender_check;
 alter table public.customer_messages add constraint customer_messages_sender_check
@@ -47,6 +51,12 @@ alter table public.customer_messages add constraint customer_messages_sender_che
 
 create index if not exists customer_messages_email_idx on public.customer_messages (lower(email), created_at);
 create index if not exists customer_messages_request_idx on public.customer_messages (request_id, created_at);
+create unique index if not exists customer_messages_client_message_idx
+  on public.customer_messages (client_message_id);
+create index if not exists customer_messages_user_created_idx
+  on public.customer_messages (user_id, created_at);
+create index if not exists customer_messages_admin_idx
+  on public.customer_messages (admin_id);
 
 grant select, insert on public.customer_messages to authenticated;
 grant all on public.customer_messages to service_role;

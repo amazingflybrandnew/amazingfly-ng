@@ -257,7 +257,11 @@ export const getRequestConversation = createServerFn({ method: "POST" })
 export const replyToAmazingfly = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     z
-      .object({ id: z.string().uuid(), body: z.string().trim().min(2).max(4000) })
+      .object({
+        id: z.string().uuid(),
+        body: z.string().trim().min(2).max(4000),
+        message_id: z.string().uuid(),
+      })
       .strict()
       .parse(data),
   )
@@ -265,7 +269,7 @@ export const replyToAmazingfly = createServerFn({ method: "POST" })
     const { requireUser } = await import("./auth.server");
     const { sendCustomerReply } = await import("./account.server");
     const { user } = await requireUser();
-    return sendCustomerReply(user, data.id, data.body);
+    return sendCustomerReply(user, data.id, data.body, data.message_id);
   });
 
 /** General live-chat conversation for the signed-in customer. */
@@ -280,11 +284,17 @@ export const getLiveChatConversation = createServerFn({ method: "GET" }).handler
 
 export const sendLiveChatMessage = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
-    z.object({ body: z.string().trim().min(2).max(4000) }).strict().parse(data),
+    z
+      .object({
+        body: z.string().trim().min(2).max(4000),
+        message_id: z.string().uuid(),
+      })
+      .strict()
+      .parse(data),
   )
   .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
     const { requireUser } = await import("./auth.server");
     const { sendLiveChatReply } = await import("./account.server");
     const { user } = await requireUser();
-    return sendLiveChatReply(user, data.body);
+    return sendLiveChatReply(user, data.body, data.message_id);
   });

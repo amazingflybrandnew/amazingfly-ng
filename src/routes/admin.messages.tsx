@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -49,6 +49,7 @@ function AdminMessagesPage() {
   const [newEmail, setNewEmail] = useState(emailFromSearch ?? "");
   const [body, setBody] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const messageIdRef = useRef<string | null>(null);
 
   const fetchThreads = useServerFn(getMessageThreads);
   const sendFn = useServerFn(sendAdminMessage);
@@ -57,7 +58,10 @@ function AdminMessagesPage() {
   const threads = useQuery({
     queryKey: ["admin", "messages"],
     queryFn: () => fetchThreads(),
-    refetchInterval: 5_000,
+    refetchInterval: 3_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    retry: 3,
   });
 
   const list = threads.data ?? [];
@@ -74,19 +78,23 @@ function AdminMessagesPage() {
   }, [thread, markReadFn, queryClient]);
 
   const send = useMutation({
-    mutationFn: () =>
-      sendFn({
+    mutationFn: () => {
+      messageIdRef.current ??= globalThis.crypto.randomUUID();
+      return sendFn({
         data: {
           email: (thread?.email ?? newEmail).trim(),
           request_id: thread?.request_id ?? null,
           body: body.trim(),
+          message_id: messageIdRef.current,
         },
-      }),
+      });
+    },
     onSuccess: (result) => {
       if (!result.ok) {
         setFeedback(result.message ?? "The message could not be sent.");
         return;
       }
+      messageIdRef.current = null;
       setFeedback(result.message ?? "Message sent.");
       setBody("");
       setActive((thread?.email ?? newEmail).trim());
@@ -116,6 +124,7 @@ function AdminMessagesPage() {
               id="new-thread-email"
               value={newEmail}
               onChange={(event) => {
+                messageIdRef.current = null;
                 setNewEmail(event.target.value);
                 setActive(null);
               }}
@@ -129,6 +138,19 @@ function AdminMessagesPage() {
               <div className="flex justify-center py-10">
                 <Loader2 className="h-5 w-5 animate-spin text-navy-soft" aria-hidden="true" />
               </div>
+            ) : threads.isError ? (
+              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                <p>The shared inbox could not be refreshed.</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 rounded-xl"
+                  onClick={() => void threads.refetch()}
+                >
+                  Try again
+                </Button>
+              </div>
             ) : list.length === 0 ? (
               <p className="px-2 py-6 text-sm text-muted-foreground">No conversations yet.</p>
             ) : (
@@ -136,7 +158,10 @@ function AdminMessagesPage() {
                 <button
                   key={item.email}
                   type="button"
-                  onClick={() => setActive(item.email)}
+                  onClick={() => {
+                    messageIdRef.current = null;
+                    setActive(item.email);
+                  }}
                   className={`w-full rounded-2xl px-3 py-3 text-left transition-colors ${
                     thread?.email === item.email
                       ? "bg-white/90 shadow-card"
@@ -204,7 +229,10 @@ function AdminMessagesPage() {
           <div className="border-t border-white/60 pt-4">
             <Textarea
               value={body}
-              onChange={(event) => setBody(event.target.value)}
+              onChange={(event) => {
+                if (!send.isPending) messageIdRef.current = null;
+                setBody(event.target.value);
+              }}
               rows={3}
               placeholder="Write your message to the customer…"
               aria-label="Message"
