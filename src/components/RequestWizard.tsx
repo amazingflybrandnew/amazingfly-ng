@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { generateRequestReference } from "@/lib/request-reference";
-import { ACCEPTED_UPLOAD_TYPES, COUNTRIES, MAX_UPLOAD_BYTES } from "@/lib/travel-options";
+import { ACCEPTED_UPLOAD_TYPES, COUNTRY_OPTIONS, countryCodeToFlag, MAX_UPLOAD_BYTES } from "@/lib/travel-options";
 import {
   HERO_SLUG_TO_CATEGORY,
   SERVICE_CATEGORIES,
@@ -834,9 +834,9 @@ function QuestionField({
           onChange={(e) => onChange(question.id, e.target.value)}
         >
           <option value="">Select country</option>
-          {COUNTRIES.map((country) => (
-            <option key={country} value={country}>
-              {country}
+          {COUNTRY_OPTIONS.map((country) => (
+            <option key={country.code} value={country.name}>
+              {countryCodeToFlag(country.code)} {country.name}
             </option>
           ))}
         </select>
