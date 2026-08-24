@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Clock, Mail, MapPin, MessageCircle, Phone, Share2 } from "lucide-react";
-import { Disclaimer, PageHero } from "@/components/PageParts";
+import { PageHero } from "@/components/PageParts";
+import { contactDetails } from "@/data/contact";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -24,12 +25,21 @@ export const Route = createFileRoute("/contact")({
 });
 
 const details = [
-  { icon: Phone, label: "Phone", value: "To be confirmed" },
-  { icon: MessageCircle, label: "WhatsApp", value: "To be confirmed" },
-  { icon: Mail, label: "Email", value: "To be confirmed" },
-  { icon: MapPin, label: "Office address", value: "To be confirmed" },
-  { icon: Clock, label: "Business hours", value: "To be confirmed" },
-  { icon: Share2, label: "Social media", value: "To be confirmed" },
+  {
+    icon: Phone,
+    label: "Phone",
+    value: contactDetails.phoneDisplay,
+    href: contactDetails.phoneHref,
+  },
+  {
+    icon: MessageCircle,
+    label: "WhatsApp",
+    value: contactDetails.whatsappDisplay,
+    href: contactDetails.whatsappHref,
+  },
+  { icon: Mail, label: "Email", value: contactDetails.email, href: contactDetails.emailHref },
+  { icon: MapPin, label: "Office address", value: contactDetails.address },
+  { icon: Clock, label: "Business hours", value: contactDetails.businessHours },
 ];
 
 function Contact() {
@@ -38,7 +48,7 @@ function Contact() {
       <PageHero
         eyebrow="Contact"
         title="Talk to the Amazingfly Travels team"
-        description="Our contact channels are being finalised and will be published on Amazingfly.ng shortly."
+        description="Contact our travel support team by phone, WhatsApp, email or through our social media channels."
       />
       <section className="container-page section-y">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -46,15 +56,42 @@ function Contact() {
             <div key={item.label} className="rounded-2xl border border-border bg-card p-7 shadow-card">
               <item.icon className="h-6 w-6 text-orange" aria-hidden="true" />
               <h2 className="mt-4 text-base font-bold">{item.label}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">{item.value}</p>
+              {item.href ? (
+                <a
+                  href={item.href}
+                  target={item.href.startsWith("http") ? "_blank" : undefined}
+                  rel={item.href.startsWith("http") ? "noreferrer" : undefined}
+                  className="mt-2 block break-words text-sm font-medium text-navy-soft transition-colors hover:text-orange"
+                >
+                  {item.value}
+                </a>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">{item.value}</p>
+              )}
             </div>
           ))}
-        </div>
-        <div className="mt-10 max-w-3xl">
-          <Disclaimer>
-            Contact details shown here are placeholders. Amazingfly Travels will publish verified phone,
-            WhatsApp, email and office information on Amazingfly.ng once confirmed.
-          </Disclaimer>
+          <div className="rounded-2xl border border-border bg-card p-7 shadow-card">
+            <Share2 className="h-6 w-6 text-orange" aria-hidden="true" />
+            <h2 className="mt-4 text-base font-bold">Social media</h2>
+            <div className="mt-2 flex flex-col gap-2 text-sm font-medium">
+              <a
+                href={contactDetails.facebook}
+                target="_blank"
+                rel="noreferrer"
+                className="text-navy-soft transition-colors hover:text-orange"
+              >
+                Facebook
+              </a>
+              <a
+                href={contactDetails.instagram}
+                target="_blank"
+                rel="noreferrer"
+                className="text-navy-soft transition-colors hover:text-orange"
+              >
+                Instagram
+              </a>
+            </div>
+          </div>
         </div>
       </section>
     </>
