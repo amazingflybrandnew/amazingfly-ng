@@ -267,3 +267,24 @@ export const replyToAmazingfly = createServerFn({ method: "POST" })
     const { user } = await requireUser();
     return sendCustomerReply(user, data.id, data.body);
   });
+
+/** General live-chat conversation for the signed-in customer. */
+export const getLiveChatConversation = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ConversationMessage[]> => {
+    const { requireUser } = await import("./auth.server");
+    const { loadLiveChatConversation } = await import("./account.server");
+    const { user } = await requireUser();
+    return loadLiveChatConversation(user);
+  },
+);
+
+export const sendLiveChatMessage = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ body: z.string().trim().min(2).max(4000) }).strict().parse(data),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
+    const { requireUser } = await import("./auth.server");
+    const { sendLiveChatReply } = await import("./account.server");
+    const { user } = await requireUser();
+    return sendLiveChatReply(user, data.body);
+  });
