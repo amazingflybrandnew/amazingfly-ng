@@ -8,10 +8,10 @@ import travellerImage from "@/assets/hero-traveller-cutout.png";
 import { getHeroContent } from "@/lib/cms.functions";
 
 const ROTATING_HEADLINES = [
-  "get your travel visa",
+  "prepare your visa application",
   "book your next flight",
   "plan your perfect trip",
-  "secure your travel documents",
+  "request travel document support",
 ];
 
 const ORIGINS = [
@@ -44,7 +44,7 @@ const NEEDS = [
 ];
 
 const FEATURES = [
-  { icon: Zap, title: "Fast Processing", description: "Quick support for urgent travellers" },
+  { icon: Zap, title: "Responsive Support", description: "Help for time-sensitive travel plans" },
   { icon: ShieldCheck, title: "Secure & Protected", description: "Your documents are handled safely" },
   { icon: Headphones, title: "Expert Guidance", description: "Real travel specialists helping you" },
   { icon: Star, title: "Trusted Service", description: "Professional visa preparation support" },
@@ -72,7 +72,7 @@ export function HomeHero() {
   const cms = heroQuery.data ?? {};
 
   const badge = cms.badge ?? "Amazingfly.ng · Travel made simple";
-  const headline = cms.headline ?? "Your fastest way to";
+  const headline = cms.headline ?? "A simpler way to";
   const description = cms.description ?? "";
   const ctaLabel = cms.ctaLabel ?? "Get Started";
   const backgroundImage = cms.backgroundImageUrl ?? "";
@@ -200,10 +200,8 @@ export function HomeHero() {
               description
             ) : (
               <>
-                <span className="font-bold text-[#123c73]">Fast</span>,{" "}
-                <span className="font-bold text-[#123c73]">reliable</span> and stress-free travel
-                solutions for{" "}
-                <span className="font-extrabold text-[#df5418]">every destination.</span>
+                Practical travel planning and human support for{" "}
+                <span className="font-extrabold text-[#df5418]">Nigerian travellers.</span>
               </>
             )}
           </p>
@@ -327,16 +325,12 @@ export function HomeHero() {
                 </span>
               ))}
             </div>
-            <span className="font-bold text-[#123c73]">Trusted by thousands of travellers</span>
+            <span className="font-bold text-[#123c73]">Travel support for Nigerian travellers</span>
           </div>
           <span className="hidden h-5 w-px bg-[#123c73]/20 sm:block" aria-hidden="true" />
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-0.5" aria-hidden="true">
-              {[0, 1, 2, 3, 4].map((star) => (
-                <Star key={star} className="h-4 w-4 fill-[#ff651f] text-[#ff651f]" />
-              ))}
-            </span>
-            <span className="font-bold text-[#123c73]">Rated by travellers</span>
+            <Headphones className="h-4 w-4 text-[#ff651f]" aria-hidden="true" />
+            <span className="font-bold text-[#123c73]">Human support throughout your request</span>
           </div>
         </div>
 

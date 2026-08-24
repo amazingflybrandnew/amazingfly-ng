@@ -8,9 +8,9 @@ import { FLIGHT_BACKGROUND, HOTEL_BACKGROUND } from "@/lib/home-search-backgroun
 type Mode = "flights" | "hotels" | "insurance";
 
 const trustIndicators = [
-  { icon: ShieldCheck, title: "Secure Booking", subtitle: "100% secure payments" },
+  { icon: ShieldCheck, title: "Secure Payments", subtitle: "Processed by trusted providers" },
   { icon: Headphones, title: "24/7 Support", subtitle: "We're here for you" },
-  { icon: Award, title: "Best Price Guarantee", subtitle: "Always the best deals" },
+  { icon: Award, title: "Live Supplier Options", subtitle: "Review rates before booking" },
 ];
 
 export function SearchBookTravel() {

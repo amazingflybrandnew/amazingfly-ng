@@ -22,9 +22,9 @@ create policy "Public read site content" on public.site_content
 -- Hero + brand keys used by the homepage.
 insert into public.site_content (key, value) values
   ('hero_badge', 'Amazingfly.ng · Travel made simple'),
-  ('hero_headline', 'Your fastest way to'),
-  ('hero_rotating_words', E'get your travel visa\nbook your next flight\nplan your perfect trip\nsecure your travel documents'),
-  ('hero_description', 'Fast, reliable and stress-free travel solutions for every destination.'),
+  ('hero_headline', 'A simpler way to'),
+  ('hero_rotating_words', E'prepare your visa application\nbook your next flight\nplan your perfect trip\nrequest travel document support'),
+  ('hero_description', 'Practical travel planning and human support for Nigerian travellers.'),
   ('hero_cta_label', 'Get Started'),
   ('hero_image_url', ''),
   ('hero_traveller_image_url', ''),

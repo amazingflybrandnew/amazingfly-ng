@@ -100,7 +100,7 @@ const visaHighlights = [
   "Document checklist support",
   "Application review",
   "Human assistance",
-  "Progress updates once the request system is introduced",
+  "Request progress updates",
 ];
 
 function Home() {
