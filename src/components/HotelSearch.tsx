@@ -46,7 +46,6 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "rating", label: "Highest rating" },
 ];
 
-const CURRENCIES = ["NGN", "USD", "GBP", "EUR", "AED"];
 const RESIDENCIES = [
   { code: "NG", label: "Nigeria" },
   { code: "UZ", label: "Uzbekistan" },
@@ -254,7 +253,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [childAges, setChildAges] = useState<string[]>([]);
   const [rooms, setRooms] = useState("1");
   const [nationality, setNationality] = useState("NG");
-  const [currency, setCurrency] = useState("NGN");
+  const currency = "NGN";
   const [formError, setFormError] = useState<string | null>(null);
 
   const [submittedStay, setSubmittedStay] = useState<StayInputShape | null>(null);
@@ -329,8 +328,8 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       const result = await prebookFn({
         data: {
           bookHash: room.bookHash as string,
-          expectedPrice: room.price,
-          expectedCurrency: room.currency,
+          expectedPrice: room.providerPrice ?? room.price,
+          expectedCurrency: room.providerCurrency ?? room.currency,
         },
       });
       return { result, hotel, room };
@@ -565,15 +564,6 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="hotel-currency">Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger id="hotel-currency"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {CURRENCIES.map((code) => <SelectItem key={code} value={code}>{code}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {formError ? (
@@ -617,7 +607,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                   <p>
                     The hotel updated this rate while you were choosing. New total:{" "}
                     <strong>{formatHotelPrice(prebook.data.result.room.price, prebook.data.result.room.currency)}</strong>{" "}
-                    (was {formatHotelPrice(prebook.data.result.previousPrice, selected.currency)}).
+                    (was {formatHotelPrice(prebook.data.result.previousPrice, "NGN")}).
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <Button size="sm" className="btn-gradient border-0 text-white" onClick={() => setPriceAccepted(true)}>Accept new price</Button>
@@ -646,7 +636,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
                             {paymentLabel(option)}
                           </span>
                           <span className="mt-2 block text-lg font-extrabold text-navy">
-                            {formatHotelPrice(option.showAmount || selectedRoom?.price || 0, option.showCurrency || selectedRoom?.currency || "USD")}
+                            {formatHotelPrice(option.showAmount || selectedRoom?.price || 0, option.showCurrency || selectedRoom?.currency || "NGN")}
                           </span>
                           <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{paymentDescription(option)}</span>
                         </button>
