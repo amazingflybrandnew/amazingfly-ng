@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import amazingflyLogo from "@/assets/amazingfly-logo.jpeg";
 import { services } from "@/data/services";
+import { contactDetails } from "@/data/contact";
 
 const companyLinks = [
   { label: "Home", to: "/" as const },
@@ -89,19 +90,30 @@ export function SiteFooter() {
           <ul className="mt-5 space-y-4 text-sm text-white/75">
             <li className="flex items-start gap-3">
               <Phone className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
-              <span>Phone: to be confirmed</span>
+              <a href={contactDetails.phoneHref} className="transition-colors hover:text-orange">
+                Phone: {contactDetails.phoneDisplay}
+              </a>
             </li>
             <li className="flex items-start gap-3">
               <MessageCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
-              <span>WhatsApp: to be confirmed</span>
+              <a
+                href={contactDetails.whatsappHref}
+                target="_blank"
+                rel="noreferrer"
+                className="transition-colors hover:text-orange"
+              >
+                WhatsApp: {contactDetails.whatsappDisplay}
+              </a>
             </li>
             <li className="flex items-start gap-3">
               <Mail className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
-              <span>Email: to be confirmed</span>
+              <a href={contactDetails.emailHref} className="break-all transition-colors hover:text-orange">
+                Email: {contactDetails.email}
+              </a>
             </li>
             <li className="flex items-start gap-3">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
-              <span>Office address: to be confirmed</span>
+              <span>Office: {contactDetails.address}</span>
             </li>
           </ul>
           <Link
