@@ -45,6 +45,8 @@ import {
 } from "@/lib/catalogue/visa-catalogue";
 import {
   calculateProofOfFundsFee,
+  POLICE_CERTIFICATE_DIASPORA_PRICE_NGN,
+  POLICE_CERTIFICATE_NIGERIA_PRICE_NGN,
   YELLOW_FEVER_CARD_PRICE_NGN,
 } from "@/lib/catalogue/service-pricing";
 import { findCategoryGroup } from "@/lib/catalogue/service-categories";
@@ -168,11 +170,18 @@ export function RequestWizard({
   }, [answers, documentService]);
 
   const yellowFeverSelected = documentService === "Yellow fever card";
+  const policeCertificateSelected = documentService === "Police character certificate";
+  const policeLocation = answers["police_location"] ?? "";
+  const policeCertificateAmount = policeCertificateSelected
+    ? policeLocation === "In Diaspora (Abroad)"
+      ? POLICE_CERTIFICATE_DIASPORA_PRICE_NGN
+      : POLICE_CERTIFICATE_NIGERIA_PRICE_NGN
+    : null;
   const insurancePending = category?.id === "insurance" || documentService === "Travel insurance";
   const requiresQuote = false;
 
   const dynamicAmount = proofOfFundsCalculation?.fee ??
-    (yellowFeverSelected ? YELLOW_FEVER_CARD_PRICE_NGN : null);
+    (yellowFeverSelected ? YELLOW_FEVER_CARD_PRICE_NGN : policeCertificateAmount);
 
   const payableService = Boolean(
     dynamicAmount || (catalogueItem && (catalogueItem.price ?? 0) > 0),
@@ -181,10 +190,47 @@ export function RequestWizard({
   const priceLabel = useMemo(() => {
     if (proofOfFundsCalculation) return formatNaira(proofOfFundsCalculation.fee);
     if (yellowFeverSelected) return formatNaira(YELLOW_FEVER_CARD_PRICE_NGN);
+    if (policeCertificateAmount) return formatNaira(policeCertificateAmount);
     if (catalogueItem && (catalogueItem.price ?? 0) > 0) return catalogueDisplayPrice(catalogueItem);
     if (insurancePending) return "Allianz live pricing pending";
     return null;
-  }, [catalogueItem, insurancePending, proofOfFundsCalculation, yellowFeverSelected]);
+  }, [
+    catalogueItem,
+    insurancePending,
+    policeCertificateAmount,
+    proofOfFundsCalculation,
+    yellowFeverSelected,
+  ]);
+
+  const displayedCatalogueItem = useMemo<CatalogueItem | undefined>(() => {
+    if (!catalogueItem || !policeCertificateSelected) return catalogueItem;
+    if (policeLocation !== "In Diaspora (Abroad)") {
+      return {
+        ...catalogueItem,
+        country: "Nigeria",
+        flag: "🇳🇬",
+        price: POLICE_CERTIFICATE_NIGERIA_PRICE_NGN,
+      };
+    }
+    return {
+      ...catalogueItem,
+      country: "Diaspora (Abroad)",
+      flag: "🌍",
+      price: POLICE_CERTIFICATE_DIASPORA_PRICE_NGN,
+      requirements: [
+        "NIN or BVN",
+        "International passport bio-data page",
+        "Recent passport photograph with a white background",
+        "Proof of foreign residence",
+        "Current country of residence",
+        "Specific destination country",
+        "Official reason for the inquiry",
+        "Active email address",
+        "Last residential address in Nigeria",
+        "Local Government Area (LGA) of residence in Nigeria",
+      ],
+    };
+  }, [catalogueItem, policeCertificateSelected, policeLocation]);
 
   const sections: Section[] = useMemo(() => (category ? buildSections(category) : []), [category]);
   const documents = useMemo(
@@ -204,7 +250,22 @@ export function RequestWizard({
   const documentsStep = sections.length + 1;
   const reviewStep = documentsStep + 1;
 
-  const set = (id: string, value: string) => setAnswers((prev) => ({ ...prev, [id]: value }));
+  const set = (id: string, value: string) =>
+    setAnswers((prev) => {
+      if (id === "document_service" && value !== "Police character certificate") {
+        const {
+          police_location: _policeLocation,
+          identity_repository: _identityRepository,
+          identity_number: _identityNumber,
+          current_country_of_residence: _currentCountry,
+          last_nigerian_address: _lastNigerianAddress,
+          nigerian_lga: _nigerianLga,
+          ...remaining
+        } = prev;
+        return { ...remaining, [id]: value };
+      }
+      return { ...prev, [id]: value };
+    });
 
   function validateStep(index: number): boolean {
     const next: Record<string, string> = {};
@@ -422,7 +483,7 @@ export function RequestWizard({
             })),
           catalogue_id: catalogueItem?.id ?? null,
           package_name: catalogueItem?.name ?? null,
-          amount: catalogueItem && !requiresQuote ? catalogueItem.price : null,
+          amount: !requiresQuote ? (dynamicAmount ?? catalogueItem?.price ?? null) : null,
           currency: "NGN",
           requires_quote: requiresQuote,
           consent_to_contact: true as const,
@@ -597,7 +658,7 @@ export function RequestWizard({
 
                 {catalogueItem ? (
                   <CataloguePanel
-                    item={catalogueItem}
+                    item={displayedCatalogueItem ?? catalogueItem}
                     priceLabel={priceLabel}
                     paymentReady={!insurancePending}
                   />
