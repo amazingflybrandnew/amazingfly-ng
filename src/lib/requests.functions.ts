@@ -45,9 +45,17 @@ export const getActiveServices = createServerFn({ method: "GET" }).handler(
 export const submitServiceRequest = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => requestInput.parse(data))
   .handler(async ({ data }): Promise<{ ok: true } | { ok: false; code?: string }> => {
-    const { createExternalSupabase } = await import("./external-supabase.server");
-    const supabase = createExternalSupabase();
-    const { error } = await supabase.from("service_requests").insert(data);
+    const { requireUser } = await import("./auth.server");
+    const { user, accessToken } = await requireUser();
+    if (!user.email || data.email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      return { ok: false, code: "AUTH_EMAIL_MISMATCH" };
+    }
+
+    const { createUserClient } = await import("./auth.server");
+    const supabase = createUserClient(accessToken);
+    const { error } = await supabase
+      .from("service_requests")
+      .insert({ ...data, email: user.email, user_id: user.id });
     if (error) return { ok: false, ...(error.code ? { code: error.code } : {}) };
     return { ok: true };
   });
