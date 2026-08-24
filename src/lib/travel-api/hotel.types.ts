@@ -53,8 +53,11 @@ export type RoomResult = {
   capacity: number; // max guests per room
   cancellationPolicy: CancellationPolicy;
   boardType?: string; // e.g. "Room only", "Breakfast included"
-  price: number; // default displayed total for the stay
+  price: number; // traveller-facing total for the stay
   currency: string;
+  /** Original supplier amount/currency retained for RateHawk prebook and settlement. */
+  providerPrice?: number;
+  providerCurrency?: string;
   /** Payment methods are rate-specific and may change again at prebook. */
   paymentOptions: HotelPaymentOption[];
 };
@@ -73,8 +76,11 @@ export type HotelResult = {
   longitude?: number | null;
   rooms: RoomResult[];
   amenities: string[];
-  price: number; // lowest total price for the stay
+  price: number; // traveller-facing lowest total price for the stay
   currency: string;
+  /** Original supplier amount/currency retained for provider reconciliation. */
+  providerPrice?: number;
+  providerCurrency?: string;
   availability: boolean;
   checkInDate?: string;
   checkOutDate?: string;
