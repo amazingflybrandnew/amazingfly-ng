@@ -5,7 +5,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   Check,
-  CalendarRange,
   Loader2,
   Plus,
   PlaneTakeoff,
@@ -87,13 +86,6 @@ function todayISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
-}
-
-function shiftISODate(value: string, days: number) {
-  const date = new Date(`${value}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 function FlightCard({
@@ -271,11 +263,6 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
   const [multiCityLegs, setMultiCityLegs] = useState<MultiCityLeg[]>([
     { origin: "LHR", destination: "", departureDate: "" },
   ]);
-  const [directOnly, setDirectOnly] = useState(false);
-  const [flexibleDates, setFlexibleDates] = useState(false);
-  const [nearbyAirports, setNearbyAirports] = useState(false);
-  const [preferredAirline, setPreferredAirline] = useState("");
-  const [baggagePreference, setBaggagePreference] = useState<"any" | "checked">("any");
   const [formError, setFormError] = useState<string | null>(null);
 
   const [sortKey, setSortKey] = useState<SortKey>("recommended");
@@ -295,7 +282,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           departureDate: overrideDepartureDate ?? departureDate,
           ...(tripType === "round_trip" && returnDate ? { returnDate } : {}),
           ...(tripType === "multi_city" ? { additionalSlices: multiCityLegs } : {}),
-          maxConnections: directOnly ? 0 : 1,
+          maxConnections: 1,
           passengers: {
             adults: Number(adults),
             children: Number(children),
@@ -381,7 +368,6 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
     const filtered = results.filter(
       (flight) =>
         (airlineFilter.length === 0 || airlineFilter.includes(flight.airline)) &&
-        (!preferredAirline.trim() || flight.airline.toLowerCase().includes(preferredAirline.trim().toLowerCase())) &&
         flight.stops <= stopLimit &&
         (cabinFilter === "all" || flight.cabinClass === cabinFilter) &&
         (priceBounds.max === 0 || customerPrice(flight).amount <= priceLimit),
@@ -409,7 +395,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       }
     }
     return scored;
-  }, [results, airlineFilter, preferredAirline, stopsFilter, cabinFilter, maxPrice, priceBounds.max, sortKey]);
+  }, [results, airlineFilter, stopsFilter, cabinFilter, maxPrice, priceBounds.max, sortKey]);
 
   const toggleAirline = (airline: string) =>
     setAirlineFilter((prev) =>
@@ -579,35 +565,6 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-3 rounded-2xl border border-white/80 bg-white/55 p-4 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="flex items-start gap-3 text-sm text-navy">
-            <Checkbox checked={directOnly} onCheckedChange={(value) => setDirectOnly(value === true)} />
-            <span><span className="block font-bold">Direct flights only</span><span className="text-xs text-muted-foreground">Requests zero connections from airlines.</span></span>
-          </label>
-          <label className="flex items-start gap-3 text-sm text-navy">
-            <Checkbox checked={flexibleDates} onCheckedChange={(value) => setFlexibleDates(value === true)} />
-            <span><span className="block font-bold">Flexible dates</span><span className="text-xs text-muted-foreground">Compare departures up to three days either side.</span></span>
-          </label>
-          <label className="flex items-start gap-3 text-sm text-navy">
-            <Checkbox checked={nearbyAirports} onCheckedChange={(value) => setNearbyAirports(value === true)} />
-            <span><span className="block font-bold">Nearby airports</span><span className="text-xs text-muted-foreground">Choose a city suggestion to include its supported airports.</span></span>
-          </label>
-          <div className="space-y-1">
-            <Label htmlFor="preferred-airline">Preferred airline (optional)</Label>
-            <Input id="preferred-airline" value={preferredAirline} onChange={(event) => setPreferredAirline(event.target.value)} placeholder="e.g. British Airways" />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="baggage-preference">Baggage preference</Label>
-            <Select value={baggagePreference} onValueChange={(value) => setBaggagePreference(value as "any" | "checked")}>
-              <SelectTrigger id="baggage-preference"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="any">Any baggage allowance</SelectItem><SelectItem value="checked">Checked baggage preferred</SelectItem></SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end text-xs text-muted-foreground">
-            Airline baggage inclusion and any extra-bag price are confirmed on the selected live offer.
-          </div>
-        </div>
-
         {formError ? (
           <p
             role="alert"
@@ -637,35 +594,6 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           ) : null}
         </div>
       </form>
-
-      {flexibleDates && result?.ok && departureDate ? (
-        <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card backdrop-blur-sm">
-          <p className="mb-3 flex items-center gap-2 text-sm font-bold text-navy">
-            <CalendarRange className="h-4 w-4 text-orange" /> Compare nearby departure dates
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {[-3, -2, -1, 0, 1, 2, 3].map((offset) => {
-              const date = shiftISODate(departureDate, offset);
-              return (
-                <button
-                  key={offset}
-                  type="button"
-                  disabled={date < todayISO() || mutation.isPending}
-                  onClick={() => {
-                    setDepartureDate(date);
-                    mutation.mutate(date);
-                  }}
-                  className={`min-w-28 rounded-xl border px-3 py-2 text-sm font-semibold ${
-                    offset === 0 ? "border-orange bg-orange-tint text-navy" : "border-white bg-white text-navy"
-                  } disabled:opacity-40`}
-                >
-                  {new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
 
       {selected ? (
         <div
