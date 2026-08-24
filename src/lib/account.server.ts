@@ -597,3 +597,70 @@ export async function sendCustomerReply(
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }
+
+/** General support conversation, independent of a specific travel request. */
+export async function loadLiveChatConversation(
+  user: SessionUser,
+): Promise<ConversationMessage[]> {
+  const supabase = await admin();
+  const { data, error } = await supabase
+    .from("customer_messages")
+    .select("id, sender, author_name, body, created_at")
+    .ilike("email", user.email)
+    .is("request_id", null)
+    .order("created_at", { ascending: true })
+    .limit(300);
+  if (error) {
+    console.error("[account] live chat", error.message);
+    return [];
+  }
+
+  await supabase
+    .from("customer_messages")
+    .update({ read_by_customer: true })
+    .ilike("email", user.email)
+    .is("request_id", null)
+    .eq("sender", "admin");
+
+  return (data ?? []).map((entry) => {
+    const message = entry as Record<string, unknown>;
+    const sender = String(message["sender"] ?? "customer");
+    return {
+      id: String(message["id"]),
+      sender,
+      author:
+        String(message["author_name"] ?? "") ||
+        (sender === "admin" ? "Amazingfly Travels" : "You"),
+      body: String(message["body"] ?? ""),
+      created_at: String(message["created_at"] ?? ""),
+    };
+  });
+}
+
+export async function sendLiveChatReply(
+  user: SessionUser,
+  body: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const supabase = await admin();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const name =
+    String((profile as Record<string, unknown> | null)?.["full_name"] ?? "").trim() ||
+    user.email;
+
+  const { error } = await supabase.from("customer_messages").insert({
+    request_id: null,
+    user_id: user.id,
+    email: user.email,
+    sender: "customer",
+    author_name: name,
+    body,
+    read_by_customer: true,
+    read_by_admin: false,
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
