@@ -20,7 +20,7 @@
  * Configuration (all optional):
  *   PAYSTACK_SUPPORTED_CURRENCIES  e.g. "NGN" or "NGN,USD"     (default "NGN")
  *   PAYMENT_SETTLEMENT_CURRENCY    charge currency             (default "NGN")
- *   PAYMENT_FX_MARKUP_PERCENT      FX buffer, e.g. "2.5"       (default 0)
+ *   PAYMENT_FX_MARKUP_PERCENT      FX buffer, e.g. "3"         (default 3%)
  *   PAYMENT_FX_RATE_USD_NGN        manual rate override (any PAIR works:
  *                                  PAYMENT_FX_RATE_<FROM>_<TO>)
  */
@@ -147,7 +147,7 @@ export async function resolveCustomerCharge(
     };
   }
 
-  const markupPercent = envNumber("PAYMENT_FX_MARKUP_PERCENT") ?? 0;
+  const markupPercent = envNumber("PAYMENT_FX_MARKUP_PERCENT") ?? 3;
   const rate = live * (1 + markupPercent / 100);
   // Charge whole units in NGN-style currencies — kobo fractions confuse customers.
   const amount = Math.ceil(sourceAmount * rate);
