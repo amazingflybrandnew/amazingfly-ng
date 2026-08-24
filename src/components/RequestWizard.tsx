@@ -224,6 +224,21 @@ export function RequestWizard({
         }
       }
     }
+    if (index === documentsStep) {
+      const missingDocuments = documents.filter(
+        (document) =>
+          document.required &&
+          !docs.some(
+            (upload) =>
+              upload.documentType === document.value && upload.status === "done",
+          ),
+      );
+      if (missingDocuments.length > 0) {
+        next["documents"] = `Please upload ${missingDocuments
+          .map((document) => document.label.toLowerCase())
+          .join(" and ")} before continuing.`;
+      }
+    }
     if (index === reviewStep && !confirmAccurate) {
       next["confirmAccurate"] = "Please confirm that your information is accurate.";
     }
@@ -477,7 +492,7 @@ export function RequestWizard({
             {step === 0
               ? "What do you need help with?"
               : step === documentsStep
-                ? "Required Documents"
+                ? "Required & Optional Documents"
                 : step === reviewStep
                   ? "Review & Pay"
                   : (activeSection?.title ?? "")}
@@ -593,20 +608,23 @@ export function RequestWizard({
             {step === documentsStep ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  These are the documents we need for a {category?.name.toLowerCase()}. Files are
-                  uploaded to secure, private storage — never upload card or payment details.
+                  Upload the documents marked with an asterisk (*). All other documents are optional.
+                  Files are uploaded to secure, private storage — never upload card or payment details.
                 </p>
                 <div className="grid gap-4 md:grid-cols-2">
                   {documents.map((doc) => (
                     <UploadTile
                       key={doc.value}
                       documentType={doc.value}
-                      label={doc.required ? `${doc.label} *` : doc.label}
+                      label={doc.required ? `${doc.label} *` : `${doc.label} (optional)`}
                       {...(doc.hint ? { hint: doc.hint } : {})}
                       onFiles={handleFiles}
                     />
                   ))}
                 </div>
+                {errors["documents"] ? (
+                  <p className="text-sm font-medium text-destructive">{errors["documents"]}</p>
+                ) : null}
                 <DocList docs={docs} onRemove={(id) => setDocs((p) => p.filter((d) => d.id !== id))} />
               </>
             ) : null}
