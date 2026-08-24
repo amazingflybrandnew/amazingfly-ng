@@ -27,6 +27,7 @@ export function LiveChatWidget() {
   const [body, setBody] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const messageIdRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const session = useSessionQuery();
   const fetchConversation = useServerFn(getLiveChatConversation);
@@ -36,16 +37,25 @@ export function LiveChatWidget() {
     queryKey: ["live-chat"],
     queryFn: () => fetchConversation(),
     enabled: open && Boolean(session.data?.user),
-    refetchInterval: open ? 5_000 : false,
+    refetchInterval: open ? 3_000 : false,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    retry: 3,
   });
 
   const send = useMutation({
-    mutationFn: () => sendMessage({ data: { body: body.trim() } }),
+    mutationFn: () => {
+      messageIdRef.current ??= globalThis.crypto.randomUUID();
+      return sendMessage({
+        data: { body: body.trim(), message_id: messageIdRef.current },
+      });
+    },
     onSuccess: (result) => {
       if (!result.ok) {
         setFeedback(result.message ?? "Your message could not be sent.");
         return;
       }
+      messageIdRef.current = null;
       setBody("");
       setFeedback(null);
       void queryClient.invalidateQueries({ queryKey: ["live-chat"] });
@@ -114,6 +124,19 @@ export function LiveChatWidget() {
                   <div className="flex h-full items-center justify-center">
                     <Loader2 className="h-5 w-5 animate-spin text-navy-soft" aria-hidden="true" />
                   </div>
+                ) : conversation.isError ? (
+                  <div className="rounded-2xl border border-destructive/20 bg-white p-4 text-center text-sm text-navy shadow-sm">
+                    <p>We could not refresh this conversation.</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 rounded-xl"
+                      onClick={() => void conversation.refetch()}
+                    >
+                      Try again
+                    </Button>
+                  </div>
                 ) : messages.length === 0 ? (
                   <div className="rounded-2xl border border-coral/15 bg-white p-4 text-sm leading-6 text-navy-soft shadow-sm">
                     Hello! How can the Amazingfly team help with your travel plans today?
@@ -145,7 +168,10 @@ export function LiveChatWidget() {
               <div className="border-t bg-white p-4">
                 <Textarea
                   value={body}
-                  onChange={(event) => setBody(event.target.value)}
+                  onChange={(event) => {
+                    if (!send.isPending) messageIdRef.current = null;
+                    setBody(event.target.value);
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();

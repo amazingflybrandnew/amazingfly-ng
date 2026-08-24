@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -1098,20 +1098,43 @@ function AdminRequestDetailPage() {
 function RequestMessages({ requestId, email }: { requestId: string; email: string }) {
   const queryClient = useQueryClient();
   const [body, setBody] = useState("");
+  const [messageFeedback, setMessageFeedback] = useState<string | null>(null);
+  const messageIdRef = useRef<string | null>(null);
   const fetchMessages = useServerFn(getRequestMessages);
   const sendFn = useServerFn(sendAdminMessage);
 
   const messages = useQuery({
     queryKey: ["admin", "request-messages", requestId],
     queryFn: () => fetchMessages({ data: { request_id: requestId } }),
+    refetchInterval: 3_000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    retry: 3,
   });
 
   const send = useMutation({
-    mutationFn: () => sendFn({ data: { email, request_id: requestId, body: body.trim() } }),
-    onSuccess: () => {
+    mutationFn: () => {
+      messageIdRef.current ??= globalThis.crypto.randomUUID();
+      return sendFn({
+        data: {
+          email,
+          request_id: requestId,
+          body: body.trim(),
+          message_id: messageIdRef.current,
+        },
+      });
+    },
+    onSuccess: (result) => {
+      if (!result.ok) {
+        setMessageFeedback(result.message ?? "The message could not be sent.");
+        return;
+      }
+      messageIdRef.current = null;
       setBody("");
+      setMessageFeedback(result.message ?? "Message sent.");
       void queryClient.invalidateQueries({ queryKey: ["admin", "request-messages", requestId] });
     },
+    onError: () => setMessageFeedback("The message could not be sent. Please try again."),
   });
 
   const list = messages.data ?? [];
@@ -1122,7 +1145,9 @@ function RequestMessages({ requestId, email }: { requestId: string; email: strin
       description="The customer sees these inside their Amazingfly account and gets a notification."
     >
       <ul className="space-y-3">
-        {list.length === 0 ? (
+        {messages.isError ? (
+          <li className="text-sm text-destructive">The conversation could not be refreshed.</li>
+        ) : list.length === 0 ? (
           <li className="text-sm text-muted-foreground">No messages yet.</li>
         ) : (
           list.map((message) => (
@@ -1156,12 +1181,18 @@ function RequestMessages({ requestId, email }: { requestId: string; email: strin
       >
         <Textarea
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => {
+            if (!send.isPending) messageIdRef.current = null;
+            setBody(event.target.value);
+          }}
           rows={3}
           placeholder="Write a message to the customer"
           aria-label="Message to customer"
           className="rounded-2xl border-white/60 bg-white/80"
         />
+        {messageFeedback ? (
+          <p className="text-xs text-muted-foreground">{messageFeedback}</p>
+        ) : null}
         <Button
           type="submit"
           className="btn-gradient text-white"

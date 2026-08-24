@@ -426,7 +426,7 @@ export async function loadMessageThreads(): Promise<MessageThread[]> {
     .limit(1000);
   if (error) {
     console.error("[admin] messages", error.message);
-    return [];
+    throw new Error("The shared inbox could not be refreshed.");
   }
 
   const rows = (data ?? []) as Record<string, unknown>[];
@@ -495,7 +495,10 @@ export async function loadRequestMessages(requestId: string): Promise<AdminMessa
     .select("*")
     .eq("request_id", requestId)
     .order("created_at", { ascending: true });
-  if (error) return [];
+  if (error) {
+    console.error("[admin] request messages", error.message);
+    throw new Error("The request conversation could not be refreshed.");
+  }
   return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
     id: str(row, "id"),
     request_id: row["request_id"] ? str(row, "request_id") : null,
@@ -511,8 +514,8 @@ export async function loadRequestMessages(requestId: string): Promise<AdminMessa
 
 export async function sendCustomerMessage(
   who: Who,
-  input: { email: string; request_id?: string | null; body: string },
-): Promise<{ ok: boolean; message?: string }> {
+  input: { email: string; request_id?: string | null; body: string; client_message_id: string },
+): Promise<{ ok: boolean; created?: boolean; message?: string }> {
   const supabase = await db();
 
   let userId: string | null = null;
@@ -531,17 +534,20 @@ export async function sendCustomerMessage(
     if (row) userId = String(row["user_id"] ?? row["id"] ?? "") || null;
   }
 
-  const { error } = await supabase.from("customer_messages").insert({
+  const { data: saved, error } = await supabase.from("customer_messages").upsert({
     request_id: input.request_id ?? null,
     user_id: userId,
-    email: input.email,
+    email: input.email.trim().toLowerCase(),
     sender: "admin",
     admin_id: who.admin.id,
     author_name: who.admin.full_name || who.user.email,
     body: input.body,
+    client_message_id: input.client_message_id,
     read_by_admin: true,
-  });
+  }, { onConflict: "client_message_id", ignoreDuplicates: true }).select("id");
   if (error) return { ok: false, message: error.message };
+
+  if (!saved?.length) return { ok: true, created: false };
 
   const { logAdminAction } = await import("./admin.server");
   await logAdminAction(who, "Sent a message", {
@@ -549,7 +555,7 @@ export async function sendCustomerMessage(
     id: input.request_id ?? null,
     detail: `To ${input.email}`,
   });
-  return { ok: true };
+  return { ok: true, created: true };
 }
 
 export async function markThreadRead(email: string): Promise<{ ok: boolean }> {

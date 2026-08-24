@@ -553,7 +553,10 @@ export async function loadRequestConversation(
     .select("id, sender, author_name, body, created_at")
     .eq("request_id", requestId)
     .order("created_at", { ascending: true });
-  if (error) return [];
+  if (error) {
+    console.error("[account] request conversation", error.message);
+    throw new Error("We could not refresh this conversation. Please try again.");
+  }
 
   await supabase
     .from("customer_messages")
@@ -580,20 +583,22 @@ export async function sendCustomerReply(
   user: SessionUser,
   requestId: string,
   body: string,
+  clientMessageId: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const row = await ownedRequestRow(user, requestId);
   if (!row) return { ok: false, message: "Request not found." };
 
   const supabase = await admin();
-  const { error } = await supabase.from("customer_messages").insert({
+  const { error } = await supabase.from("customer_messages").upsert({
     request_id: requestId,
     user_id: user.id,
     email: user.email,
     sender: "customer",
     author_name: String(row["full_name"] ?? user.email),
     body,
+    client_message_id: clientMessageId,
     read_by_customer: true,
-  });
+  }, { onConflict: "client_message_id", ignoreDuplicates: true });
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }
@@ -611,7 +616,7 @@ export async function loadLiveChatConversation(
     .limit(300);
   if (error) {
     console.error("[account] live chat", error.message);
-    return [];
+    throw new Error("We could not refresh your conversation. Please try again.");
   }
 
   await supabase
@@ -638,6 +643,7 @@ export async function loadLiveChatConversation(
 export async function sendLiveChatReply(
   user: SessionUser,
   body: string,
+  clientMessageId: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const supabase = await admin();
   const { data: profile } = await supabase
@@ -649,16 +655,17 @@ export async function sendLiveChatReply(
     String((profile as Record<string, unknown> | null)?.["full_name"] ?? "").trim() ||
     user.email;
 
-  const { error } = await supabase.from("customer_messages").insert({
+  const { error } = await supabase.from("customer_messages").upsert({
     request_id: null,
     user_id: user.id,
     email: user.email,
     sender: "customer",
     author_name: name,
     body,
+    client_message_id: clientMessageId,
     read_by_customer: true,
     read_by_admin: false,
-  });
+  }, { onConflict: "client_message_id", ignoreDuplicates: true });
   if (error) return { ok: false, message: error.message };
   return { ok: true };
 }
