@@ -3,7 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, Globe, Menu, X } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
-import { services } from "@/data/services";
+import { publicServices } from "@/data/services";
 
 const linkClass =
   "text-sm font-semibold text-navy transition-colors hover:text-orange data-[status=active]:text-orange";
@@ -11,8 +11,8 @@ const linkClass =
 const DOC_SLUGS = ["proof-of-funds", "police-character-certificate", "yellow-fever-card"];
 const RESOURCE_SLUGS = ["travel-insurance"];
 
-const docServices = services.filter((service) => DOC_SLUGS.includes(service.slug));
-const resourceServices = services.filter((service) => RESOURCE_SLUGS.includes(service.slug));
+const docServices = publicServices.filter((service) => DOC_SLUGS.includes(service.slug));
+const resourceServices = publicServices.filter((service) => RESOURCE_SLUGS.includes(service.slug));
 
 function Dropdown({
   label,
@@ -81,12 +81,6 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Main navigation">
           <Link to="/services/$slug" params={{ slug: "visa-assistance" }} className={linkClass}>
             Visas
-          </Link>
-          <Link to="/services/$slug" params={{ slug: "flights" }} className={linkClass}>
-            Flights
-          </Link>
-          <Link to="/services/$slug" params={{ slug: "hotels" }} className={linkClass}>
-            Hotels
           </Link>
           <Dropdown
             label="Travel Documents"
@@ -168,7 +162,7 @@ export function SiteHeader() {
             </button>
             {mobileServicesOpen ? (
               <ul className="mb-1 ml-3 flex flex-col border-l-2 border-orange/40 pl-3">
-                {services.map((service) => (
+                {publicServices.map((service) => (
                   <li key={service.slug}>
                     <Link
                       to="/services/$slug"
