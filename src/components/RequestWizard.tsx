@@ -75,7 +75,7 @@ const CONTACT_VALUE: Record<string, "whatsapp" | "phone" | "email"> = {
   Email: "email",
 };
 
-const HIDDEN_REQUEST_CATEGORY_IDS = new Set(["airport_transfer", "other"]);
+const HIDDEN_REQUEST_CATEGORY_IDS = new Set(["flight", "hotel", "airport_transfer", "other"]);
 const REQUEST_SERVICE_CATEGORIES = SERVICE_CATEGORIES.filter(
   (item) => !HIDDEN_REQUEST_CATEGORY_IDS.has(item.id),
 );
@@ -573,13 +573,12 @@ export function RequestWizard({
             {step === 0 ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Choose a service. Flights and hotels open their live booking sections; other
-                  available services continue through this form to review and payment.
+                  Choose an available service to continue through the guided request, review and
+                  payment process.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {REQUEST_SERVICE_CATEGORIES.map((item) => {
                     const active = item.id === categoryId;
-                    const isDedicatedBooking = item.id === "flight" || item.id === "hotel";
                     return (
                       <button
                         key={item.id}
@@ -599,11 +598,6 @@ export function RequestWizard({
                         <span className="mt-1.5 block text-sm leading-relaxed text-muted-foreground">
                           {item.tagline}
                         </span>
-                        {isDedicatedBooking ? (
-                          <span className="mt-2 block text-xs font-bold text-coral">
-                            Opens live {item.id === "flight" ? "flight" : "hotel"} search
-                          </span>
-                        ) : null}
                       </button>
                     );
                   })}
