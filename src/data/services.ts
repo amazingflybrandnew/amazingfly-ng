@@ -398,6 +398,14 @@ export const services: Service[] = [
   },
 ];
 
+// Retail flight and hotel booking are temporarily paused. Keep their service
+// definitions intact so the integrations can be re-enabled without rebuilding
+// them, while excluding them from every customer-facing service list.
+export const PAUSED_PUBLIC_SERVICE_SLUGS = new Set(["flights", "hotels"]);
+export const publicServices = services.filter(
+  (service) => !PAUSED_PUBLIC_SERVICE_SLUGS.has(service.slug),
+);
+
 export const getService = (slug: string) => services.find((service) => service.slug === slug);
 
 export const serviceSlugs = services.map((service) => service.slug);
