@@ -91,7 +91,10 @@ export const SAMPLE_FEATURED_SERVICES: FeaturedService[] = [
 /** Sorts by display order and drops inactive entries. */
 export function visibleFeaturedServices(items: FeaturedService[]): FeaturedService[] {
   return items
-    .filter((item) => item.is_active)
+    .filter(
+      (item) =>
+        item.is_active && item.link_path !== "/flights" && item.link_path !== "/hotels",
+    )
     .slice()
     .sort((a, b) => a.display_order - b.display_order);
 }
