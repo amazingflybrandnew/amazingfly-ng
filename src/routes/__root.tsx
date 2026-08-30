@@ -82,7 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, flights, hotels, travel insurance and other essential travel services through Amazingfly.ng.",
+          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, travel insurance and other essential travel services through Amazingfly.ng.",
       },
       { name: "author", content: "Amazingfly Travels" },
       { property: "og:site_name", content: "Amazingfly.ng" },
@@ -90,8 +90,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:title", content: "Amazingfly.ng | Amazingfly Travels" },
       { name: "twitter:title", content: "Amazingfly.ng | Amazingfly Travels" },
-      { property: "og:description", content: "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, flights, hotels, travel insurance and other essential travel services through Amazingfly.ng." },
-      { name: "twitter:description", content: "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, flights, hotels, travel insurance and other essential travel services through Amazingfly.ng." },
+      { property: "og:description", content: "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, travel insurance and other essential travel services through Amazingfly.ng." },
+      { name: "twitter:description", content: "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, travel insurance and other essential travel services through Amazingfly.ng." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/7d1e60e5-4708-4187-ae59-1e1e7e092c92" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/7d1e60e5-4708-4187-ae59-1e1e7e092c92" },
     ],
