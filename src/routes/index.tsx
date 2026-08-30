@@ -18,7 +18,7 @@ import { SearchBookTravel } from "@/components/SearchBookTravel";
 import { SAMPLE_FEATURED_SERVICES } from "@/lib/featured-services";
 
 import { Disclaimer } from "@/components/PageParts";
-import { services, getService } from "@/data/services";
+import { publicServices, getService } from "@/data/services";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,13 +27,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, flights, hotels, travel insurance and other essential travel services through Amazingfly.ng.",
+          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, travel insurance and other essential travel services through Amazingfly.ng.",
       },
       { property: "og:title", content: "Amazingfly.ng | Amazingfly Travels" },
       {
         property: "og:description",
         content:
-          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, flights, hotels, travel insurance and other essential travel services through Amazingfly.ng.",
+          "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, travel insurance and other essential travel services through Amazingfly.ng.",
       },
       { property: "og:url", content: "/" },
     ],
@@ -155,16 +155,10 @@ function Home() {
             </h2>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {services.map((service, index) => {
+            {publicServices.map((service, index) => {
               const Icon = service.icon;
-              const isFlight = service.slug === "flights";
-              const isHotel = service.slug === "hotels";
-              const displayName = isFlight ? "Flights" : isHotel ? "Hotels" : service.name;
-              const displayDescription = isFlight
-                ? "Search live flight options, select your preferred fare and continue to passenger details and payment."
-                : isHotel
-                  ? "Search live hotel availability, choose your room and continue through the correct booking and payment flow."
-                  : service.shortDescription;
+              const displayName = service.name;
+              const displayDescription = service.shortDescription;
 
               return (
                 <article
@@ -192,25 +186,7 @@ function Home() {
                     {displayDescription}
                   </p>
                   <div className="mt-6 flex flex-wrap gap-2">
-                    {isFlight ? (
-                      <>
-                        <Button asChild size="sm" variant="ghost" className="text-[#123c73] hover:text-[#0756c7]">
-                          <Link to="/flights">Learn More</Link>
-                        </Button>
-                        <Button asChild size="sm">
-                          <Link to="/flights">Search Flights</Link>
-                        </Button>
-                      </>
-                    ) : isHotel ? (
-                      <>
-                        <Button asChild size="sm" variant="ghost" className="text-[#123c73] hover:text-[#e95516]">
-                          <Link to="/hotels">Learn More</Link>
-                        </Button>
-                        <Button asChild size="sm">
-                          <Link to="/hotels">Search Hotels</Link>
-                        </Button>
-                      </>
-                    ) : (
+                    {
                       <>
                         <Button asChild size="sm" variant="ghost" className="text-[#123c73] hover:text-[#e95516]">
                           <Link to="/services/$slug" params={{ slug: service.slug }}>
@@ -223,7 +199,7 @@ function Home() {
                           </Link>
                         </Button>
                       </>
-                    )}
+                    }
                   </div>
                 </article>
               );
@@ -341,20 +317,6 @@ function Home() {
             </p>
           </div>
           <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { label: "Flight reservations", to: "/flights" as const },
-              { label: "Hotel reservations", to: "/hotels" as const },
-            ].map((item, index) => (
-              <li key={item.label}>
-                <Link
-                  to={item.to}
-                  className="flex items-center gap-3 rounded-2xl border border-white/90 bg-white/95 px-5 py-4 text-sm font-semibold text-[#123c73] shadow-[0_14px_30px_-26px_rgba(18,60,115,0.5)] transition hover:-translate-y-0.5 hover:border-[#1268d8]/30"
-                >
-                  <ArrowRight className={`h-4 w-4 shrink-0 ${index === 0 ? "text-[#0756c7]" : "text-[#e95516]"}`} aria-hidden="true" />
-                  {item.label}
-                </Link>
-              </li>
-            ))}
             <li>
               <Link to="/request" search={{ service: "travel-insurance" }} className="flex items-center gap-3 rounded-2xl border border-white/90 bg-white/95 px-5 py-4 text-sm font-semibold text-[#123c73] shadow-[0_14px_30px_-26px_rgba(18,60,115,0.5)] transition hover:-translate-y-0.5 hover:border-[#18a97d]/30">
                 <ArrowRight className="h-4 w-4 shrink-0 text-[#18a97d]" aria-hidden="true" />
