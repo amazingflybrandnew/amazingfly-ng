@@ -1,8 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { PageHero, Disclaimer } from "@/components/PageParts";
 import { HotelSearch } from "@/components/HotelSearch";
 
 export const Route = createFileRoute("/hotels")({
+  beforeLoad: () => {
+    throw redirect({ to: "/services/$slug", params: { slug: "visa-assistance" } });
+  },
   head: () => ({
     meta: [
       { title: "Hotel Search | Amazingfly.ng" },
