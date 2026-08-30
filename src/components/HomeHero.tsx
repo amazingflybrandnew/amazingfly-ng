@@ -9,7 +9,6 @@ import { getHeroContent } from "@/lib/cms.functions";
 
 const ROTATING_HEADLINES = [
   "prepare your visa application",
-  "book your next flight",
   "plan your perfect trip",
   "request travel document support",
 ];
@@ -37,8 +36,6 @@ const DESTINATIONS = [
 
 const NEEDS = [
   { label: "Visa Application", slug: "visa-assistance" },
-  { label: "Flight Booking", slug: "flights" },
-  { label: "Hotel Booking", slug: "hotels" },
   { label: "Visa Hotel Reservation", slug: "visa-hotel-reservation" },
   { label: "Travel Documents", slug: "proof-of-funds" },
 ];
@@ -115,14 +112,6 @@ export function HomeHero() {
     }
 
     const selected = NEEDS.find((item) => item.label === need);
-    if (selected?.slug === "flights") {
-      void navigate({ to: "/flights" });
-      return;
-    }
-    if (selected?.slug === "hotels") {
-      void navigate({ to: "/hotels" });
-      return;
-    }
     if (selected?.slug === "visa-hotel-reservation") {
       void navigate({
         to: "/visa-hotel-reservation",
