@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { PageHero } from "@/components/PageParts";
 import { Button } from "@/components/ui/button";
-import { services } from "@/data/services";
+import { publicServices } from "@/data/services";
 import { SERVICE_CATEGORY_GROUPS } from "@/lib/catalogue/service-categories";
 import { packageDestinations, packagesFor } from "@/lib/catalogue/visa-catalogue";
 
@@ -13,12 +13,12 @@ export const Route = createFileRoute("/services/")({
       {
         name: "description",
         content:
-          "Explore the travel services offered by Amazingfly Travels: visa assistance, flights, hotels, travel insurance, proof of funds guidance and more.",
+          "Explore visa assistance, travel insurance, proof of funds guidance and other travel documentation services from Amazingfly Travels.",
       },
       { property: "og:title", content: "Travel Services | Amazingfly.ng" },
       {
         property: "og:description",
-        content: "Visa assistance, flights, hotels, travel insurance and travel documentation support.",
+        content: "Visa assistance, travel insurance and travel documentation support.",
       },
       { property: "og:url", content: "/services" },
     ],
@@ -37,7 +37,7 @@ function ServicesIndex() {
       />
       <section className="container-page section-y">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {services.map((service) => {
+          {publicServices.map((service) => {
             const Icon = service.icon;
             return (
               <article
