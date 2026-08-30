@@ -1,9 +1,14 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { ServicePage } from "@/components/ServicePage";
 import { Button } from "@/components/ui/button";
-import { getService } from "@/data/services";
+import { getService, PAUSED_PUBLIC_SERVICE_SLUGS } from "@/data/services";
 
 export const Route = createFileRoute("/services/$slug")({
+  beforeLoad: ({ params }) => {
+    if (PAUSED_PUBLIC_SERVICE_SLUGS.has(params.slug)) {
+      throw redirect({ to: "/services/$slug", params: { slug: "visa-assistance" } });
+    }
+  },
   loader: ({ params }) => {
     const service = getService(params.slug);
     if (!service) throw notFound();
