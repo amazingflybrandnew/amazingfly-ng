@@ -26,6 +26,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StartRequestRouteImport } from './routes/start-request'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TrackRouteImport } from './routes/track'
+import { Route as TravelInsuranceRouteImport } from './routes/travel-insurance'
 import { Route as VisaHotelReservationRouteImport } from './routes/visa-hotel-reservation'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminActivityRouteImport } from './routes/admin.activity'
@@ -142,6 +143,11 @@ const TermsRoute = TermsRouteImport.update({
 const TrackRoute = TrackRouteImport.update({
   id: '/track',
   path: '/track',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TravelInsuranceRoute = TravelInsuranceRouteImport.update({
+  id: '/travel-insurance',
+  path: '/travel-insurance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VisaHotelReservationRoute = VisaHotelReservationRouteImport.update({
@@ -328,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
+  '/travel-insurance': typeof TravelInsuranceRoute
   '/visa-hotel-reservation': typeof VisaHotelReservationRouteWithChildren
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -379,6 +386,7 @@ export interface FileRoutesByTo {
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
+  '/travel-insurance': typeof TravelInsuranceRoute
   '/visa-hotel-reservation': typeof VisaHotelReservationRouteWithChildren
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -431,6 +439,7 @@ export interface FileRoutesById {
   '/start-request': typeof StartRequestRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
+  '/travel-insurance': typeof TravelInsuranceRoute
   '/visa-hotel-reservation': typeof VisaHotelReservationRouteWithChildren
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -484,6 +493,7 @@ export interface FileRouteTypes {
     | '/start-request'
     | '/terms'
     | '/track'
+    | '/travel-insurance'
     | '/visa-hotel-reservation'
     | '/admin/activity'
     | '/admin/analytics'
@@ -535,6 +545,7 @@ export interface FileRouteTypes {
     | '/start-request'
     | '/terms'
     | '/track'
+    | '/travel-insurance'
     | '/visa-hotel-reservation'
     | '/admin/activity'
     | '/admin/analytics'
@@ -586,6 +597,7 @@ export interface FileRouteTypes {
     | '/start-request'
     | '/terms'
     | '/track'
+    | '/travel-insurance'
     | '/visa-hotel-reservation'
     | '/admin/activity'
     | '/admin/analytics'
@@ -638,6 +650,7 @@ export interface RootRouteChildren {
   StartRequestRoute: typeof StartRequestRoute
   TermsRoute: typeof TermsRoute
   TrackRoute: typeof TrackRoute
+  TravelInsuranceRoute: typeof TravelInsuranceRoute
   VisaHotelReservationRoute: typeof VisaHotelReservationRouteWithChildren
   AdminActivityRoute: typeof AdminActivityRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
@@ -790,6 +803,13 @@ declare module '@tanstack/react-router' {
       path: '/track'
       fullPath: '/track'
       preLoaderRoute: typeof TrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/travel-insurance': {
+      id: '/travel-insurance'
+      path: '/travel-insurance'
+      fullPath: '/travel-insurance'
+      preLoaderRoute: typeof TravelInsuranceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/visa-hotel-reservation': {
@@ -1049,6 +1069,7 @@ const rootRouteChildren: RootRouteChildren = {
   StartRequestRoute: StartRequestRoute,
   TermsRoute: TermsRoute,
   TrackRoute: TrackRoute,
+  TravelInsuranceRoute: TravelInsuranceRoute,
   VisaHotelReservationRoute: VisaHotelReservationRouteWithChildren,
   AdminActivityRoute: AdminActivityRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
