@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import amazingflyLogo from "@/assets/amazingfly-logo.jpeg";
-import { services } from "@/data/services";
+import { publicServices } from "@/data/services";
 import { contactDetails } from "@/data/contact";
 
 const companyLinks = [
@@ -48,7 +48,7 @@ export function SiteFooter() {
         <div>
           <h3 className="text-sm font-bold uppercase tracking-wider text-white">Services</h3>
           <ul className="mt-5 space-y-3">
-            {services.map((service) => (
+            {publicServices.map((service) => (
               <li key={service.slug}>
                 <Link
                   to="/services/$slug"
