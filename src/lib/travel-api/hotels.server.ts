@@ -3,11 +3,7 @@
  * Supports regular region search plus direct HID search used during certification.
  */
 
-import {
-  RateHawkApiError,
-  RateHawkAuthError,
-  ratehawkFetch,
-} from "@/lib/ratehawk.server";
+import { RateHawkApiError, RateHawkAuthError, ratehawkFetch } from "@/lib/ratehawk.server";
 import type {
   CancellationPolicy,
   HotelPaymentOption,
@@ -157,6 +153,7 @@ type RhHotelInfo = {
   latitude?: number;
   longitude?: number;
   images?: string[];
+  images_ext?: { url?: string }[];
   amenity_groups?: { group_name?: string; amenities?: string[] }[];
   description_struct?: { title?: string; paragraphs?: string[] }[];
   policy_struct?: { title?: string; paragraphs?: string[] }[];
@@ -172,16 +169,26 @@ function parseHotelRef(value: string): HotelRef {
 }
 
 function refKey(ref: HotelRef): string {
-  return ref.hid ? `hid:${ref.hid}` : ref.id ?? "";
+  return ref.hid ? `hid:${ref.hid}` : (ref.id ?? "");
 }
 
 function serpRef(hotel: RhSerpHotel): string {
-  return hotel.hid ? `hid:${hotel.hid}` : hotel.id ?? "";
+  return hotel.hid ? `hid:${hotel.hid}` : (hotel.id ?? "");
 }
 
 function imageUrl(template: string | undefined, size = "640x400"): string | null {
   if (!template) return null;
   return template.replace("{size}", size);
+}
+
+function hotelImages(info: RhHotelInfo | undefined): string[] {
+  const templates = [
+    ...(info?.images ?? []),
+    ...((info?.images_ext ?? []).map((image) => image.url).filter(Boolean) as string[]),
+  ];
+  return Array.from(
+    new Set(templates.map((template) => imageUrl(template)).filter(Boolean)),
+  ) as string[];
 }
 
 function isPaymentType(value: string | undefined): value is HotelPaymentType {
@@ -264,9 +271,9 @@ function mapHotel(
     .sort((a, b) => a.price - b.price)
     .slice(0, MAX_RATES_PER_HOTEL);
   const cheapest = rooms[0] ?? null;
-  const images = (info?.images ?? []).map((i) => imageUrl(i)).filter(Boolean) as string[];
+  const images = hotelImages(info);
   const amenities = (info?.amenity_groups ?? []).flatMap((g) => g.amenities ?? []);
-  const hotelId = serpRef(serp) || (info?.hid ? `hid:${info.hid}` : info?.id ?? "");
+  const hotelId = serpRef(serp) || (info?.hid ? `hid:${info.hid}` : (info?.id ?? ""));
 
   return {
     hotelId,
@@ -297,11 +304,39 @@ async function resolveRegionId(destination: string): Promise<number> {
     { query: destination, language: "en" },
   );
   const region = data?.regions?.[0];
-  if (!region?.id) throw new HotelApiError(`We couldn't find "${destination}". Try a different city.`);
+  if (!region?.id)
+    throw new HotelApiError(`We couldn't find "${destination}". Try a different city.`);
   return region.id;
 }
 
 async function fetchHotelInfo(refs: string[]): Promise<Map<string, RhHotelInfo>> {
+  const parsed = refs.map(parseHotelRef);
+  const hids = parsed.flatMap((ref) => (ref.hid ? [ref.hid] : []));
+  const ids = parsed.flatMap((ref) => (ref.id ? [ref.id] : []));
+
+  // Numeric HIDs returned by SERP need to be mapped to static hotel content.
+  // Fetch the requested properties in one Content API call instead of making
+  // one request per result. This also covers every sandbox property returned
+  // by search, not only the certification hotel.
+  try {
+    const content = await ratehawkFetch<RhHotelInfo[]>("/api/content/v1/hotel_content_by_ids/", {
+      ...(hids.length ? { hids } : {}),
+      ...(ids.length ? { ids } : {}),
+      language: "en",
+    });
+    if (content?.length) {
+      const mapped = new Map<string, RhHotelInfo>();
+      for (const hotel of content) {
+        if (hotel.hid) mapped.set(`hid:${hotel.hid}`, hotel);
+        if (hotel.id) mapped.set(hotel.id, hotel);
+      }
+      return mapped;
+    }
+  } catch {
+    // Keep the legacy hotel-info fallback for accounts where Content API is
+    // unavailable, while allowing search rates to remain usable.
+  }
+
   const entries = await Promise.all(
     refs.map(async (key) => {
       const ref = parseHotelRef(key);
@@ -365,10 +400,13 @@ export async function getHotelDetails(
   hotelId: string,
 ): Promise<(HotelResult & HotelStaticDetails) | null> {
   const ref = parseHotelRef(hotelId);
-  const info = await rateHawkFetch<RhHotelInfo>("/hotel/info/", { ...ref, language: "en" });
+  const key = refKey(ref);
+  const contentInfo = (await fetchHotelInfo([key])).get(key);
+  const info =
+    contentInfo ?? (await rateHawkFetch<RhHotelInfo>("/hotel/info/", { ...ref, language: "en" }));
   if (!info) return null;
 
-  const images = (info.images ?? []).map((i) => imageUrl(i)).filter(Boolean) as string[];
+  const images = hotelImages(info);
   const amenities = (info.amenity_groups ?? []).flatMap((g) => g.amenities ?? []);
   const flatten = (blocks: { title?: string; paragraphs?: string[] }[] | undefined) =>
     (blocks ?? [])
@@ -376,7 +414,7 @@ export async function getHotelDetails(
       .join("\n\n");
 
   return {
-    hotelId: info.hid ? `hid:${info.hid}` : info.id ?? hotelId,
+    hotelId: info.hid ? `hid:${info.hid}` : (info.id ?? hotelId),
     hotelName: info.name ?? hotelId,
     hotelImage: images[0] ?? null,
     images,
@@ -457,18 +495,30 @@ export async function prebookHotelRate(
 
   const rate = data?.hotels?.[0]?.rates?.[0];
   if (!rate) {
-    return { status: "unavailable", message: "This rate has just sold out. Please choose another room." };
+    return {
+      status: "unavailable",
+      message: "This rate has just sold out. Please choose another room.",
+    };
   }
   if (!rate.book_hash) {
-    return { status: "unavailable", message: "This rate could not be confirmed. Please choose another room." };
+    return {
+      status: "unavailable",
+      message: "This rate could not be confirmed. Please choose another room.",
+    };
   }
 
   const room: RoomResult = { ...mapRate(rate, currency), bookHash: rate.book_hash };
   if (!room.price) {
-    return { status: "unavailable", message: "This rate is no longer priced by the hotel. Please choose another room." };
+    return {
+      status: "unavailable",
+      message: "This rate is no longer priced by the hotel. Please choose another room.",
+    };
   }
   if (!room.paymentOptions.length) {
-    return { status: "unavailable", message: "This rate no longer has a supported payment method. Please choose another room." };
+    return {
+      status: "unavailable",
+      message: "This rate no longer has a supported payment method. Please choose another room.",
+    };
   }
 
   const moved = Math.abs(room.price - expectedPrice) > 0.01 || room.currency !== expectedCurrency;
