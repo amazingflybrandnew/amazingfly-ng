@@ -45,12 +45,18 @@ export function CustomerSuccessSlider({ items = [] }: Props) {
                     aria-hidden={duplicate || undefined}
                     className="min-h-48 w-72 shrink-0 rounded-3xl border border-[#1268d8]/10 bg-[#f9fcff] p-5 shadow-sm"
                   >
-                    <img
-                      src={item.image_url}
-                      alt={duplicate ? "" : item.title}
-                      className="h-24 w-full rounded-2xl object-cover"
-                      loading="lazy"
-                    />
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={duplicate ? "" : item.title}
+                        className="h-24 w-full rounded-2xl object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="grid h-24 place-items-center rounded-2xl bg-[#eaf3ff] text-4xl font-black text-[#0756c7]/25" aria-hidden="true">
+                        “
+                      </div>
+                    )}
                     <h3 className="mt-4 text-sm font-bold text-[#123c73]">{item.title}</h3>
                     {item.description ? (
                       <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#5b7189]">
