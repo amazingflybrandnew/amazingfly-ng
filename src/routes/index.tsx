@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   CheckCircle2,
@@ -18,7 +17,6 @@ import { FeaturedServicesCarousel } from "@/components/FeaturedServicesCarousel"
 import { SearchBookTravel } from "@/components/SearchBookTravel";
 import { CustomerSuccessSlider } from "@/components/CustomerSuccessSlider";
 import { SAMPLE_FEATURED_SERVICES } from "@/lib/featured-services";
-import { getCustomerSuccessRecords } from "@/lib/customer-success-service";
 
 import { Disclaimer } from "@/components/PageParts";
 import { publicServices, getService } from "@/data/services";
@@ -108,11 +106,6 @@ const visaHighlights = [
 
 function Home() {
   const visa = getService("visa-assistance")!;
-  const { data: customerSuccesses = [] } = useQuery({
-    queryKey: ["customer-successes"],
-    queryFn: getCustomerSuccessRecords,
-    staleTime: 5 * 60 * 1000,
-  });
 
   return (
     <>
@@ -353,7 +346,7 @@ function Home() {
         </div>
       </section>
 
-      <CustomerSuccessSlider items={customerSuccesses} />
+      <CustomerSuccessSlider />
 
       <section className="container-page section-y">
         <div className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,_#064ba9_0%,_#1d66ce_48%,_#ff651f_135%)] px-8 py-14 text-center shadow-[0_30px_70px_-35px_rgba(7,86,199,0.7)] md:px-16 md:py-20">
