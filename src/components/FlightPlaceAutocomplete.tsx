@@ -24,6 +24,10 @@ export function FlightPlaceAutocomplete({
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
     const close = (e: MouseEvent) => {
       if (!root.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -40,17 +44,24 @@ export function FlightPlaceAutocomplete({
 
     const timer = window.setTimeout(async () => {
       setLoading(true);
-      const response = await suggest({ data: { query: text } });
-      setResults(response.ok ? response.suggestions : []);
+      const response = await suggest({ data: { query: text.toUpperCase() } });
+      if (response.ok) {
+        const unique = Array.from(
+          new Map(response.suggestions.map((item) => [item.id, item])).values(),
+        );
+        setResults(unique);
+      } else {
+        setResults([]);
+      }
       setOpen(true);
       setLoading(false);
-    }, 250);
+    }, 200);
 
     return () => window.clearTimeout(timer);
   }, [query, suggest]);
 
   function select(place: FlightPlaceSuggestion) {
-    setQuery(`${place.name} (${place.iataCode})`);
+    setQuery(`${place.name} (${place.iataCode}) - ${place.cityName || ""}`);
     onValueChange(place.iataCode);
     setOpen(false);
   }
@@ -65,10 +76,10 @@ export function FlightPlaceAutocomplete({
         onChange={(e) => {
           const text = e.target.value.toUpperCase();
           setQuery(text);
-          if (/^[A-Z]{3}$/.test(text)) onValueChange(text);
-          else onValueChange("");
+          onValueChange(/^[A-Z]{3}$/.test(text) ? text : "");
         }}
       />
+
       {loading ? (
         <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin" />
       ) : (
@@ -76,19 +87,19 @@ export function FlightPlaceAutocomplete({
       )}
 
       {open && results.length > 0 && (
-        <div className="absolute z-50 mt-2 w-full rounded-xl bg-white p-2 shadow-xl">
+        <div className="absolute z-50 mt-2 max-h-80 w-full overflow-auto rounded-xl bg-white p-2 shadow-xl">
           {results.map((airport) => (
             <button
               key={airport.id}
               type="button"
-              className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-gray-100"
+              className="flex w-full items-start gap-3 rounded-lg p-3 text-left hover:bg-gray-100"
               onClick={() => select(airport)}
             >
-              <Plane className="h-4 w-4" />
+              <Plane className="mt-1 h-4 w-4" />
               <span>
                 <strong>{airport.name}</strong>
                 <span className="block text-sm text-gray-500">
-                  {airport.iataCode} · {airport.cityName} {airport.countryCode ? `· ${airport.countryCode}` : ""}
+                  {airport.iataCode} · {airport.cityName || ""} · {airport.countryCode || ""}
                 </span>
               </span>
             </button>
