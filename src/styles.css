@@ -363,3 +363,25 @@
     background: color-mix(in oklab, var(--navy) 18%, transparent);
   }
 }
+
+
+@keyframes customer-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - 0.625rem));
+  }
+}
+
+.customer-success-track {
+  animation: customer-scroll 35s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-success-track {
+    animation: none;
+    overflow-x: auto;
+  }
+}
