@@ -346,13 +346,17 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     },
   });
 
-  function validate(): string | null {
+  function validate(search: {
+    destination: string;
+    checkInDate: string;
+    checkOutDate: string;
+  }): string | null {
     const today = todayISO();
-    if (!destination.trim()) return "Please tell us where you would like to stay.";
-    if (!checkInDate) return "Please choose a check-in date.";
-    if (checkInDate < today) return "Check-in date cannot be in the past.";
-    if (!checkOutDate) return "Please choose a check-out date.";
-    if (checkOutDate <= checkInDate) return "Check-out must be after the check-in date.";
+    if (!search.destination) return "Please tell us where you would like to stay.";
+    if (!search.checkInDate) return "Please choose a check-in date.";
+    if (search.checkInDate < today) return "Check-in date cannot be in the past.";
+    if (!search.checkOutDate) return "Please choose a check-out date.";
+    if (search.checkOutDate <= search.checkInDate) return "Check-out must be after the check-in date.";
     if (Number(rooms) < 1) return "Please select at least one room.";
     if (Number(adults) < 1) return "Please select at least one adult guest.";
     if (childAges.length !== Number(children)) return "Please provide the age of every child.";
@@ -362,15 +366,27 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     return null;
   }
 
-  const onSubmit = (event: FormEvent) => {
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const error = validate();
+    const formData = new FormData(event.currentTarget);
+    const search = {
+      destination: String(formData.get("destination") ?? destination).trim(),
+      checkInDate: String(formData.get("checkInDate") ?? checkInDate),
+      checkOutDate: String(formData.get("checkOutDate") ?? checkOutDate),
+    };
+    const error = validate(search);
     setFormError(error);
     if (error) return;
+
+    // Read native date values at submit time as well as tracking React state.
+    // This keeps the workflow reliable for browser automation and certification tools.
+    setDestination(search.destination);
+    setCheckInDate(search.checkInDate);
+    setCheckOutDate(search.checkOutDate);
     const stay: StayInputShape = {
-      destination: destination.trim(),
-      checkInDate,
-      checkOutDate,
+      destination: search.destination,
+      checkInDate: search.checkInDate,
+      checkOutDate: search.checkOutDate,
       guests: {
         adults: Number(adults),
         children: Number(children),
@@ -485,6 +501,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
             <Label htmlFor="hotel-destination">Destination</Label>
             <Input
               id="hotel-destination"
+              name="destination"
               value={destination}
               onChange={(event) => setDestination(event.target.value)}
               placeholder="City, area or hotel ID"
@@ -496,11 +513,11 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="hotel-checkin">Check-in</Label>
-            <Input id="hotel-checkin" type="date" min={todayISO()} value={checkInDate} onChange={(event) => setCheckInDate(event.target.value)} />
+            <Input id="hotel-checkin" name="checkInDate" type="date" min={todayISO()} value={checkInDate} onChange={(event) => setCheckInDate(event.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="hotel-checkout">Check-out</Label>
-            <Input id="hotel-checkout" type="date" min={checkInDate || todayISO()} value={checkOutDate} onChange={(event) => setCheckOutDate(event.target.value)} />
+            <Input id="hotel-checkout" name="checkOutDate" type="date" min={checkInDate || todayISO()} value={checkOutDate} onChange={(event) => setCheckOutDate(event.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="hotel-adults">Adults</Label>
