@@ -27,9 +27,11 @@ export async function createCustomerSuccessRecord(data: {
   is_active?: boolean;
 }) {
   const { data: record, error } = await supabase
-    .from("customer_successes")
+    .from("testimonials")
     .insert({
-      ...data,
+      name: data.title,
+      quote: data.description ?? "",
+      image_url: data.image_url,
       display_order: data.display_order ?? 0,
       is_active: data.is_active ?? true,
     })
@@ -42,18 +44,25 @@ export async function createCustomerSuccessRecord(data: {
 
 export async function getCustomerSuccessRecords() {
   const { data, error } = await supabase
-    .from("customer_successes")
-    .select("*")
+    .from("testimonials")
+    .select("id, name, quote, image_url, display_order")
     .eq("is_active", true)
-    .order("display_order");
+    .order("display_order", { ascending: true });
 
   if (error) throw error;
-  return data ?? [];
+
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    title: item.name,
+    description: item.quote,
+    image_url: item.image_url ?? "",
+    display_order: item.display_order ?? 0,
+  }));
 }
 
 export async function deleteCustomerSuccessRecord(id: string) {
   const { error } = await supabase
-    .from("customer_successes")
+    .from("testimonials")
     .delete()
     .eq("id", id);
 
