@@ -116,7 +116,10 @@ export async function searchFlightPlaces(query: string): Promise<FlightPlaceSugg
       iataCode: String(place.iata_code).toUpperCase(),
       countryCode: String(place.iata_country_code ?? "").toUpperCase(),
     }))
-    .slice(0, 10);
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === "airport" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 }
 
 /** Converts an ISO-8601 duration such as "PT7H35M" into total minutes. */
