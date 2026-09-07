@@ -87,19 +87,25 @@ export function FlightPlaceAutocomplete({
       )}
 
       {open && results.length > 0 && (
-        <div className="absolute z-50 mt-2 max-h-80 w-full overflow-auto rounded-xl bg-white p-2 shadow-xl">
+        <div className="absolute z-50 mt-2 max-h-96 w-full overflow-auto rounded-xl border border-gray-100 bg-white p-2 shadow-xl" role="listbox" aria-label="Matching airports and city codes">
           {results.map((airport) => (
             <button
               key={airport.id}
               type="button"
+              role="option"
               className="flex w-full items-start gap-3 rounded-lg p-3 text-left hover:bg-gray-100"
               onClick={() => select(airport)}
             >
               <Plane className="mt-1 h-4 w-4" />
-              <span>
-                <strong>{airport.name}</strong>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-start justify-between gap-3">
+                  <strong>{airport.name}</strong>
+                  <span className="shrink-0 rounded-md bg-navy px-2 py-0.5 text-xs font-extrabold text-white">{airport.iataCode}</span>
+                </span>
                 <span className="block text-sm text-gray-500">
-                  {airport.iataCode} · {airport.cityName || ""} · {airport.countryCode || ""}
+                  {airport.type === "airport" ? "Airport" : "City / metro code"}
+                  {airport.cityName ? ` · ${airport.cityName}` : ""}
+                  {airport.countryCode ? ` · ${airport.countryCode}` : ""}
                 </span>
               </span>
             </button>
