@@ -94,7 +94,7 @@ const stayInput = z
     checkInDate: z.string().trim().min(8).max(32),
     checkOutDate: z.string().trim().min(8).max(32),
     guests: guestsInput,
-    rooms: z.number().int().min(1).max(8),
+    rooms: z.literal(1),
     nationality: z.string().trim().min(2).max(2).optional(),
     currency: z.string().trim().min(3).max(3).optional(),
   })
