@@ -251,7 +251,6 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [adults, setAdults] = useState("2");
   const [children, setChildren] = useState("0");
   const [childAges, setChildAges] = useState<string[]>([]);
-  const [rooms, setRooms] = useState("1");
   const [nationality, setNationality] = useState("NG");
   const currency = "NGN";
   const [formError, setFormError] = useState<string | null>(null);
@@ -357,7 +356,6 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
     if (search.checkInDate < today) return "Check-in date cannot be in the past.";
     if (!search.checkOutDate) return "Please choose a check-out date.";
     if (search.checkOutDate <= search.checkInDate) return "Check-out must be after the check-in date.";
-    if (Number(rooms) < 1) return "Please select at least one room.";
     if (Number(adults) < 1) return "Please select at least one adult guest.";
     if (childAges.length !== Number(children)) return "Please provide the age of every child.";
     if (childAges.some((age) => Number(age) < 0 || Number(age) > 17)) {
@@ -392,7 +390,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
         children: Number(children),
         childAges: childAges.map(Number),
       },
-      rooms: Number(rooms),
+      rooms: 1,
       nationality,
       currency,
     };
@@ -543,14 +541,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="hotel-rooms">Rooms</Label>
-            <Select value={rooms} onValueChange={setRooms}>
-              <SelectTrigger id="hotel-rooms"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <SelectItem key={n} value={String(n)}>{n} room{n > 1 ? "s" : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div id="hotel-rooms" className="flex h-10 items-center rounded-md border px-3">1 room per booking</div>
           </div>
           {childAges.map((age, index) => (
             <div className="space-y-2" key={`child-age-${index}`}>
