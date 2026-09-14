@@ -19,7 +19,7 @@ const hotelInput = z
     checkOutDate: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/),
     nights: z.number().int().min(1).max(60).nullable(),
     guests: z.number().int().min(1).max(30),
-    rooms: z.number().int().min(1).max(10),
+    rooms: z.literal(1),
     roomType: z.string().trim().max(160).nullable(),
     boardType: z.string().trim().max(120).nullable(),
     cancellationPolicy: z.string().trim().max(400).nullable(),
