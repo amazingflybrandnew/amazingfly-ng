@@ -414,9 +414,9 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
       <form
         onSubmit={onSubmit}
         noValidate
-        className="glass-card rounded-[2rem] border border-white/70 p-6 md:p-8"
+        className={`glass-card border border-white/70 ${compact ? "rounded-[1.75rem] p-4 md:p-5" : "rounded-[2rem] p-6 md:p-8"}`}
       >
-        <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Trip type">
+        <div className={`${compact ? "mb-3" : "mb-6"} flex flex-wrap gap-2`} role="tablist" aria-label="Trip type">
           {([
             ["one_way", "One way"],
             ["round_trip", "Round trip"],
@@ -434,7 +434,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
                   setMultiCityLegs([{ origin: destination, destination: "", departureDate: "" }]);
                 }
               }}
-              className={`rounded-full px-5 py-2 text-sm font-bold transition ${
+              className={`rounded-full font-bold transition ${compact ? "px-4 py-1.5 text-xs" : "px-5 py-2 text-sm"} ${
                 tripType === value
                   ? "bg-navy text-white shadow-card"
                   : "border border-white/80 bg-white/70 text-navy hover:bg-white"
@@ -444,7 +444,13 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
             </button>
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={
+            compact
+              ? "grid items-end gap-3 md:grid-cols-2 xl:grid-cols-[1.35fr_1.35fr_1fr_1fr_.7fr_.65fr_.65fr_.9fr_auto]"
+              : "grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+          }
+        >
           <div className="space-y-2">
             <Label htmlFor="flight-from">From</Label>
             <FlightPlaceAutocomplete
@@ -535,6 +541,12 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
               </SelectContent>
             </Select>
           </div>
+          {compact ? (
+            <Button type="submit" size="lg" className="btn-gradient h-10 border-0 px-5 text-white" disabled={mutation.isPending}>
+              {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-2 h-4 w-4" aria-hidden="true" />}
+              Search
+            </Button>
+          ) : null}
         </div>
 
         {tripType === "multi_city" ? (
@@ -575,6 +587,13 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
           </p>
         ) : null}
 
+        {compact ? (
+          <div className="mt-3 flex justify-end border-t border-navy/10 pt-3 text-xs">
+            <Link to="/flights" className="inline-flex items-center font-semibold text-navy transition-colors hover:text-orange">
+              Open full flight search<ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+        ) : (
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Button type="submit" size="lg" className="btn-gradient border-0 text-white" disabled={mutation.isPending}>
             {mutation.isPending ? (
@@ -584,15 +603,8 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
             )}
             Search Flights
           </Button>
-          {compact ? (
-            <Button asChild variant="ghost" className="text-navy hover:text-orange">
-              <Link to="/flights">
-                Open full flight search
-                <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
-              </Link>
-            </Button>
-          ) : null}
         </div>
+        )}
       </form>
 
       {selected ? (
