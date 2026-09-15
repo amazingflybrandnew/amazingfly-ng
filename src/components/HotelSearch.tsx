@@ -493,8 +493,18 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className="space-y-8">
-      <form onSubmit={onSubmit} noValidate className="glass-card rounded-[2rem] border border-white/70 p-6 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        className={`glass-card border border-white/70 ${compact ? "rounded-[1.75rem] p-4 md:p-5" : "rounded-[2rem] p-6 md:p-8"}`}
+      >
+        <div
+          className={
+            compact
+              ? "grid items-end gap-3 md:grid-cols-2 xl:grid-cols-[1.7fr_1fr_1fr_.72fr_.72fr_1.15fr_auto]"
+              : "grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+          }
+        >
           <div className="space-y-2 lg:col-span-1">
             <Label htmlFor="hotel-destination">Destination</Label>
             <Input
@@ -505,9 +515,11 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               placeholder="City, area or hotel ID"
               maxLength={80}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Test hotel IDs such as 10004834 can be entered directly during provider certification.
-            </p>
+            {!compact ? (
+              <p className="text-[11px] text-muted-foreground">
+                Test hotel IDs such as 10004834 can be entered directly during provider certification.
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="hotel-checkin">Check-in</Label>
@@ -539,7 +551,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className={`space-y-2 ${compact ? "hidden" : ""}`}>
             <Label htmlFor="hotel-rooms">Rooms</Label>
             <div id="hotel-rooms" className="flex h-10 items-center rounded-md border px-3">1 room per booking</div>
           </div>
@@ -572,7 +584,22 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               </SelectContent>
             </Select>
           </div>
+          {compact ? (
+            <Button type="submit" size="lg" className="btn-gradient h-10 border-0 px-5 text-white" disabled={mutation.isPending}>
+              {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-2 h-4 w-4" aria-hidden="true" />}
+              Search
+            </Button>
+          ) : null}
         </div>
+
+        {compact ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-t border-navy/10 pt-3 text-xs text-muted-foreground">
+            <span>1 room per booking · Hotel IDs such as 10004834 are supported for certification.</span>
+            <Link to="/hotels" className="inline-flex items-center font-semibold text-navy transition-colors hover:text-orange">
+              Open full hotel search<ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+          </div>
+        ) : null}
 
         {formError ? (
           <p role="alert" className="mt-4 flex gap-2 rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm text-navy">
@@ -581,17 +608,12 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           </p>
         ) : null}
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+        {!compact ? <div className="mt-6 flex flex-wrap items-center gap-3">
           <Button type="submit" size="lg" className="btn-gradient border-0 text-white" disabled={mutation.isPending}>
             {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-2 h-4 w-4" aria-hidden="true" />}
             Search Hotels
           </Button>
-          {compact ? (
-            <Button asChild variant="ghost" className="text-navy hover:text-orange">
-              <Link to="/hotels">Open full hotel search<ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" /></Link>
-            </Button>
-          ) : null}
-        </div>
+        </div> : null}
       </form>
 
       {selected ? (
