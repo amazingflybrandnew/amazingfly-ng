@@ -6,6 +6,7 @@ import { AlertCircle, ArrowRight, Briefcase, Headphones, MapPin, ShieldCheck, St
 
 import travellerImage from "@/assets/hero-traveller-cutout.png";
 import { getHeroContent } from "@/lib/cms.functions";
+import type { CustomerSuccess } from "@/lib/customer-successes";
 
 const ROTATING_HEADLINES = [
   "prepare your visa application",
@@ -58,7 +59,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function HomeHero() {
+export function HomeHero({ customerSuccesses = [] }: { customerSuccesses?: CustomerSuccess[] }) {
   const navigate = useNavigate();
   const fetchHero = useServerFn(getHeroContent);
   const heroQuery = useQuery({
@@ -334,7 +335,27 @@ export function HomeHero() {
             />
           </div>
 
-          <div className="relative -mt-10 rounded-[28px] border border-white/90 bg-white/90 p-6 shadow-[0_24px_65px_-36px_rgba(16,65,130,0.55)] backdrop-blur-xl md:-mt-24 md:p-8">
+          <div className="relative -mt-10 overflow-hidden rounded-[28px] border border-white/90 bg-white/90 p-5 shadow-[0_24px_65px_-36px_rgba(16,65,130,0.55)] backdrop-blur-xl md:-mt-24">
+            {customerSuccesses.length ? (
+              <div className="overflow-hidden" aria-label="Recent customer successes">
+                <div className="customer-success-track flex w-max gap-4">
+                  {[...customerSuccesses, ...customerSuccesses].map((item, itemIndex) => (
+                    <article
+                      key={`${item.id}-${itemIndex}`}
+                      aria-hidden={itemIndex >= customerSuccesses.length || undefined}
+                      className="flex w-72 shrink-0 items-center gap-3 rounded-2xl border border-[#1268d8]/10 bg-[#f9fcff] p-3 shadow-sm"
+                    >
+                      <img src={item.image_url} alt={itemIndex >= customerSuccesses.length ? "" : item.title} className="h-20 w-24 shrink-0 rounded-xl object-cover" loading="lazy" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#e95516]">Customer success</p>
+                        <h2 className="mt-1 line-clamp-2 text-sm font-extrabold text-[#123c73]">{item.title}</h2>
+                        {item.description ? <p className="mt-1 line-clamp-2 text-xs text-[#5c7087]">{item.description}</p> : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-[#1268d8]/15">
               {FEATURES.map((feature, featureIndex) => (
                 <div key={feature.title} className="flex gap-3 lg:px-5 lg:first:pl-0 lg:last:pr-0">
@@ -359,6 +380,7 @@ export function HomeHero() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>
       </div>
