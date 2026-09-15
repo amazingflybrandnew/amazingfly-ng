@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { HomeHero } from "@/components/HomeHero";
 import { FeaturedServicesCarousel } from "@/components/FeaturedServicesCarousel";
 import { SearchBookTravel } from "@/components/SearchBookTravel";
-import { CustomerSuccessSlider } from "@/components/CustomerSuccessSlider";
 import { SAMPLE_FEATURED_SERVICES } from "@/lib/featured-services";
 import { getCustomerSuccessRecords } from "@/lib/customer-success-service";
 
@@ -117,7 +116,7 @@ function Home() {
 
   return (
     <>
-      <HomeHero />
+      <HomeHero customerSuccesses={customerSuccesses} />
 
       <FeaturedServicesCarousel
         items={SAMPLE_FEATURED_SERVICES}
@@ -353,8 +352,6 @@ function Home() {
           </ul>
         </div>
       </section>
-
-      <CustomerSuccessSlider items={customerSuccesses} />
 
       <section className="container-page section-y">
         <div className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,_#064ba9_0%,_#1d66ce_48%,_#ff651f_135%)] px-8 py-14 text-center shadow-[0_30px_70px_-35px_rgba(7,86,199,0.7)] md:px-16 md:py-20">
