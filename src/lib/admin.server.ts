@@ -947,7 +947,13 @@ export async function signAdminDocumentDownload(
  */
 export async function saveRequestQuote(
   who: { user: SessionUser; admin: AdminProfile },
-  input: { requestId: string; amount: number; currency: string; note?: string | null },
+  input: {
+    requestId: string;
+    amount: number;
+    currency: string;
+    note?: string | null;
+    insurer?: string | null;
+  },
 ): Promise<{ ok: boolean; message?: string }> {
   const supabase = await admin();
   const currency = (input.currency || "NGN").toUpperCase();
@@ -972,6 +978,18 @@ export async function saveRequestQuote(
       .eq("id", input.requestId));
   }
   if (error) return { ok: false, message: error.message };
+
+  // Record which insurer the premium was sourced from. Best-effort so a missing
+  // `insurer` column (schema not yet migrated) never blocks the quotation.
+  if (input.insurer) {
+    const { error: insurerError } = await supabase
+      .from("service_requests")
+      .update({ insurer: input.insurer })
+      .eq("id", input.requestId);
+    if (insurerError && insurerError.code !== "42703" && insurerError.code !== "PGRST204") {
+      console.error("[admin] insurer update", insurerError.message);
+    }
+  }
 
   await supabase.from("request_updates").insert({
     request_id: input.requestId,

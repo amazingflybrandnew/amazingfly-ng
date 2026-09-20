@@ -177,8 +177,10 @@ export function RequestWizard({
       ? POLICE_CERTIFICATE_DIASPORA_PRICE_NGN
       : POLICE_CERTIFICATE_NIGERIA_PRICE_NGN
     : null;
-  const insurancePending = category?.id === "insurance" || documentService === "Travel insurance";
-  const requiresQuote = false;
+  // Travel insurance is request-and-quote: the customer submits their trip
+  // details and the team returns a personalised quotation to complete payment.
+  const insuranceQuote = category?.id === "insurance" || documentService === "Travel insurance";
+  const requiresQuote = insuranceQuote;
 
   const dynamicAmount = proofOfFundsCalculation?.fee ??
     (yellowFeverSelected ? YELLOW_FEVER_CARD_PRICE_NGN : policeCertificateAmount);
@@ -192,11 +194,11 @@ export function RequestWizard({
     if (yellowFeverSelected) return formatNaira(YELLOW_FEVER_CARD_PRICE_NGN);
     if (policeCertificateAmount) return formatNaira(policeCertificateAmount);
     if (catalogueItem && (catalogueItem.price ?? 0) > 0) return catalogueDisplayPrice(catalogueItem);
-    if (insurancePending) return "Allianz live pricing pending";
+    if (insuranceQuote) return "Personalised quote after review";
     return null;
   }, [
     catalogueItem,
-    insurancePending,
+    insuranceQuote,
     policeCertificateAmount,
     proofOfFundsCalculation,
     yellowFeverSelected,
@@ -416,12 +418,6 @@ export function RequestWizard({
   async function handleSubmit() {
     if (!category) return;
     if (!validateStep(reviewStep)) return;
-    if (insurancePending) {
-      setSubmitError(
-        "Travel insurance live pricing is being connected to Allianz. Payment will be enabled once the Allianz premium API is available.",
-      );
-      return;
-    }
     setSubmitError(null);
     setSubmitting(true);
     try {
@@ -640,12 +636,13 @@ export function RequestWizard({
                   />
                 ) : null}
 
-                {insurancePending ? (
+                {insuranceQuote ? (
                   <div className="rounded-2xl border border-sky/40 bg-sky-tint p-5 text-sm text-navy">
-                    <p className="font-bold">Allianz live insurance pricing is being connected.</p>
+                    <p className="font-bold">Travel insurance is quoted after review.</p>
                     <p className="mt-1 text-navy-soft">
-                      We will enable payment here once the Allianz API returns the exact premium for
-                      the traveller, destination and dates. No manual insurance amount will be guessed.
+                      Submit your trip details and our team will confirm the exact premium for your
+                      traveller, destination and dates, then send you a personalised quotation to
+                      complete payment.
                     </p>
                   </div>
                 ) : null}
@@ -654,7 +651,7 @@ export function RequestWizard({
                   <CataloguePanel
                     item={displayedCatalogueItem ?? catalogueItem}
                     priceLabel={priceLabel}
-                    paymentReady={!insurancePending}
+                    paymentReady={!insuranceQuote}
                   />
                 ) : null}
               </>
@@ -715,10 +712,10 @@ export function RequestWizard({
                   onEdit={() => goTo(documentsStep)}
                 />
 
-                {insurancePending ? (
+                {insuranceQuote ? (
                   <div className="rounded-xl border border-sky/40 bg-sky-tint p-4 text-sm font-medium text-navy">
-                    Travel insurance payment will be enabled as soon as Allianz live premium pricing
-                    is connected.
+                    After you submit, our team will review your trip and send a personalised
+                    quotation. You can complete payment once your quote is ready.
                   </div>
                 ) : payableService ? (
                   <div className="rounded-xl border border-mint/50 bg-mint-tint p-4 text-sm font-medium text-navy">
@@ -776,15 +773,16 @@ export function RequestWizard({
             <Button
               type="button"
               size="lg"
-              disabled={submitting || insurancePending}
+              disabled={submitting}
               onClick={handleSubmit}
             >
               {submitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing payment…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {payableService ? "Preparing payment…" : "Submitting…"}
                 </>
-              ) : insurancePending ? (
-                "Awaiting Allianz Pricing"
+              ) : insuranceQuote ? (
+                "Submit Insurance Request"
               ) : payableService ? (
                 <>
                   Continue to Payment <ArrowRight className="ml-2 h-4 w-4" />

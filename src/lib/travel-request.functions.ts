@@ -220,6 +220,14 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
     const isFlightOrHotel = /flight|hotel/.test(
       `${normalizedCategory} ${data.service_type}`.toLowerCase(),
     );
+    const isInsurance =
+      catalogueId === "travel-insurance-cover" ||
+      normalizedCategory === "insurance" ||
+      documentService === "Travel insurance";
+    // Request-only services carry no upfront online price. The customer submits
+    // the request and an admin issues a personalised quotation (the premium the
+    // team sources from the insurer) before payment is enabled.
+    const isRequestOnly = isFlightOrHotel || isInsurance;
 
     let serviceAmount: number | null = null;
     let serviceCurrency = "NGN";
@@ -265,19 +273,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       packageName = "Yellow Fever Card Assistance";
       serviceAmount = YELLOW_FEVER_CARD_PRICE_NGN;
       serviceCurrency = "NGN";
-    } else if (
-      catalogueId === "travel-insurance-cover" ||
-      normalizedCategory === "insurance" ||
-      documentService === "Travel insurance"
-    ) {
-      // Allianz will be the price authority once the insurance API is supplied.
-      // Do not accept a browser-entered/manual insurance amount in the meantime.
-      return {
-        ok: false,
-        message:
-          "Travel insurance online pricing is being connected to Allianz. Please try again once live pricing is available.",
-      };
-    } else if (!isFlightOrHotel && packageItem) {
+    } else if (!isRequestOnly && packageItem) {
       if (!Number.isFinite(packageItem.price) || packageItem.price <= 0) {
         return {
           ok: false,
@@ -288,9 +284,10 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       serviceCurrency = packageItem.currency || "NGN";
     }
 
-    // The generic flight/hotel request wizard remains request-only; live
-    // supplier search/booking flows own their own fare/rate pricing.
-    if (!isFlightOrHotel && (!serviceAmount || serviceAmount <= 0)) {
+    // Request-only services (flights, hotels, travel insurance) are saved
+    // without an online price; live supplier flows and admin quotations own
+    // their own pricing.
+    if (!isRequestOnly && (!serviceAmount || serviceAmount <= 0)) {
       return {
         ok: false,
         message: "This service does not yet have an online payment price configured.",
@@ -362,9 +359,10 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       consent_to_contact: true,
     };
 
-    // Amazingfly's customer-service rule is Review -> Payment. There is no
-    // quotation-only path for a service whose price can be calculated here.
-    const requiresQuote = false;
+    // Services with a price computed here go straight Review -> Payment.
+    // Travel insurance is quotation-first: an admin sources the premium from
+    // the insurer and issues a personalised quotation before payment opens.
+    const requiresQuote = isInsurance;
 
     const dynamicRow = {
       ...baseRow,
@@ -411,7 +409,7 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       };
     }
 
-    let payable = Boolean(!isFlightOrHotel && serviceAmount && serviceAmount > 0);
+    let payable = Boolean(!isRequestOnly && serviceAmount && serviceAmount > 0);
     if (payable && serviceAmount) {
       const { createPendingTransaction } = await import("./payment/transactions.server");
       const { paymentTypeForService } = await import("./payment/types");

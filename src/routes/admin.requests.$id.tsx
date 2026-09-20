@@ -38,6 +38,7 @@ import {
   isPaid,
 } from "@/lib/admin-workflow";
 import { findCatalogueItem } from "@/lib/catalogue/visa-catalogue";
+import { INSURANCE_PROVIDERS } from "@/lib/insurance/provider";
 
 import { getRequestMessages, sendAdminMessage } from "@/lib/admin-ops.functions";
 import { getRequestPaymentTransactions } from "@/lib/payment/transactions.functions";
@@ -176,6 +177,7 @@ function AdminRequestDetailPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteNote, setQuoteNote] = useState("");
+  const [quoteInsurer, setQuoteInsurer] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [reviewTarget, setReviewTarget] = useState<{
     id: string;
@@ -201,12 +203,14 @@ function AdminRequestDetailPage() {
             amount: Number(quoteAmount),
             currency: "NGN",
             note: quoteNote,
+            ...(quoteInsurer ? { insurer: quoteInsurer } : {}),
           },
         }),
       ),
     onSuccess: () => {
       setQuoteAmount("");
       setQuoteNote("");
+      setQuoteInsurer("");
     },
   });
 
@@ -307,6 +311,9 @@ function AdminRequestDetailPage() {
   const amountDue = request.payment_amount ?? 0;
   const canProcess = paid || amountDue <= 0;
   const catalogueItem = findCatalogueItem(request.catalogue_id);
+  const isInsuranceRequest = /insurance/i.test(
+    `${request.service_type ?? ""} ${request.service_category ?? ""} ${request.catalogue_id ?? ""}`,
+  );
   const packageName = selectedPackage?.name ?? catalogueItem?.name ?? null;
   const packageProcessing =
     selectedPackage?.processingTime || catalogueItem?.processingTime || "";
@@ -767,6 +774,26 @@ function AdminRequestDetailPage() {
                   quoteMutation.mutate();
                 }}
               >
+                {isInsuranceRequest ? (
+                  <>
+                    <label className="block text-[11px] font-bold uppercase tracking-[0.14em] text-navy-soft">
+                      Insurer
+                    </label>
+                    <select
+                      value={quoteInsurer}
+                      onChange={(event) => setQuoteInsurer(event.target.value)}
+                      aria-label="Insurer"
+                      className="w-full rounded-2xl border border-white/60 bg-white/80 px-3.5 py-2.5 text-sm font-semibold text-navy"
+                    >
+                      <option value="">Select insurer (optional)</option>
+                      {INSURANCE_PROVIDERS.map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.label}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : null}
                 <label className="block text-[11px] font-bold uppercase tracking-[0.14em] text-navy-soft">
                   Quoted amount (NGN)
                 </label>

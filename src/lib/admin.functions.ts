@@ -239,6 +239,7 @@ export const setRequestQuotation = createServerFn({ method: "POST" })
         amount: z.number().positive().max(1_000_000_000),
         currency: z.string().trim().min(3).max(3).default("NGN"),
         note: z.string().trim().max(600).optional().default(""),
+        insurer: z.string().trim().max(60).optional(),
       })
       .strict()
       .parse(data),
@@ -251,9 +252,11 @@ export const setRequestQuotation = createServerFn({ method: "POST" })
       amount: data.amount,
       currency: data.currency,
       note: data.note || null,
+      insurer: data.insurer ?? null,
     });
     if (result.ok) {
-      await logAdminAction(who, `Quoted ${data.currency} ${data.amount}`, {
+      const insurerSuffix = data.insurer ? ` via ${data.insurer}` : "";
+      await logAdminAction(who, `Quoted ${data.currency} ${data.amount}${insurerSuffix}`, {
         type: "request",
         id: data.request_id,
         detail: data.note,
