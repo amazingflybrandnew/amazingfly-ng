@@ -133,8 +133,9 @@ async function confirmBooking(requestId: string) {
   const serviceType = String(row["service_type"] ?? "").toLowerCase();
   const isFlight = category === "flights" || serviceType.includes("flight");
   const isHotel = category === "hotels" || serviceType.includes("hotel");
+  const isInsurance = category === "insurance" || serviceType.includes("insurance");
   const isVisaHotelReservation = category === VISA_HOTEL_RESERVATION_CATEGORY;
-  const isBooking = isFlight || isHotel || isVisaHotelReservation;
+  const isBooking = isFlight || isHotel || isInsurance || isVisaHotelReservation;
 
   const paidAt = new Date().toISOString();
   const patch: Record<string, unknown> = {
@@ -162,7 +163,9 @@ async function confirmBooking(requestId: string) {
   if (error) console.error("[paystack] confirmBooking", error.message);
 
   const status = "processing";
-  const message = isVisaHotelReservation
+  const message = isInsurance
+    ? "Payment received. Your travel insurance policy is now being issued with Sanlam Allianz."
+    : isVisaHotelReservation
     ? "Payment received. Your visa hotel reservation is now being submitted to the accommodation provider."
     : isHotel
       ? "Payment received. Hotel confirmation is now processing with the accommodation provider."
@@ -234,9 +237,33 @@ async function ensurePaidFlightBooking(requestId: string): Promise<void> {
   }
 }
 
+async function ensurePaidInsurancePolicy(requestId: string): Promise<void> {
+  const supabase = await admin();
+  const { data } = await supabase
+    .from("service_requests")
+    .select("service_category, service_type")
+    .eq("id", requestId)
+    .maybeSingle();
+  const row = (data as Record<string, unknown> | null) ?? {};
+  const category = String(row["service_category"] ?? "").toLowerCase();
+  const isInsurance =
+    category === "insurance" ||
+    String(row["service_type"] ?? "").toLowerCase().includes("insurance");
+  if (!isInsurance) return;
+
+  try {
+    const { issuePaidInsurancePolicy } = await import("../insurance/insurance.functions");
+    await issuePaidInsurancePolicy(requestId);
+  } catch (error) {
+    // Payment remains successful; issuance is flagged for manual attention.
+    console.error("[paystack] paid insurance issuance failed", error);
+  }
+}
+
 async function ensurePaidSupplierBooking(requestId: string): Promise<void> {
   await ensurePaidFlightBooking(requestId);
   await ensurePaidHotelBooking(requestId);
+  await ensurePaidInsurancePolicy(requestId);
 }
 
 async function setRequestPaymentState(requestId: string, paymentStatus: string) {
