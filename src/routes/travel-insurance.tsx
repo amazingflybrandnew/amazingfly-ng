@@ -601,6 +601,12 @@ function TravelInsurance() {
                     </p>
                   </div>
 
+                  {coverType === "family" ? (
+                    <p className="rounded-xl border border-sky/30 bg-sky-tint/40 p-4 text-sm text-navy-soft">
+                      Note: all family members must share the <strong>same surname</strong> (required by the insurer).
+                    </p>
+                  ) : null}
+
                   {travellers.map((t, i) => (
                     <section key={i} className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6">
                       <h2 className="mb-4 text-lg font-bold text-navy">{travellerLabel(i)} details</h2>

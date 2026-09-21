@@ -238,6 +238,17 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
 
     const lead = data.travellers[0]!;
 
+    // Allianz rule: all members of a family policy must share the same surname.
+    if (data.travellers.length > 1) {
+      const surname = lead.surname.trim().toLowerCase();
+      if (!data.travellers.every((t) => t.surname.trim().toLowerCase() === surname)) {
+        return {
+          ok: false,
+          message: "All family members must have the same surname (required by the insurer).",
+        };
+      }
+    }
+
     // The exact quote request, stored so issuance can re-quote for a fresh
     // QuoteId (quotes can expire/be single-use between payment and issuance).
     const quoteRequest = {
