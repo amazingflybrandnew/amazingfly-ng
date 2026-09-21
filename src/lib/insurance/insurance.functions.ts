@@ -459,7 +459,15 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
     .select("id")
     .eq("service_request_id", requestId)
     .limit(1);
-  if (existingPolicies && existingPolicies.length > 0) return; // already issued
+  if (existingPolicies && existingPolicies.length > 0) {
+    // Already issued. Re-assert confirmed in case a later finalizer call (e.g. a
+    // Paystack webhook) reset booking_status to 'processing' after issuance.
+    await supabase
+      .from("service_requests")
+      .update({ request_status: "completed", booking_status: "confirmed" })
+      .eq("id", requestId);
+    return;
+  }
 
   // Atomically claim issuance so concurrent / repeated finalizer calls cannot
   // double-book at Allianz. Only one caller flips the row to 'issuing'; a
