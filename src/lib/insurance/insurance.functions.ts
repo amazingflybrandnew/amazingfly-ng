@@ -94,12 +94,11 @@ const quoteInputSchema = z
     booking_type_id: z.number().int().positive(),
     is_round_trip: z.boolean(),
     is_multi_trip: z.boolean(),
-    // 1 adult for individual; 2 adults for family. Children (0 individual,
-    // 1-6 family) are under 18.
-    no_of_people: z.number().int().min(1).max(2),
+    // Adults (1+) and children (0-6, under 18). Chosen manually by the customer.
+    no_of_people: z.number().int().min(1).max(9),
     no_of_children: z.number().int().min(0).max(6),
     // One entry per traveller (adults first, then children).
-    travellers: z.array(travellerSchema).min(1).max(8),
+    travellers: z.array(travellerSchema).min(1).max(15),
     consent_to_contact: z.literal(true),
   })
   .strict()
@@ -171,7 +170,7 @@ const previewSchema = z
     booking_type_id: z.number().int().positive(),
     is_round_trip: z.boolean(),
     is_multi_trip: z.boolean(),
-    no_of_people: z.number().int().min(1).max(2).default(1),
+    no_of_people: z.number().int().min(1).max(9).default(1),
     no_of_children: z.number().int().min(0).max(6).default(0),
     date_of_birth: isoDate,
     email: z.string().trim().email().max(200),
