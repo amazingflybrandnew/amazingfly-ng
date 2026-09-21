@@ -58,6 +58,31 @@ const nextOfKinSchema = z.object({
   telephone: z.string().trim().min(1).max(40),
 });
 
+/** One traveller's details. Used for individual (1) and family (2 adults + kids). */
+const travellerSchema = z.object({
+  surname: z.string().trim().min(1).max(80),
+  first_name: z.string().trim().min(1).max(80),
+  middle_name: z.string().trim().max(80).optional().default(""),
+  gender_id: z.number().int().positive(),
+  title_id: z.number().int().positive(),
+  date_of_birth: isoDate,
+  email: z.string().trim().email().max(200),
+  telephone: z.string().trim().min(1).max(40),
+  state_id: z.number().int().positive(),
+  address: z.string().trim().min(1).max(300),
+  zip_code: z.string().trim().max(20).optional().default(""),
+  nationality: z.string().trim().min(1).max(80),
+  passport_no: z.string().trim().min(1).max(40),
+  occupation: z.string().trim().min(1).max(80),
+  marital_status_id: z.number().int().positive(),
+  // The live Allianz booking dereferences NIN, so it is required (a null NIN
+  // causes a server-side NullReferenceException at IndividualBooking).
+  nin: z.string().trim().min(1, "NIN is required").max(20),
+  pre_existing_medical_condition: z.boolean().default(false),
+  medical_condition: z.string().trim().max(500).nullable().default(null),
+  next_of_kin: nextOfKinSchema,
+});
+
 const quoteInputSchema = z
   .object({
     // Trip
@@ -69,31 +94,19 @@ const quoteInputSchema = z
     booking_type_id: z.number().int().positive(),
     is_round_trip: z.boolean(),
     is_multi_trip: z.boolean(),
-    // Lead traveller (individual booking)
-    surname: z.string().trim().min(1).max(80),
-    first_name: z.string().trim().min(1).max(80),
-    middle_name: z.string().trim().max(80).optional().default(""),
-    gender_id: z.number().int().positive(),
-    title_id: z.number().int().positive(),
-    date_of_birth: isoDate,
-    email: z.string().trim().email().max(200),
-    telephone: z.string().trim().min(1).max(40),
-    state_id: z.number().int().positive(),
-    address: z.string().trim().min(1).max(300),
-    zip_code: z.string().trim().max(20).optional().default(""),
-    nationality: z.string().trim().min(1).max(80),
-    passport_no: z.string().trim().min(1).max(40),
-    occupation: z.string().trim().min(1).max(80),
-    marital_status_id: z.number().int().positive(),
-    // The live Allianz booking dereferences NIN, so it is required (a null NIN
-    // causes a server-side NullReferenceException at IndividualBooking).
-    nin: z.string().trim().min(1, "NIN is required").max(20),
-    pre_existing_medical_condition: z.boolean().default(false),
-    medical_condition: z.string().trim().max(500).nullable().default(null),
-    next_of_kin: nextOfKinSchema,
+    // 1 adult for individual; 2 adults for family. Children (0 individual,
+    // 1-6 family) are under 18.
+    no_of_people: z.number().int().min(1).max(2),
+    no_of_children: z.number().int().min(0).max(6),
+    // One entry per traveller (adults first, then children).
+    travellers: z.array(travellerSchema).min(1).max(8),
     consent_to_contact: z.literal(true),
   })
-  .strict();
+  .strict()
+  .refine((d) => d.travellers.length === d.no_of_people + d.no_of_children, {
+    message: "The number of traveller details must match the number of people and children.",
+    path: ["travellers"],
+  });
 
 export type InsuranceQuoteInput = z.infer<typeof quoteInputSchema>;
 
@@ -158,6 +171,8 @@ const previewSchema = z
     booking_type_id: z.number().int().positive(),
     is_round_trip: z.boolean(),
     is_multi_trip: z.boolean(),
+    no_of_people: z.number().int().min(1).max(2).default(1),
+    no_of_children: z.number().int().min(0).max(6).default(0),
     date_of_birth: isoDate,
     email: z.string().trim().email().max(200),
     telephone: z.string().trim().min(1).max(40),
@@ -185,15 +200,16 @@ export const previewInsuranceQuote = createServerFn({ method: "POST" })
         TravelPlanId: data.travel_plan_id,
         BookingTypeId: data.booking_type_id,
         IsRoundTrip: data.is_round_trip,
-        NoOfPeople: 1,
-        NoOfChildren: 0,
+        NoOfPeople: data.no_of_people,
+        NoOfChildren: data.no_of_children,
         IsMultiTrip: data.is_multi_trip,
       });
       const base = Number(quote.Amount ?? 0);
       if (!Number.isFinite(base) || base <= 0) {
         return { ok: false, message: "Sanlam Allianz returned an invalid premium." };
       }
-      const { total } = applyMarkup(base, 1);
+      // Markup is per traveller (adults + children).
+      const { total } = applyMarkup(base, data.no_of_people + data.no_of_children);
       return {
         ok: true,
         amount: total,
@@ -221,12 +237,14 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
 
     const { getAllianzQuote, toAllianzDate } = await import("./allianz.server");
 
+    const lead = data.travellers[0]!;
+
     // The exact quote request, stored so issuance can re-quote for a fresh
     // QuoteId (quotes can expire/be single-use between payment and issuance).
     const quoteRequest = {
-      DateOfBirth: toAllianzDate(data.date_of_birth),
-      Email: data.email,
-      Telephone: data.telephone,
+      DateOfBirth: toAllianzDate(lead.date_of_birth),
+      Email: lead.email,
+      Telephone: lead.telephone,
       CoverBegins: toAllianzDate(data.cover_begins),
       CoverEnds: toAllianzDate(data.cover_ends),
       CountryId: data.destination_country_id,
@@ -234,8 +252,8 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
       TravelPlanId: data.travel_plan_id,
       BookingTypeId: data.booking_type_id,
       IsRoundTrip: data.is_round_trip,
-      NoOfPeople: 1,
-      NoOfChildren: 0,
+      NoOfPeople: data.no_of_people,
+      NoOfChildren: data.no_of_children,
       IsMultiTrip: data.is_multi_trip,
     };
 
@@ -251,8 +269,8 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
     if (!Number.isFinite(base) || base <= 0) {
       return { ok: false, message: "Sanlam Allianz returned an invalid premium. Please try again." };
     }
-    // Customer pays the Allianz premium plus the Amazingfly markup.
-    const { total: amount } = applyMarkup(base, 1);
+    // Customer pays the Allianz premium plus the Amazingfly markup (per traveller).
+    const { total: amount } = applyMarkup(base, data.travellers.length);
 
     const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
     const supabase = createExternalSupabaseAdmin();
@@ -265,39 +283,41 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
 
     const { generateRequestReference } = await import("../request-reference");
     const reference = generateRequestReference();
-    const fullName = [data.first_name, data.middle_name, data.surname]
+    const fullName = [lead.first_name, lead.middle_name, lead.surname]
       .filter(Boolean)
       .join(" ")
       .trim();
 
-    // Traveller payload replayed to Allianz after payment (booking minus QuoteId).
-    const travellerPayload: Omit<AllianzIndividualBooking, "QuoteId"> = {
-      Surname: data.surname,
-      MiddleName: data.middle_name ?? "",
-      FirstName: data.first_name,
-      GenderId: data.gender_id,
-      TitleId: data.title_id,
-      DateOfBirth: toAllianzDate(data.date_of_birth),
-      Email: data.email,
-      Telephone: data.telephone,
-      StateId: data.state_id,
-      Address: data.address,
-      ZipCode: data.zip_code ?? "",
-      Nationality: data.nationality,
-      PassportNo: data.passport_no,
+    // Each traveller's booking payload (replayed to Allianz after payment).
+    const toPayload = (t: (typeof data.travellers)[number]): Omit<AllianzIndividualBooking, "QuoteId"> => ({
+      Surname: t.surname,
+      MiddleName: t.middle_name ?? "",
+      FirstName: t.first_name,
+      GenderId: t.gender_id,
+      TitleId: t.title_id,
+      DateOfBirth: toAllianzDate(t.date_of_birth),
+      Email: t.email,
+      Telephone: t.telephone,
+      StateId: t.state_id,
+      Address: t.address,
+      ZipCode: t.zip_code ?? "",
+      Nationality: t.nationality,
+      PassportNo: t.passport_no,
       IdentificationPath: null,
-      Occupation: data.occupation,
-      Nin: data.nin,
-      MaritalStatusId: data.marital_status_id,
-      PreExistingMedicalCondition: data.pre_existing_medical_condition,
-      MedicalCondition: data.medical_condition,
+      Occupation: t.occupation,
+      Nin: t.nin,
+      MaritalStatusId: t.marital_status_id,
+      PreExistingMedicalCondition: t.pre_existing_medical_condition,
+      MedicalCondition: t.medical_condition,
       NextOfKin: {
-        FullName: data.next_of_kin.full_name,
-        Address: data.next_of_kin.address,
-        Relationship: data.next_of_kin.relationship,
-        Telephone: data.next_of_kin.telephone,
+        FullName: t.next_of_kin.full_name,
+        Address: t.next_of_kin.address,
+        Relationship: t.next_of_kin.relationship,
+        Telephone: t.next_of_kin.telephone,
       },
-    };
+    });
+    const travellerPayloads = data.travellers.map(toPayload);
+    const travellerPayload = travellerPayloads[0]!;
 
     const baseRow: Record<string, unknown> = {
       request_reference: reference,
@@ -309,12 +329,12 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
       travel_purpose: data.purpose_of_travel,
       travel_date: data.cover_begins,
       return_date: data.cover_ends,
-      traveller_count: 1,
+      traveller_count: data.travellers.length,
       full_name: fullName,
-      email: data.email,
-      phone: data.telephone,
-      passport_number: data.passport_no,
-      date_of_birth: data.date_of_birth,
+      email: lead.email,
+      phone: lead.telephone,
+      passport_number: lead.passport_no,
+      date_of_birth: lead.date_of_birth,
       request_details: `Travel insurance for ${country.name} (${data.cover_begins} to ${data.cover_ends}).`,
       preferred_contact: "email",
       consent_to_contact: true,
@@ -358,12 +378,13 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
       booking_type_id: data.booking_type_id,
       cover_start_date: data.cover_begins,
       cover_end_date: data.cover_ends,
-      travellers_count: 1,
+      travellers_count: data.travellers.length,
       amount,
       allianz_price: quote.AllianzPrice ?? String(base),
       currency: "NGN",
       status: "quoted",
       traveller: travellerPayload,
+      travellers: travellerPayloads,
       quote_request: quoteRequest,
     });
     if (quoteError) {
@@ -388,7 +409,7 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
     try {
       const { sendTransactionalEmail } = await import("../email.server");
       await sendTransactionalEmail({
-        to: data.email,
+        to: lead.email,
         subject: `We've received your travel insurance request - ${reference}`,
         text: `Hello ${fullName},
 
@@ -430,16 +451,21 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
 
   const { data: quoteRow } = await supabase
     .from("travel_insurance_quotes")
-    .select("id, user_id, allianz_quote_request_id, quote_request, traveller, amount, currency")
+    .select(
+      "id, user_id, allianz_quote_request_id, quote_request, traveller, travellers, amount, currency",
+    )
     .eq("service_request_id", requestId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const row = (quoteRow as Record<string, unknown> | null) ?? null;
-  const traveller = row?.["traveller"] as Omit<AllianzIndividualBooking, "QuoteId"> | null;
+  const single = row?.["traveller"] as Omit<AllianzIndividualBooking, "QuoteId"> | null;
+  const many = row?.["travellers"] as Omit<AllianzIndividualBooking, "QuoteId">[] | null;
+  // Prefer the travellers array (family); fall back to the single traveller.
+  const travellers = Array.isArray(many) && many.length > 0 ? many : single ? [single] : [];
   const storedQuoteRequest = row?.["quote_request"] as Record<string, unknown> | null;
-  if (!row || !traveller) {
+  if (!row || travellers.length === 0) {
     console.error("[insurance] issue: missing stored quote/traveller for", requestId);
     return;
   }
@@ -475,7 +501,9 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
 
   let contractNo: string;
   try {
-    const { createAllianzBooking, getAllianzQuote } = await import("./allianz.server");
+    const { createAllianzBooking, createAllianzFamilyBooking, getAllianzQuote } = await import(
+      "./allianz.server"
+    );
     // Re-quote for a fresh QuoteId so a delay between payment and issuance (or a
     // single-use quote) can't cause the booking to fail. Fall back to the stored
     // QuoteId if a re-quote isn't possible.
@@ -493,7 +521,10 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
       await failIssue("Booking", new Error("No valid QuoteId available for issuance."));
       return;
     }
-    contractNo = await createAllianzBooking({ QuoteId: quoteId, ...traveller });
+    contractNo =
+      travellers.length > 1
+        ? await createAllianzFamilyBooking(travellers.map((t) => ({ QuoteId: quoteId, ...t })))
+        : await createAllianzBooking({ QuoteId: quoteId, ...travellers[0]! });
   } catch (error) {
     await failIssue("Booking", error);
     return;
