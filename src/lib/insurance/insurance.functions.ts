@@ -11,7 +11,11 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import type { AllianzIndividualBooking, AllianzLookupItem } from "./allianz.types";
+import type {
+  AllianzIndividualBooking,
+  AllianzLookupItem,
+  AllianzQuoteRequest,
+} from "./allianz.types";
 import { ALLIANZ_COUNTRIES, allianzCountryById } from "./allianz-countries";
 
 const isoDate = z
@@ -215,23 +219,27 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
 
     const { getAllianzQuote, toAllianzDate } = await import("./allianz.server");
 
+    // The exact quote request, stored so issuance can re-quote for a fresh
+    // QuoteId (quotes can expire/be single-use between payment and issuance).
+    const quoteRequest = {
+      DateOfBirth: toAllianzDate(data.date_of_birth),
+      Email: data.email,
+      Telephone: data.telephone,
+      CoverBegins: toAllianzDate(data.cover_begins),
+      CoverEnds: toAllianzDate(data.cover_ends),
+      CountryId: data.destination_country_id,
+      PurposeOfTravel: data.purpose_of_travel,
+      TravelPlanId: data.travel_plan_id,
+      BookingTypeId: data.booking_type_id,
+      IsRoundTrip: data.is_round_trip,
+      NoOfPeople: 1,
+      NoOfChildren: 0,
+      IsMultiTrip: data.is_multi_trip,
+    };
+
     let quote;
     try {
-      quote = await getAllianzQuote({
-        DateOfBirth: toAllianzDate(data.date_of_birth),
-        Email: data.email,
-        Telephone: data.telephone,
-        CoverBegins: toAllianzDate(data.cover_begins),
-        CoverEnds: toAllianzDate(data.cover_ends),
-        CountryId: data.destination_country_id,
-        PurposeOfTravel: data.purpose_of_travel,
-        TravelPlanId: data.travel_plan_id,
-        BookingTypeId: data.booking_type_id,
-        IsRoundTrip: data.is_round_trip,
-        NoOfPeople: 1,
-        NoOfChildren: 0,
-        IsMultiTrip: data.is_multi_trip,
-      });
+      quote = await getAllianzQuote(quoteRequest);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not get a quote right now.";
       return { ok: false, message: `Sanlam Allianz: ${message}` };
@@ -354,6 +362,7 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
       currency: "NGN",
       status: "quoted",
       traveller: travellerPayload,
+      quote_request: quoteRequest,
     });
     if (quoteError) {
       return { ok: false, message: `Could not save the quote: ${quoteError.message}` };
@@ -371,6 +380,31 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
     if (!created.ok) {
       // The request is saved; checkout can recreate the pending transaction.
       console.error("[insurance] pending transaction", created.message);
+    }
+
+    // Acknowledge the request by email (best-effort; never blocks checkout).
+    try {
+      const { sendTransactionalEmail } = await import("../email.server");
+      await sendTransactionalEmail({
+        to: data.email,
+        subject: `We've received your travel insurance request - ${reference}`,
+        text: `Hello ${fullName},
+
+Thanks for starting your travel insurance request with Amazingfly Travels.
+
+Reference: ${reference}
+Destination: ${country.name}
+Cover: ${data.cover_begins} to ${data.cover_ends}
+Amount: NGN ${amount.toLocaleString()}
+
+Please complete payment to have your Sanlam Allianz policy issued. Your policy
+certificate will be emailed to you once payment is confirmed.
+
+Amazingfly Travels`,
+        idempotencyKey: `insurance-received-${reference}`,
+      });
+    } catch (error) {
+      console.error("[insurance] request-received email failed", error);
     }
 
     return { ok: true, reference, requestId: request.id, amount, currency: "NGN" };
@@ -394,16 +428,16 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
 
   const { data: quoteRow } = await supabase
     .from("travel_insurance_quotes")
-    .select("id, user_id, allianz_quote_request_id, traveller, amount, currency")
+    .select("id, user_id, allianz_quote_request_id, quote_request, traveller, amount, currency")
     .eq("service_request_id", requestId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const row = (quoteRow as Record<string, unknown> | null) ?? null;
-  const quoteId = row?.["allianz_quote_request_id"];
   const traveller = row?.["traveller"] as Omit<AllianzIndividualBooking, "QuoteId"> | null;
-  if (!row || typeof quoteId !== "number" || !traveller) {
+  const storedQuoteRequest = row?.["quote_request"] as Record<string, unknown> | null;
+  if (!row || !traveller) {
     console.error("[insurance] issue: missing stored quote/traveller for", requestId);
     return;
   }
@@ -418,22 +452,48 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
     .maybeSingle();
   const paymentReference = (txRow as Record<string, unknown> | null)?.["transaction_reference"] ?? null;
 
-  let contractNo: string;
-  try {
-    const { createAllianzBooking } = await import("./allianz.server");
-    contractNo = await createAllianzBooking({ QuoteId: quoteId, ...traveller });
-  } catch (error) {
-    console.error("[insurance] Allianz booking failed for", requestId, error);
+  const failIssue = async (stage: string, err: unknown) => {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[insurance] ${stage} failed for`, requestId, detail);
     await supabase
       .from("service_requests")
       .update({ booking_status: "needs_attention" })
       .eq("id", requestId);
+    await supabase
+      .from("travel_insurance_quotes")
+      .update({ last_error: `${stage}: ${detail}`.slice(0, 1000) })
+      .eq("id", row["id"]);
     await supabase.from("request_updates").insert({
       request_id: requestId,
       status: "processing",
       message:
         "Payment received. Your travel insurance policy is being issued — our team will confirm shortly.",
     });
+  };
+
+  let contractNo: string;
+  try {
+    const { createAllianzBooking, getAllianzQuote } = await import("./allianz.server");
+    // Re-quote for a fresh QuoteId so a delay between payment and issuance (or a
+    // single-use quote) can't cause the booking to fail. Fall back to the stored
+    // QuoteId if a re-quote isn't possible.
+    let quoteId = Number(row["allianz_quote_request_id"] ?? 0);
+    if (storedQuoteRequest) {
+      try {
+        const fresh = await getAllianzQuote(storedQuoteRequest as unknown as AllianzQuoteRequest);
+        if (fresh?.QuoteRequestId) quoteId = Number(fresh.QuoteRequestId);
+      } catch (error) {
+        await failIssue("Re-quote", error);
+        return;
+      }
+    }
+    if (!Number.isFinite(quoteId) || quoteId <= 0) {
+      await failIssue("Booking", new Error("No valid QuoteId available for issuance."));
+      return;
+    }
+    contractNo = await createAllianzBooking({ QuoteId: quoteId, ...traveller });
+  } catch (error) {
+    await failIssue("Booking", error);
     return;
   }
 
