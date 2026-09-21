@@ -244,6 +244,7 @@ function TravelInsurance() {
 
   // Trip + cover selection
   const [coverType, setCoverType] = useState<"individual" | "family">("individual");
+  const [adultsCount, setAdultsCount] = useState(2);
   const [childrenCount, setChildrenCount] = useState(1);
   const [destinationCountryId, setDestinationCountryId] = useState("");
   const [travelPlanId, setTravelPlanId] = useState("");
@@ -257,7 +258,7 @@ function TravelInsurance() {
   const [price, setPrice] = useState<{ amount: number; currency: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const noOfPeople = coverType === "family" ? 2 : 1;
+  const noOfPeople = coverType === "family" ? adultsCount : 1;
   const noOfChildren = coverType === "family" ? childrenCount : 0;
   const travellerTarget = noOfPeople + noOfChildren;
 
@@ -316,7 +317,7 @@ function TravelInsurance() {
   useEffect(() => {
     setPrice(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destinationCountryId, travelPlanId, coverBegins, coverEnds, purpose, isRoundTrip, coverType, childrenCount, lead?.dateOfBirth]);
+  }, [destinationCountryId, travelPlanId, coverBegins, coverEnds, purpose, isRoundTrip, coverType, adultsCount, childrenCount, lead?.dateOfBirth]);
 
   const canPrice =
     countryId > 0 &&
@@ -413,7 +414,11 @@ function TravelInsurance() {
 
   const signedIn = !!session?.user;
   const travellerLabel = (i: number) =>
-    coverType === "individual" ? "Traveller" : i < 2 ? `Adult ${i + 1}` : `Child ${i - 1}`;
+    coverType === "individual"
+      ? "Traveller"
+      : i < noOfPeople
+        ? `Adult ${i + 1}`
+        : `Child ${i - noOfPeople + 1}`;
 
   return (
     <>
@@ -520,19 +525,34 @@ function TravelInsurance() {
                     </select>
                   </Field>
                   {coverType === "family" ? (
-                    <Field label="Number of children" hint="1–6, under 18">
-                      <select
-                        className={selectClass}
-                        value={String(childrenCount)}
-                        onChange={(e) => setChildrenCount(Number(e.target.value))}
-                      >
-                        {[1, 2, 3, 4, 5, 6].map((n) => (
-                          <option key={n} value={String(n)}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                    <>
+                      <Field label="Number of adults">
+                        <select
+                          className={selectClass}
+                          value={String(adultsCount)}
+                          onChange={(e) => setAdultsCount(Number(e.target.value))}
+                        >
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                            <option key={n} value={String(n)}>
+                              {n}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Number of children" hint="Under 18">
+                        <select
+                          className={selectClass}
+                          value={String(childrenCount)}
+                          onChange={(e) => setChildrenCount(Number(e.target.value))}
+                        >
+                          {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                            <option key={n} value={String(n)}>
+                              {n}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    </>
                   ) : null}
                   <Field label="Trip type">
                     <label className="flex h-11 items-center gap-2 text-sm text-navy-soft">
