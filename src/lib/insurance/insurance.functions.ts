@@ -452,12 +452,25 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
   const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
   const supabase = createExternalSupabaseAdmin();
 
-  const { data: existing } = await supabase
+  // Already issued? Use limit(1), NOT maybeSingle (which errors when duplicates
+  // exist and would defeat the guard).
+  const { data: existingPolicies } = await supabase
     .from("travel_insurance_policies")
     .select("id")
     .eq("service_request_id", requestId)
-    .maybeSingle();
-  if (existing) return; // already issued
+    .limit(1);
+  if (existingPolicies && existingPolicies.length > 0) return; // already issued
+
+  // Atomically claim issuance so concurrent / repeated finalizer calls cannot
+  // double-book at Allianz. Only one caller flips the row to 'issuing'; a
+  // previously failed attempt ('needs_attention'/'processing') may retry.
+  const { data: claimed } = await supabase
+    .from("service_requests")
+    .update({ booking_status: "issuing" })
+    .eq("id", requestId)
+    .not("booking_status", "in", "(issuing,confirmed)")
+    .select("id");
+  if (!claimed || claimed.length === 0) return; // another run owns it, or done
 
   const { data: quoteRow } = await supabase
     .from("travel_insurance_quotes")
