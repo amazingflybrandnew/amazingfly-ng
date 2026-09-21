@@ -19,6 +19,34 @@ const isoDate = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date.");
 
+// --- Amazingfly markup -------------------------------------------------------
+// Applied to every individual — inside a group each traveller is charged the
+// flat fee, and the percentage is applied to the Allianz premium.
+// Defaults: ₦5,000 per traveller + 10%. Overridable via env.
+const DEFAULT_MARKUP_FLAT_PER_TRAVELLER = 5000;
+const DEFAULT_MARKUP_PERCENT = 10;
+
+function markupConfig(): { flatPer: number; percent: number } {
+  const flatPer = Number(process.env["ALLIANZ_MARKUP_FLAT"]);
+  const percent = Number(process.env["ALLIANZ_MARKUP_PERCENT"]);
+  return {
+    flatPer: Number.isFinite(flatPer) && flatPer >= 0 ? flatPer : DEFAULT_MARKUP_FLAT_PER_TRAVELLER,
+    percent: Number.isFinite(percent) && percent >= 0 ? percent : DEFAULT_MARKUP_PERCENT,
+  };
+}
+
+/** base = Allianz premium; returns the customer total with markup applied. */
+function applyMarkup(
+  base: number,
+  travellerCount: number,
+): { base: number; markup: number; total: number } {
+  const { flatPer, percent } = markupConfig();
+  const flat = flatPer * Math.max(1, travellerCount);
+  const pct = Math.round((base * percent) / 100);
+  const markup = flat + pct;
+  return { base, markup, total: base + markup };
+}
+
 const nextOfKinSchema = z.object({
   full_name: z.string().trim().min(1).max(160),
   address: z.string().trim().min(1).max(300),
@@ -155,11 +183,17 @@ export const previewInsuranceQuote = createServerFn({ method: "POST" })
         NoOfChildren: 0,
         IsMultiTrip: data.is_multi_trip,
       });
-      const amount = Number(quote.Amount ?? 0);
-      if (!Number.isFinite(amount) || amount <= 0) {
+      const base = Number(quote.Amount ?? 0);
+      if (!Number.isFinite(base) || base <= 0) {
         return { ok: false, message: "Sanlam Allianz returned an invalid premium." };
       }
-      return { ok: true, amount, currency: "NGN", productVariantId: quote.ProductVariantId ?? null };
+      const { total } = applyMarkup(base, 1);
+      return {
+        ok: true,
+        amount: total,
+        currency: "NGN",
+        productVariantId: quote.ProductVariantId ?? null,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not price this trip.";
       return { ok: false, message: `Sanlam Allianz: ${message}` };
@@ -203,10 +237,12 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
       return { ok: false, message: `Sanlam Allianz: ${message}` };
     }
 
-    const amount = Number(quote.Amount ?? 0);
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const base = Number(quote.Amount ?? 0);
+    if (!Number.isFinite(base) || base <= 0) {
       return { ok: false, message: "Sanlam Allianz returned an invalid premium. Please try again." };
     }
+    // Customer pays the Allianz premium plus the Amazingfly markup.
+    const { total: amount } = applyMarkup(base, 1);
 
     const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
     const supabase = createExternalSupabaseAdmin();
@@ -314,7 +350,7 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
       cover_end_date: data.cover_ends,
       travellers_count: 1,
       amount,
-      allianz_price: quote.AllianzPrice ?? String(amount),
+      allianz_price: quote.AllianzPrice ?? String(base),
       currency: "NGN",
       status: "quoted",
       traveller: travellerPayload,
