@@ -54,44 +54,62 @@ export interface AllianzIndividualBooking {
 }
 
 /**
- * Quote request. TODO: replace with the documented quote contract. The fields
- * below are the trip inputs a travel-insurance quote normally needs and map to
- * data we already collect in the request wizard; adjust names to the doc.
+ * Quote request. Field names mirror the quote response the API echoes back.
+ * ISO datetimes (`yyyy-mm-ddTHH:MM:SS`) are what the observed quote used for
+ * dates here — note this differs from the booking payload, which uses
+ * `dd-MMM-yyyy`.
+ *
+ * TODO: confirm the exact request path and required fields against the
+ * "2. Get Quote (Individual)" request in Postman (URL + body).
  */
 export interface AllianzQuoteRequest {
-  DestinationCountry: string;
-  /** TODO: confirm whether a plan/product id is required at quote time. */
-  TravelPlanId?: number;
-  BookingTypeId?: number;
-  CoverStartDate: AllianzDate;
-  CoverEndDate: AllianzDate;
-  TravellersCount: number;
-  /** DOB(s) commonly required so the premium can be age-rated. */
-  DateOfBirth?: AllianzDate;
+  ProductVariantId: string;
+  DateOfBirth: string;
+  Email: string;
+  Telephone: string;
+  CoverBegins: string;
+  CoverEnds: string;
+  CountryId: number;
+  CountryId2?: number | null;
+  PurposeOfTravel: string;
+  TravelPlanId: number;
+  BookingTypeId: number;
+  IsRoundTrip?: boolean;
+  IsLifeInsuranceIncluded?: boolean;
+  PreExistingMedicalCondition?: boolean;
+  MedicalCondition?: string | null;
+  NoOfPeople: number;
+  NoOfChildren?: number;
+  IsMultiTrip?: boolean;
 }
 
 /**
- * Quote response. TODO: confirm the exact fields. At minimum we expect a quote
- * id (reused as QuoteId on booking) and a premium amount.
+ * Quote response (observed). Carries two ids: `QuoteRequestId` (integer, the
+ * value the booking's `QuoteId` field expects) and `quoteId` (a GUID). It also
+ * echoes the trip inputs and returns the premium (`Amount` / `AllianzPrice`).
  */
 export interface AllianzQuoteResponse {
-  QuoteId: number;
+  QuoteRequestId: number;
+  quoteId: string;
+  ProductVariantId: string;
   Amount: number;
-  Currency?: string;
+  AllianzPrice: string;
+  CoverBegins: string;
+  CoverEnds: string;
+  CountryId: number;
+  TravelPlanId: number;
+  BookingTypeId: number;
+  NoOfPeople: number;
+  DiscountApplied?: number;
   [key: string]: unknown;
 }
 
 /**
- * Booking response. TODO: confirm fields — expected to carry the policy /
- * contract number, the amount charged and a certificate URL.
+ * Booking response (observed): the API returns a bare reference string, e.g.
+ * "VASNGS200001123" — the policy / certificate number. Kept as a string alias
+ * so callers store it directly.
  */
-export interface AllianzBookingResponse {
-  ContractNumber?: string;
-  PolicyNumber?: string;
-  Amount?: number;
-  CertificateUrl?: string;
-  [key: string]: unknown;
-}
+export type AllianzBookingResult = string;
 
 /** Lookup tables the API references by id. TODO: populate from the doc. */
 export interface AllianzLookups {
