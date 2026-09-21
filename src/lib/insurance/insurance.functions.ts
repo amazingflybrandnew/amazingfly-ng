@@ -85,7 +85,9 @@ const quoteInputSchema = z
     passport_no: z.string().trim().min(1).max(40),
     occupation: z.string().trim().min(1).max(80),
     marital_status_id: z.number().int().positive(),
-    nin: z.string().trim().max(20).optional(),
+    // The live Allianz booking dereferences NIN, so it is required (a null NIN
+    // causes a server-side NullReferenceException at IndividualBooking).
+    nin: z.string().trim().min(1, "NIN is required").max(20),
     pre_existing_medical_condition: z.boolean().default(false),
     medical_condition: z.string().trim().max(500).nullable().default(null),
     next_of_kin: nextOfKinSchema,
@@ -285,7 +287,7 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
       PassportNo: data.passport_no,
       IdentificationPath: null,
       Occupation: data.occupation,
-      ...(data.nin ? { Nin: data.nin } : {}),
+      Nin: data.nin,
       MaritalStatusId: data.marital_status_id,
       PreExistingMedicalCondition: data.pre_existing_medical_condition,
       MedicalCondition: data.medical_condition,
