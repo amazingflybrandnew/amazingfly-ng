@@ -460,4 +460,143 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
     status: "completed",
     message: `Travel insurance policy issued. Certificate/contract number: ${contractNo}.`,
   });
+
+  // Email the customer a branded confirmation PDF (Allianz also emails the
+  // official certificate). Never let an email failure affect issuance.
+  try {
+    const { data: srRow } = await supabase
+      .from("service_requests")
+      .select("email, full_name, destination_country, travel_date, return_date, request_reference")
+      .eq("id", requestId)
+      .maybeSingle();
+    const sr = (srRow as Record<string, unknown> | null) ?? {};
+    const email = String(sr["email"] ?? "");
+    if (email) {
+      const { createInsuranceCertificatePdf } = await import("./insurance-certificate-pdf");
+      const amountPaid = Number(row["amount"] ?? 0);
+      const currency = String(row["currency"] ?? "NGN");
+      const pdf = createInsuranceCertificatePdf({
+        contractNumber: contractNo,
+        travellerName: String(sr["full_name"] ?? traveller.FirstName ?? ""),
+        destination: String(sr["destination_country"] ?? ""),
+        coverBegins: String(sr["travel_date"] ?? ""),
+        coverEnds: String(sr["return_date"] ?? ""),
+        amountPaid: `${currency} ${amountPaid.toLocaleString()}`,
+        reference: String(sr["request_reference"] ?? ""),
+        issuedOn: new Date().toISOString().slice(0, 10),
+      });
+      const { sendTransactionalEmail } = await import("../email.server");
+      await sendTransactionalEmail({
+        to: email,
+        subject: `Your travel insurance policy - ${contractNo}`,
+        text: `Hello ${String(sr["full_name"] ?? "")},
+
+Your travel insurance policy has been issued. Your policy/contract number is ${contractNo}.
+
+Your Amazingfly confirmation is attached. Sanlam Allianz will also email your official policy certificate.
+
+Safe travels,
+Amazingfly Travels`,
+        idempotencyKey: `insurance-cert-${requestId}`,
+        attachments: [
+          { filename: pdf.filename, content: Buffer.from(pdf.bytes).toString("base64") },
+        ],
+      });
+    }
+  } catch (error) {
+    console.error("[insurance] certificate email failed for", requestId, error);
+  }
 }
+
+// --- Customer dashboard: list policies + download certificate ---------------
+
+export type InsurancePolicyRow = {
+  id: string;
+  contractNumber: string;
+  status: string;
+  amountPaid: number;
+  currency: string;
+  createdAt: string;
+  destination: string | null;
+  coverBegins: string | null;
+  coverEnds: string | null;
+};
+
+/** The signed-in customer's issued travel insurance policies. */
+export const getMyInsurancePolicies = createServerFn({ method: "GET" }).handler(
+  async (): Promise<InsurancePolicyRow[]> => {
+    const { requireUser } = await import("../auth.server");
+    const { user } = await requireUser();
+    const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
+    const supabase = createExternalSupabaseAdmin();
+
+    const { data } = await supabase
+      .from("travel_insurance_policies")
+      .select(
+        "id, contract_number, policy_status, amount_paid, currency, created_at, " +
+          "travel_insurance_quotes(destination_country, cover_start_date, cover_end_date)",
+      )
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    return ((data as Record<string, unknown>[] | null) ?? []).map((row) => {
+      const quote = (row["travel_insurance_quotes"] as Record<string, unknown> | null) ?? null;
+      return {
+        id: String(row["id"]),
+        contractNumber: String(row["contract_number"] ?? ""),
+        status: String(row["policy_status"] ?? "issued"),
+        amountPaid: Number(row["amount_paid"] ?? 0),
+        currency: String(row["currency"] ?? "NGN"),
+        createdAt: String(row["created_at"] ?? ""),
+        destination: quote?.["destination_country"] ? String(quote["destination_country"]) : null,
+        coverBegins: quote?.["cover_start_date"] ? String(quote["cover_start_date"]) : null,
+        coverEnds: quote?.["cover_end_date"] ? String(quote["cover_end_date"]) : null,
+      };
+    });
+  },
+);
+
+export type InsuranceCertificateResult =
+  | { ok: true; filename: string; base64: string }
+  | { ok: false; message: string };
+
+/** Download the Amazingfly confirmation PDF for a policy the customer owns. */
+export const getInsuranceCertificate = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => z.object({ policyId: z.string().uuid() }).parse(data))
+  .handler(async ({ data }): Promise<InsuranceCertificateResult> => {
+    const { requireUser } = await import("../auth.server");
+    const { user } = await requireUser();
+    const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
+    const supabase = createExternalSupabaseAdmin();
+
+    const { data: policyRow } = await supabase
+      .from("travel_insurance_policies")
+      .select("id, user_id, contract_number, amount_paid, currency, service_request_id")
+      .eq("id", data.policyId)
+      .maybeSingle();
+    const policy = (policyRow as Record<string, unknown> | null) ?? null;
+    if (!policy || String(policy["user_id"]) !== user.id) {
+      return { ok: false, message: "Policy not found." };
+    }
+
+    const { data: srRow } = await supabase
+      .from("service_requests")
+      .select("full_name, destination_country, travel_date, return_date, request_reference, created_at")
+      .eq("id", policy["service_request_id"])
+      .maybeSingle();
+    const sr = (srRow as Record<string, unknown> | null) ?? {};
+
+    const { createInsuranceCertificatePdf } = await import("./insurance-certificate-pdf");
+    const currency = String(policy["currency"] ?? "NGN");
+    const pdf = createInsuranceCertificatePdf({
+      contractNumber: String(policy["contract_number"] ?? ""),
+      travellerName: String(sr["full_name"] ?? ""),
+      destination: String(sr["destination_country"] ?? ""),
+      coverBegins: String(sr["travel_date"] ?? ""),
+      coverEnds: String(sr["return_date"] ?? ""),
+      amountPaid: `${currency} ${Number(policy["amount_paid"] ?? 0).toLocaleString()}`,
+      reference: String(sr["request_reference"] ?? ""),
+      issuedOn: String(policy["created_at"] ?? "").slice(0, 10),
+    });
+    return { ok: true, filename: pdf.filename, base64: Buffer.from(pdf.bytes).toString("base64") };
+  });
