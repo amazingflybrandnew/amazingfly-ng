@@ -114,6 +114,58 @@ export const getInsuranceTravelPlans = createServerFn({ method: "GET" })
     return getAllianzTravelPlans(data.countryId).catch(() => []);
   });
 
+const previewSchema = z
+  .object({
+    destination_country_id: z.number().int().positive(),
+    cover_begins: isoDate,
+    cover_ends: isoDate,
+    purpose_of_travel: z.string().trim().min(1).max(120),
+    travel_plan_id: z.number().int().positive(),
+    booking_type_id: z.number().int().positive(),
+    is_round_trip: z.boolean(),
+    is_multi_trip: z.boolean(),
+    date_of_birth: isoDate,
+    email: z.string().trim().email().max(200),
+    telephone: z.string().trim().min(1).max(40),
+  })
+  .strict();
+
+export type InsurancePreviewResult =
+  | { ok: true; amount: number; currency: string; productVariantId: string | null }
+  | { ok: false; message: string };
+
+/** Price-only quote (no DB writes) so a customer can see the premium first. */
+export const previewInsuranceQuote = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => previewSchema.parse(data))
+  .handler(async ({ data }): Promise<InsurancePreviewResult> => {
+    const { getAllianzQuote, toAllianzDate } = await import("./allianz.server");
+    try {
+      const quote = await getAllianzQuote({
+        DateOfBirth: toAllianzDate(data.date_of_birth),
+        Email: data.email,
+        Telephone: data.telephone,
+        CoverBegins: toAllianzDate(data.cover_begins),
+        CoverEnds: toAllianzDate(data.cover_ends),
+        CountryId: data.destination_country_id,
+        PurposeOfTravel: data.purpose_of_travel,
+        TravelPlanId: data.travel_plan_id,
+        BookingTypeId: data.booking_type_id,
+        IsRoundTrip: data.is_round_trip,
+        NoOfPeople: 1,
+        NoOfChildren: 0,
+        IsMultiTrip: data.is_multi_trip,
+      });
+      const amount = Number(quote.Amount ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return { ok: false, message: "Sanlam Allianz returned an invalid premium." };
+      }
+      return { ok: true, amount, currency: "NGN", productVariantId: quote.ProductVariantId ?? null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not price this trip.";
+      return { ok: false, message: `Sanlam Allianz: ${message}` };
+    }
+  });
+
 /**
  * Price the trip with Allianz, persist the request + traveller details, and
  * start a pending Paystack payment. The policy is only issued after payment.

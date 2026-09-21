@@ -3,7 +3,7 @@ import insuranceHero from "@/assets/travel-insurance-hero.jpeg";
 
 export function TravelInsuranceSearch() {
   const goToRequest = () => {
-    window.location.href = "/request?service=travel-insurance";
+    window.location.href = "/travel-insurance";
   };
 
   return (

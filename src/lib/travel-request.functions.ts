@@ -270,12 +270,13 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
       normalizedCategory === "insurance" ||
       documentService === "Travel insurance"
     ) {
-      // Allianz will be the price authority once the insurance API is supplied.
-      // Do not accept a browser-entered/manual insurance amount in the meantime.
+      // Travel insurance now has its own live quote-and-buy journey backed by
+      // Sanlam Allianz. Route customers there instead of the generic wizard, and
+      // never accept a browser-entered/manual insurance amount here.
       return {
         ok: false,
         message:
-          "Travel insurance online pricing is being connected to Allianz. Please try again once live pricing is available.",
+          "Travel insurance is now available to quote and buy instantly at /travel-insurance.",
       };
     } else if (!isFlightOrHotel && packageItem) {
       if (!Number.isFinite(packageItem.price) || packageItem.price <= 0) {
