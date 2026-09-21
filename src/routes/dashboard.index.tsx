@@ -17,6 +17,7 @@ import {
 
 import { AccountShell, useSessionQuery } from "@/components/AccountShell";
 import { DocumentRequestList } from "@/components/DocumentRequestList";
+import { InsurancePolicies } from "@/components/InsurancePolicies";
 
 import { Button } from "@/components/ui/button";
 import { getAccountOverview } from "@/lib/account.functions";
@@ -150,6 +151,8 @@ function DashboardPage() {
               tint="bg-peach-tint"
             />
           </div>
+
+          <InsurancePolicies />
 
           {pendingPayments.length > 0 ? (
             <section className="glass-card rounded-3xl p-6 md:p-8">
