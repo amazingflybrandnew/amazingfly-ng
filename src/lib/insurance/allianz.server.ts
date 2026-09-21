@@ -148,14 +148,22 @@ async function allianzRequest(
 
   const text = await response.text();
   if (!response.ok) {
-    // Surface the API's own message when it sends one (often a JSON envelope).
+    // Surface the API's own message. ASP.NET wraps the useful detail in
+    // ExceptionMessage / StackTrace, so include those for diagnosis.
     let message = `Sanlam Allianz request failed (${response.status}).`;
     try {
       const parsed = JSON.parse(text) as Record<string, unknown>;
-      const apiMessage = parsed["Message"] ?? parsed["ExceptionMessage"] ?? parsed["error_description"];
-      if (typeof apiMessage === "string") message = apiMessage;
+      const parts = [
+        parsed["Message"],
+        parsed["ExceptionMessage"],
+        parsed["error_description"],
+        typeof parsed["StackTrace"] === "string"
+          ? String(parsed["StackTrace"]).split("\n")[0]
+          : null,
+      ].filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+      if (parts.length) message = parts.join(" | ");
     } catch {
-      if (text.trim()) message = text.trim().slice(0, 300);
+      if (text.trim()) message = text.trim().slice(0, 400);
     }
     throw new AllianzApiError(response.status, message);
   }
@@ -219,40 +227,52 @@ export async function createAllianzFamilyBooking(
 const lookupCache = new Map<string, { value: AllianzLookupItem[]; expiresAt: number }>();
 const LOOKUP_TTL_MS = 6 * 60 * 60 * 1000; // 6h
 
-/** Normalise a lookup row to { id, name } regardless of its id key name. */
-function normalizeLookupRow(row: unknown): AllianzLookupItem | null {
+/**
+ * Normalise a lookup row to { id, name }. `idKey` is the exact id field for this
+ * lookup (e.g. "StateId") so we never mis-pick another *Id field (like a nested
+ * CountryId), which would send a wrong id and make the booking crash.
+ */
+function normalizeLookupRow(row: unknown, idKey: string): AllianzLookupItem | null {
   if (!row || typeof row !== "object") return null;
   const rec = row as Record<string, unknown>;
   const name = rec["Name"] ?? rec["name"] ?? rec["Description"];
-  // Prefer an explicit *Id / Id field; fall back to the first numeric value.
   let id: unknown =
-    rec["Id"] ?? rec["id"] ?? Object.entries(rec).find(([k]) => /id$/i.test(k))?.[1];
+    rec[idKey] ??
+    rec["Id"] ??
+    rec["id"] ??
+    Object.entries(rec).find(([k]) => /id$/i.test(k))?.[1];
   if (id == null) id = Object.values(rec).find((v) => typeof v === "number");
   if (typeof id !== "number" || typeof name !== "string") return null;
   return { id, name: name.trim() };
 }
 
-async function fetchLookup(path: string): Promise<AllianzLookupItem[]> {
-  const cached = lookupCache.get(path);
+async function fetchLookup(path: string, idKey: string): Promise<AllianzLookupItem[]> {
+  const cacheKey = `${idKey}:${path}`;
+  const cached = lookupCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
   const { text } = await allianzRequest(path, "GET");
   const parsed = JSON.parse(text) as unknown;
   const rows = Array.isArray(parsed) ? parsed : [];
   const value = rows
-    .map(normalizeLookupRow)
+    .map((row) => normalizeLookupRow(row, idKey))
     .filter((r): r is AllianzLookupItem => r !== null);
 
-  lookupCache.set(path, { value, expiresAt: Date.now() + LOOKUP_TTL_MS });
+  lookupCache.set(cacheKey, { value, expiresAt: Date.now() + LOOKUP_TTL_MS });
   return value;
 }
 
-export const getAllianzGenders = () => fetchLookup("/api/lookup/GetGender");
-export const getAllianzTitles = () => fetchLookup("/api/lookup/GetTitle");
-export const getAllianzStates = () => fetchLookup("/api/lookup/GetState");
-export const getAllianzMaritalStatuses = () => fetchLookup("/api/lookup/GetMaritalStatus");
-export const getAllianzBookingTypes = () => fetchLookup("/api/lookup/GetBookingType");
+export const getAllianzGenders = () => fetchLookup("/api/lookup/GetGender", "GenderId");
+export const getAllianzTitles = () => fetchLookup("/api/lookup/GetTitle", "TitleId");
+export const getAllianzStates = () => fetchLookup("/api/lookup/GetState", "StateId");
+export const getAllianzMaritalStatuses = () =>
+  fetchLookup("/api/lookup/GetMaritalStatus", "MaritalStatusId");
+export const getAllianzBookingTypes = () =>
+  fetchLookup("/api/lookup/GetBookingType", "BookingTypeId");
 
 /** Travel plans are country-specific. */
 export const getAllianzTravelPlans = (countryId: number) =>
-  fetchLookup(`/api/lookup/GetTravelPlan?countryId=${encodeURIComponent(countryId)}`);
+  fetchLookup(
+    `/api/lookup/GetTravelPlan?countryId=${encodeURIComponent(countryId)}`,
+    "TravelPlanId",
+  );
