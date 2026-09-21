@@ -53,34 +53,36 @@ export interface AllianzIndividualBooking {
   NextOfKin: AllianzNextOfKin;
 }
 
+/** Booking type ids (from GetBookingType / the doc examples). */
+export const ALLIANZ_BOOKING_TYPE_INDIVIDUAL = 1;
+export const ALLIANZ_BOOKING_TYPE_FAMILY = 2;
+
 /**
- * Quote request. Field names mirror the quote response the API echoes back.
- * ISO datetimes (`yyyy-mm-ddTHH:MM:SS`) are what the observed quote used for
- * dates here — note this differs from the booking payload, which uses
- * `dd-MMM-yyyy`.
- *
- * TODO: confirm the exact request path and required fields against the
- * "2. Get Quote (Individual)" request in Postman (URL + body).
+ * Quote request (POST /api/Quote), matching the API doc.
+ * All dates are `dd-MMM-yyyy` (e.g. "14-Oct-2019") — use toAllianzDate().
  */
 export interface AllianzQuoteRequest {
-  ProductVariantId: string;
-  DateOfBirth: string;
+  DateOfBirth: AllianzDate;
   Email: string;
   Telephone: string;
-  CoverBegins: string;
-  CoverEnds: string;
+  CoverBegins: AllianzDate;
+  CoverEnds: AllianzDate;
   CountryId: number;
-  CountryId2?: number | null;
   PurposeOfTravel: string;
   TravelPlanId: number;
   BookingTypeId: number;
-  IsRoundTrip?: boolean;
-  IsLifeInsuranceIncluded?: boolean;
-  PreExistingMedicalCondition?: boolean;
-  MedicalCondition?: string | null;
+  IsRoundTrip: boolean;
   NoOfPeople: number;
-  NoOfChildren?: number;
-  IsMultiTrip?: boolean;
+  /** Family: 1–6 children under 18; Individual: 0. */
+  NoOfChildren: number;
+  /** true when the trip duration is greater than 92 days. */
+  IsMultiTrip: boolean;
+}
+
+/** A normalised { id, name } row from any lookup endpoint. */
+export interface AllianzLookupItem {
+  id: number;
+  name: string;
 }
 
 /**

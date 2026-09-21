@@ -20,6 +20,7 @@
 import type {
   AllianzBookingResult,
   AllianzIndividualBooking,
+  AllianzLookupItem,
   AllianzQuoteRequest,
   AllianzQuoteResponse,
 } from "./allianz.types";
@@ -172,20 +173,86 @@ export async function getAllianzQuote(
   return JSON.parse(text) as AllianzQuoteResponse;
 }
 
+/** Pull the contract/policy reference out of whatever shape booking returns. */
+function extractContractNo(text: string): AllianzBookingResult {
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed === "string") return parsed.trim();
+    if (parsed && typeof parsed === "object") {
+      const rec = parsed as Record<string, unknown>;
+      const value = rec["ContractNo"] ?? rec["ContractNumber"] ?? rec["Data"];
+      if (typeof value === "string") return value.trim();
+    }
+  } catch {
+    /* not JSON — use raw text below */
+  }
+  return text.trim().replace(/^"|"$/g, "");
+}
+
 /**
  * Step 2 — create an individual booking against a QuoteId (the integer
- * QuoteRequestId from the quote). Returns the bare policy/certificate string.
+ * QuoteRequestId from the quote). Returns the policy/contract reference.
+ * The doc returns { ContractNo }; the live test returned a bare string —
+ * both are handled.
  */
 export async function createAllianzBooking(
   booking: AllianzIndividualBooking,
 ): Promise<AllianzBookingResult> {
   const { text } = await allianzRequest("/api/IndividualBooking", "POST", booking);
-  // The API returns a JSON string ("VASNGS200001123"); fall back to raw text.
-  try {
-    const parsed = JSON.parse(text);
-    if (typeof parsed === "string") return parsed.trim();
-  } catch {
-    /* not JSON — use raw text */
-  }
-  return text.trim().replace(/^"|"$/g, "");
+  return extractContractNo(text);
 }
+
+/**
+ * Family booking — an array of travellers (2 adults + 1–6 children), all
+ * sharing the same QuoteId. Returns the policy/contract reference.
+ */
+export async function createAllianzFamilyBooking(
+  travellers: AllianzIndividualBooking[],
+): Promise<AllianzBookingResult> {
+  const { text } = await allianzRequest("/api/FamilyBooking", "POST", travellers);
+  return extractContractNo(text);
+}
+
+// ---- Lookups (GET, behind the token) --------------------------------------
+// Small, stable reference lists. Cached in-process for the server's lifetime.
+
+const lookupCache = new Map<string, { value: AllianzLookupItem[]; expiresAt: number }>();
+const LOOKUP_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+
+/** Normalise a lookup row to { id, name } regardless of its id key name. */
+function normalizeLookupRow(row: unknown): AllianzLookupItem | null {
+  if (!row || typeof row !== "object") return null;
+  const rec = row as Record<string, unknown>;
+  const name = rec["Name"] ?? rec["name"] ?? rec["Description"];
+  // Prefer an explicit *Id / Id field; fall back to the first numeric value.
+  let id: unknown =
+    rec["Id"] ?? rec["id"] ?? Object.entries(rec).find(([k]) => /id$/i.test(k))?.[1];
+  if (id == null) id = Object.values(rec).find((v) => typeof v === "number");
+  if (typeof id !== "number" || typeof name !== "string") return null;
+  return { id, name: name.trim() };
+}
+
+async function fetchLookup(path: string): Promise<AllianzLookupItem[]> {
+  const cached = lookupCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const { text } = await allianzRequest(path, "GET");
+  const parsed = JSON.parse(text) as unknown;
+  const rows = Array.isArray(parsed) ? parsed : [];
+  const value = rows
+    .map(normalizeLookupRow)
+    .filter((r): r is AllianzLookupItem => r !== null);
+
+  lookupCache.set(path, { value, expiresAt: Date.now() + LOOKUP_TTL_MS });
+  return value;
+}
+
+export const getAllianzGenders = () => fetchLookup("/api/lookup/GetGender");
+export const getAllianzTitles = () => fetchLookup("/api/lookup/GetTitle");
+export const getAllianzStates = () => fetchLookup("/api/lookup/GetState");
+export const getAllianzMaritalStatuses = () => fetchLookup("/api/lookup/GetMaritalStatus");
+export const getAllianzBookingTypes = () => fetchLookup("/api/lookup/GetBookingType");
+
+/** Travel plans are country-specific. */
+export const getAllianzTravelPlans = (countryId: number) =>
+  fetchLookup(`/api/lookup/GetTravelPlan?countryId=${encodeURIComponent(countryId)}`);
