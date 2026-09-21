@@ -11,9 +11,10 @@
  *  - Purchase: POST /api/IndividualBooking -> bare policy string ("VASNGS...")
  *  - Booking dates use `dd-MMM-yyyy`; the quote used ISO datetimes.
  *
- * The quote endpoint path/body still needs confirming from Postman — marked
- * TODO in getAllianzQuote below. Nothing here runs until the ALLIANZ_* secrets
- * are configured, so the rest of the site is unaffected.
+ *  - Quote:    POST /api/Quote -> quote with QuoteRequestId (integer) + premium.
+ *
+ * Nothing here runs until the ALLIANZ_* secrets are configured, so the rest of
+ * the site is unaffected.
  */
 
 import type {
@@ -163,18 +164,11 @@ async function allianzRequest(
 /**
  * Step 1 — request a quote. Returns QuoteRequestId (reused as the booking's
  * QuoteId) plus the premium.
- *
- * TODO: set the real endpoint path once confirmed from the "2. Get Quote
- * (Individual)" request in Postman.
  */
 export async function getAllianzQuote(
   request: AllianzQuoteRequest,
 ): Promise<AllianzQuoteResponse> {
-  const { text } = await allianzRequest(
-    "/api/GetQuote" /* TODO: confirm real path */,
-    "POST",
-    request,
-  );
+  const { text } = await allianzRequest("/api/Quote", "POST", request);
   return JSON.parse(text) as AllianzQuoteResponse;
 }
 
