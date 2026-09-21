@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -67,10 +68,23 @@ function ConfirmationPage() {
   const fetchConfirmation = useServerFn(getBookingConfirmation);
   const cancelHotel = useServerFn(cancelHotelBooking);
 
+  // Auto-refresh briefly while a paid booking is still finalising (e.g. insurance
+  // issuance right after payment), so the status flips to Confirmed on its own.
+  const pollsRef = useRef(0);
   const confirmation = useQuery({
     queryKey: ["booking-confirmation", requestId],
     queryFn: () => fetchConfirmation({ data: { request_id: requestId } }),
     enabled: Boolean(session?.user),
+    refetchInterval: (query) => {
+      const data = query.state.data as { review?: { bookingStatus?: string } } | undefined;
+      const status = String(data?.review?.bookingStatus ?? "").toLowerCase();
+      const settled = ["confirmed", "failed", "needs_attention", "resolved", "cancelled"].includes(
+        status,
+      );
+      if (settled || pollsRef.current >= 12) return false;
+      pollsRef.current += 1;
+      return 4000;
+    },
   });
 
   const cancellation = useMutation({
