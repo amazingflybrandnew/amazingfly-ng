@@ -473,8 +473,8 @@ function TravelInsurance() {
                       <Field label="Occupation">
                         <Input value={form.occupation} onChange={(e) => set("occupation", e.target.value)} maxLength={80} required />
                       </Field>
-                      <Field label="NIN (optional)">
-                        <Input value={form.nin} onChange={(e) => set("nin", e.target.value)} maxLength={20} />
+                      <Field label="NIN" hint="Required by the insurer">
+                        <Input value={form.nin} onChange={(e) => set("nin", e.target.value)} maxLength={20} required />
                       </Field>
                       <Field label="State">
                         <LookupSelect value={form.stateId} onChange={(v) => set("stateId", v)} items={opt?.states ?? []} placeholder="Select state" />
