@@ -44,8 +44,9 @@ export interface AllianzIndividualBooking {
   /** Path returned by the document upload endpoint, or null. */
   IdentificationPath: string | null;
   Occupation: string;
-  Nin: string;
-  /** Lookup id — see AllianzLookups.maritalStatuses. TODO: confirm value map. */
+  /** National Identification Number — optional (not in the API doc payload). */
+  Nin?: string;
+  /** Lookup id — see GetMaritalStatus. */
   MaritalStatusId: number;
   PreExistingMedicalCondition: boolean;
   /** Free text when PreExistingMedicalCondition is true; otherwise null. */
