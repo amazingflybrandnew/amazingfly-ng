@@ -244,7 +244,6 @@ function TravelInsurance() {
 
   // Trip + cover selection
   const [coverType, setCoverType] = useState<"individual" | "family">("individual");
-  const [adultsCount, setAdultsCount] = useState(2);
   const [childrenCount, setChildrenCount] = useState(1);
   const [destinationCountryId, setDestinationCountryId] = useState("");
   const [travelPlanId, setTravelPlanId] = useState("");
@@ -258,7 +257,8 @@ function TravelInsurance() {
   const [price, setPrice] = useState<{ amount: number; currency: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const noOfPeople = coverType === "family" ? adultsCount : 1;
+  // Allianz family cover is exactly 2 adults + 1-6 children.
+  const noOfPeople = coverType === "family" ? 2 : 1;
   const noOfChildren = coverType === "family" ? childrenCount : 0;
   const travellerTarget = noOfPeople + noOfChildren;
 
@@ -317,7 +317,7 @@ function TravelInsurance() {
   useEffect(() => {
     setPrice(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destinationCountryId, travelPlanId, coverBegins, coverEnds, purpose, isRoundTrip, coverType, adultsCount, childrenCount, lead?.dateOfBirth]);
+  }, [destinationCountryId, travelPlanId, coverBegins, coverEnds, purpose, isRoundTrip, coverType, childrenCount, lead?.dateOfBirth]);
 
   const canPrice =
     countryId > 0 &&
@@ -526,26 +526,16 @@ function TravelInsurance() {
                   </Field>
                   {coverType === "family" ? (
                     <>
-                      <Field label="Number of adults">
-                        <select
-                          className={selectClass}
-                          value={String(adultsCount)}
-                          onChange={(e) => setAdultsCount(Number(e.target.value))}
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                            <option key={n} value={String(n)}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
+                      <Field label="Adults" hint="Family cover is for 2 adults">
+                        <div className={`${selectClass} flex items-center`}>2 adults</div>
                       </Field>
-                      <Field label="Number of children" hint="Under 18">
+                      <Field label="Number of children" hint="1–6, under 18">
                         <select
                           className={selectClass}
                           value={String(childrenCount)}
                           onChange={(e) => setChildrenCount(Number(e.target.value))}
                         >
-                          {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                          {[1, 2, 3, 4, 5, 6].map((n) => (
                             <option key={n} value={String(n)}>
                               {n}
                             </option>

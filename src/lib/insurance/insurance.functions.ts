@@ -186,6 +186,14 @@ export type InsurancePreviewResult =
 export const previewInsuranceQuote = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => previewSchema.parse(data))
   .handler(async ({ data }): Promise<InsurancePreviewResult> => {
+    const isFamily = data.no_of_children > 0 || data.no_of_people > 1;
+    if (isFamily && (data.no_of_people !== 2 || data.no_of_children < 1 || data.no_of_children > 6)) {
+      return {
+        ok: false,
+        message:
+          "Family cover requires exactly 2 adults and 1–6 children (Sanlam Allianz requirement).",
+      };
+    }
     const { getAllianzQuote, toAllianzDate } = await import("./allianz.server");
     try {
       const quote = await getAllianzQuote({
@@ -238,8 +246,17 @@ export const createInsuranceQuote = createServerFn({ method: "POST" })
 
     const lead = data.travellers[0]!;
 
-    // Allianz rule: all members of a family policy must share the same surname.
-    if (data.travellers.length > 1) {
+    // Allianz family rules: exactly 2 adults + 1-6 children; individual = 1, 0.
+    const isFamily = data.no_of_children > 0 || data.no_of_people > 1 || data.travellers.length > 1;
+    if (isFamily) {
+      if (data.no_of_people !== 2 || data.no_of_children < 1 || data.no_of_children > 6) {
+        return {
+          ok: false,
+          message:
+            "Family cover requires exactly 2 adults and 1–6 children (Sanlam Allianz requirement).",
+        };
+      }
+      // All members of a family policy must share the same surname.
       const surname = lead.surname.trim().toLowerCase();
       if (!data.travellers.every((t) => t.surname.trim().toLowerCase() === surname)) {
         return {
