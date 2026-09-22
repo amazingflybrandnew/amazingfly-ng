@@ -599,9 +599,13 @@ export async function issuePaidInsurancePolicy(requestId: string): Promise<void>
       const { createInsuranceCertificatePdf } = await import("./insurance-certificate-pdf");
       const amountPaid = Number(row["amount"] ?? 0);
       const currency = String(row["currency"] ?? "NGN");
+      const travellerNames = travellers
+        .map((t) => `${t.FirstName ?? ""} ${t.Surname ?? ""}`.trim())
+        .filter(Boolean);
       const pdf = createInsuranceCertificatePdf({
         contractNumber: contractNo,
-        travellerName: String(sr["full_name"] ?? traveller.FirstName ?? ""),
+        travellerName: travellerNames[0] ?? String(sr["full_name"] ?? ""),
+        travellers: travellerNames,
         destination: String(sr["destination_country"] ?? ""),
         coverBegins: String(sr["travel_date"] ?? ""),
         coverEnds: String(sr["return_date"] ?? ""),
@@ -710,11 +714,27 @@ export const getInsuranceCertificate = createServerFn({ method: "POST" })
       .maybeSingle();
     const sr = (srRow as Record<string, unknown> | null) ?? {};
 
+    // Pull every covered traveller so the certificate lists the whole family.
+    const { data: quoteRow } = await supabase
+      .from("travel_insurance_quotes")
+      .select("travellers")
+      .eq("service_request_id", policy["service_request_id"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const storedTravellers =
+      ((quoteRow as { travellers?: Array<{ FirstName?: string; Surname?: string }> } | null)
+        ?.travellers) ?? [];
+    const travellerNames = storedTravellers
+      .map((t) => `${t.FirstName ?? ""} ${t.Surname ?? ""}`.trim())
+      .filter(Boolean);
+
     const { createInsuranceCertificatePdf } = await import("./insurance-certificate-pdf");
     const currency = String(policy["currency"] ?? "NGN");
     const pdf = createInsuranceCertificatePdf({
       contractNumber: String(policy["contract_number"] ?? ""),
-      travellerName: String(sr["full_name"] ?? ""),
+      travellerName: travellerNames[0] ?? String(sr["full_name"] ?? ""),
+      travellers: travellerNames,
       destination: String(sr["destination_country"] ?? ""),
       coverBegins: String(sr["travel_date"] ?? ""),
       coverEnds: String(sr["return_date"] ?? ""),
