@@ -81,7 +81,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => {
     const gaId = GA_MEASUREMENT_ID;
-    const gscToken = import.meta.env.VITE_GSC_VERIFICATION as string | undefined;
+    const gscToken =
+      (import.meta.env.VITE_GSC_VERIFICATION as string | undefined) ||
+      "OSg-lijtUCeYVfMUdSXdWb0GRZeuMa-sklyvvkNdPnY";
     return {
     meta: [
       { charSet: "utf-8" },
