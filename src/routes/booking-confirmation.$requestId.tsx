@@ -81,9 +81,9 @@ function ConfirmationPage() {
       const settled = ["confirmed", "failed", "needs_attention", "resolved", "cancelled"].includes(
         status,
       );
-      if (settled || pollsRef.current >= 12) return false;
+      if (settled || pollsRef.current >= 40) return false; // ~2 min of polling
       pollsRef.current += 1;
-      return 4000;
+      return 3000;
     },
   });
 

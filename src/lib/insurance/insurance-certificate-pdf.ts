@@ -7,6 +7,8 @@
 export type InsuranceCertificateData = {
   contractNumber: string;
   travellerName: string;
+  /** All covered travellers (family). When present, every name is listed. */
+  travellers?: string[];
   destination: string;
   coverBegins: string;
   coverEnds: string;
@@ -27,16 +29,10 @@ function escapePdfText(value: string): string {
 }
 
 function buildContentStream(data: InsuranceCertificateData): string {
-  const rows: Array<[string, string]> = [
-    ["Policy / contract number", data.contractNumber],
-    ["Traveller", data.travellerName],
-    ["Destination", data.destination],
-    ["Cover begins", data.coverBegins],
-    ["Cover ends", data.coverEnds],
-    ["Amount paid", data.amountPaid],
-    ["Request reference", data.reference],
-    ["Issued on", data.issuedOn],
-  ];
+  const names = (data.travellers && data.travellers.length > 0
+    ? data.travellers
+    : [data.travellerName]
+  ).filter((n) => Boolean(n && n.trim()));
 
   const lines: string[] = [];
   lines.push("BT");
@@ -53,7 +49,7 @@ function buildContentStream(data: InsuranceCertificateData): string {
   lines.push("(Underwritten by Sanlam Allianz Nigeria) Tj");
   lines.push("0 -30 Td");
 
-  for (const [label, value] of rows) {
+  const row = (label: string, value: string) => {
     lines.push("0.42 0.46 0.52 rg");
     lines.push("/F1 10 Tf");
     lines.push(`(${escapePdfText(label)}) Tj`);
@@ -62,7 +58,28 @@ function buildContentStream(data: InsuranceCertificateData): string {
     lines.push("0 -16 Td");
     lines.push(`(${escapePdfText(value)}) Tj`);
     lines.push("0 -22 Td");
-  }
+  };
+
+  row("Policy / contract number", data.contractNumber);
+
+  // Travellers — list every covered person.
+  lines.push("0.42 0.46 0.52 rg");
+  lines.push("/F1 10 Tf");
+  lines.push(`(${escapePdfText(names.length > 1 ? `Travellers (${names.length})` : "Traveller")}) Tj`);
+  lines.push("0.12 0.16 0.22 rg");
+  lines.push("/F2 13 Tf");
+  names.forEach((name, i) => {
+    lines.push("0 -16 Td");
+    lines.push(`(${escapePdfText(`${names.length > 1 ? `${i + 1}. ` : ""}${name}`)}) Tj`);
+  });
+  lines.push("0 -22 Td");
+
+  row("Destination", data.destination);
+  row("Cover begins", data.coverBegins);
+  row("Cover ends", data.coverEnds);
+  row("Amount paid", data.amountPaid);
+  row("Request reference", data.reference);
+  row("Issued on", data.issuedOn);
 
   lines.push("0.42 0.46 0.52 rg");
   lines.push("/F1 9 Tf");
