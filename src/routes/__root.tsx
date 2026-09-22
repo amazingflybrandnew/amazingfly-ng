@@ -11,6 +11,11 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+
+// GA4 Measurement ID. Public by nature (it ships in the page), so it's safe to
+// default here; an env var can still override it.
+const GA_MEASUREMENT_ID =
+  (import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined) || "G-0Q2JYYR4Q8";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { LiveChatWidget } from "@/components/LiveChatWidget";
@@ -75,7 +80,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => {
-    const gaId = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+    const gaId = GA_MEASUREMENT_ID;
     const gscToken = import.meta.env.VITE_GSC_VERIFICATION as string | undefined;
     return {
     meta: [
@@ -151,7 +156,7 @@ function RootComponent() {
   // Send a GA4 page_view on client-side route changes (initial load is sent by
   // the gtag config above). No-op when GA isn't configured.
   useEffect(() => {
-    const gaId = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+    const gaId = GA_MEASUREMENT_ID;
     if (!gaId) return;
     return router.subscribe("onResolved", () => {
       const gtag = (globalThis as { gtag?: (...args: unknown[]) => void }).gtag;
