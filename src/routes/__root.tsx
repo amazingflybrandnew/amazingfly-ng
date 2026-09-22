@@ -74,7 +74,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  head: () => {
+    const gaId = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+    const gscToken = import.meta.env.VITE_GSC_VERIFICATION as string | undefined;
+    return {
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -94,6 +97,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "Amazingfly Travels helps Nigerian travellers with visa assistance, travel documentation, travel insurance and other essential travel services through Amazingfly.ng." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/7d1e60e5-4708-4187-ae59-1e1e7e092c92" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/7d1e60e5-4708-4187-ae59-1e1e7e092c92" },
+      ...(gscToken ? [{ name: "google-site-verification", content: gscToken }] : []),
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -108,7 +112,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
       },
     ],
-  }),
+    ...(gaId
+      ? {
+          scripts: [
+            { src: `https://www.googletagmanager.com/gtag/js?id=${gaId}`, async: true },
+            {
+              children: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');`,
+            },
+          ],
+        }
+      : {}),
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
@@ -131,6 +146,24 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  // Send a GA4 page_view on client-side route changes (initial load is sent by
+  // the gtag config above). No-op when GA isn't configured.
+  useEffect(() => {
+    const gaId = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+    if (!gaId) return;
+    return router.subscribe("onResolved", () => {
+      const gtag = (globalThis as { gtag?: (...args: unknown[]) => void }).gtag;
+      if (typeof gtag === "function") {
+        gtag("event", "page_view", {
+          page_path: window.location.pathname + window.location.search,
+          page_location: window.location.href,
+          page_title: document.title,
+        });
+      }
+    });
+  }, [router]);
 
   return (
     <QueryClientProvider client={queryClient}>
