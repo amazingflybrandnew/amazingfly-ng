@@ -608,9 +608,13 @@ function applyPricingRules(d: VisaDestination): VisaDestination {
   }
   const visaFee = d.visaFee + VISA_FEE_FX_MARKUP;
   const processingFee = d.route === "submission" ? d.processingFee + COURIER_FEE : d.processingFee;
+  // Countries on the standard ₦150,000 service charge: all of Europe
+  // (submission + e-Visa), the USA, Canada, Australia and India.
+  const STANDARD_150K = new Set(["united-states", "canada", "australia", "india"]);
   let serviceCharge = d.serviceCharge;
-  if (d.region === "Europe" || d.slug === "united-states") {
-    // All European destinations (submission + e-Visa) and the USA.
+  if (d.slug === "china") {
+    serviceCharge = 600000;
+  } else if (d.region === "Europe" || STANDARD_150K.has(d.slug)) {
     serviceCharge = EUROPE_SERVICE_CHARGE;
   } else if (d.region === "Africa") {
     serviceCharge = AFRICA_SERVICE_CHARGE;
