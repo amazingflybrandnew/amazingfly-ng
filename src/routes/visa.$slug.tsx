@@ -83,7 +83,9 @@ function VisaDestinationPage() {
     ? "Apply online (e-Visa)"
     : destination.centre === "US Embassy"
       ? "US Embassy / Consulate"
-      : `${destination.centre} centre, Nigeria`;
+      : destination.centre === "Embassy"
+        ? "Embassy / High Commission"
+        : `${destination.centre} centre, Nigeria`;
 
   return (
     <>
