@@ -148,42 +148,62 @@ function VisaDestinationPage() {
                   per applicant
                 </span>
               </div>
-              <dl className="mt-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">Visa fee</dt>
-                  <dd className="font-semibold text-navy">{formatNairaAmount(pricing.visaFee)}</dd>
-                </div>
-                {pricing.processingFee > 0 ? (
-                  <div className="flex items-center justify-between">
-                    <dt className="text-muted-foreground">
-                      {isEvisa ? "e-Visa processing" : "VFS / centre fee"}
-                    </dt>
-                    <dd className="font-semibold text-navy">
-                      {formatNairaAmount(pricing.processingFee)}
+              {pricing.fixed ? (
+                <dl className="mt-4 space-y-2 text-sm">
+                  <div className="flex items-center justify-between border-t border-border pt-2 text-base">
+                    <dt className="font-extrabold text-navy">Package price (all-inclusive)</dt>
+                    <dd className="font-extrabold text-navy">
+                      {formatNairaAmount(pricing.perApplicant)}
                     </dd>
                   </div>
-                ) : null}
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">Amazingfly service charge</dt>
-                  <dd className="font-semibold text-navy">
-                    {formatNairaAmount(pricing.serviceCharge)}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between border-t border-border pt-2 text-base">
-                  <dt className="font-extrabold text-navy">Total per applicant</dt>
-                  <dd className="font-extrabold text-navy">
-                    {formatNairaAmount(pricing.perApplicant)}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-4 rounded-2xl border border-mint/40 bg-mint-tint p-4 text-sm leading-relaxed text-navy">
-                <p className="font-bold">Optional: Visa Proof (+{formatNairaAmount(VISA_PROOF_FEE)} per applicant)</p>
-                <p className="mt-1">
-                  Add Visa Proof and, if your visa is <strong>refused</strong>, we refund your
-                  Amazingfly service charge. The visa fee, VFS/e-Visa fee and the Visa Proof fee
-                  itself are non-refundable.
+                </dl>
+              ) : (
+                <dl className="mt-4 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">Visa fee</dt>
+                    <dd className="font-semibold text-navy">{formatNairaAmount(pricing.visaFee)}</dd>
+                  </div>
+                  {pricing.processingFee > 0 ? (
+                    <div className="flex items-center justify-between">
+                      <dt className="text-muted-foreground">
+                        {isEvisa ? "e-Visa processing" : "VFS / centre + courier"}
+                      </dt>
+                      <dd className="font-semibold text-navy">
+                        {formatNairaAmount(pricing.processingFee)}
+                      </dd>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">Amazingfly service charge</dt>
+                    <dd className="font-semibold text-navy">
+                      {formatNairaAmount(pricing.serviceCharge)}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border pt-2 text-base">
+                    <dt className="font-extrabold text-navy">Total per applicant</dt>
+                    <dd className="font-extrabold text-navy">
+                      {formatNairaAmount(pricing.perApplicant)}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+              {destination.noVisaProof ? (
+                <p className="mt-4 rounded-2xl border border-border bg-navy-tint/60 p-4 text-sm leading-relaxed text-navy">
+                  This is a fixed-price package. All fees are non-refundable, and the Visa Proof
+                  option does not apply.
                 </p>
-              </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-mint/40 bg-mint-tint p-4 text-sm leading-relaxed text-navy">
+                  <p className="font-bold">
+                    Optional: Visa Proof (+{formatNairaAmount(VISA_PROOF_FEE)} per applicant)
+                  </p>
+                  <p className="mt-1">
+                    Add Visa Proof and, if your visa is <strong>refused</strong>, we refund your
+                    Amazingfly service charge. The visa fee, VFS/e-Visa fee and the Visa Proof fee
+                    itself are non-refundable.
+                  </p>
+                </div>
+              )}
               <p className="mt-3 text-xs text-muted-foreground">
                 Totals multiply by the number of applicants. The exact amount is confirmed at
                 checkout.

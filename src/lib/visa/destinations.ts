@@ -52,6 +52,14 @@ export interface VisaDestination {
   visaFee: number;
   processingFee: number;
   serviceCharge: number;
+  /**
+   * When set, an all-inclusive fixed package price (per applicant). The fee
+   * breakdown above is ignored for the total — used for the countries that
+   * carry a maintained fixed-price package.
+   */
+  fixedPrice?: number;
+  /** Hide the Visa Proof add-on for this destination (fixed-price packages). */
+  noVisaProof?: boolean;
   /** Full document checklist (submission route). */
   documents?: string[];
   /** How the online application works (evisa route). */
@@ -75,17 +83,34 @@ export type VisaPricing = {
   serviceCharge: number;
   /** Per-applicant total, excluding the optional Visa Proof add-on. */
   perApplicant: number;
+  /** True for fixed-price package countries (show a single price, no breakdown). */
+  fixed: boolean;
 };
 
 /** Per-applicant pricing breakdown for a destination. */
 export function visaPricing(dest: VisaDestination): VisaPricing {
+  if (dest.fixedPrice != null && dest.fixedPrice > 0) {
+    return {
+      visaFee: 0,
+      processingFee: 0,
+      serviceCharge: 0,
+      perApplicant: dest.fixedPrice,
+      fixed: true,
+    };
+  }
   const perApplicant = dest.visaFee + dest.processingFee + dest.serviceCharge;
   return {
     visaFee: dest.visaFee,
     processingFee: dest.processingFee,
     serviceCharge: dest.serviceCharge,
     perApplicant,
+    fixed: false,
   };
+}
+
+/** Whether the Visa Proof add-on is offered for this destination. */
+export function visaProofAllowed(dest: VisaDestination): boolean {
+  return !dest.noVisaProof;
 }
 
 /**
@@ -100,7 +125,8 @@ export function visaBookingTotal(
 ): number {
   const count = Math.max(1, Math.floor(applicants || 1));
   const base = visaPricing(dest).perApplicant * count;
-  return base + (visaProof ? VISA_PROOF_FEE * count : 0);
+  const proof = visaProof && visaProofAllowed(dest) ? VISA_PROOF_FEE * count : 0;
+  return base + proof;
 }
 
 /** Format a NGN amount, e.g. ₦160,000. */
@@ -542,7 +568,58 @@ const EVISA: VisaDestination[] = [
   evisa("serbia", "Serbia", "RS", "Europe", { visaFee: 60000 }),
 ];
 
-export const VISA_DESTINATIONS: readonly VisaDestination[] = [...SUBMISSION, ...EVISA];
+// ---------------------------------------------------------------------------
+// Pricing rules (applied on top of the base estimates above)
+// ---------------------------------------------------------------------------
+
+/**
+ * FX markup added to EVERY (non fixed-price) visa fee to absorb the recent
+ * dollar rise: the stated USD visa cost is unchanged, but the Naira
+ * conversion carries ≈ $3 extra. ₦5,000 ≈ $3 at ~₦1,650/$.
+ */
+const VISA_FEE_FX_MARKUP = 5000;
+/** Added to the VFS / centre fee to cover courier (submission countries). */
+const COURIER_FEE = 20000;
+/** Service charge for European visa-application (submission) countries. */
+const EUROPE_SERVICE_CHARGE = 150000;
+/** Service charge for African countries without a fixed-price package. */
+const AFRICA_SERVICE_CHARGE = 100000;
+
+/**
+ * Countries that keep their maintained fixed-price package (all-inclusive,
+ * per applicant) and do NOT offer the Visa Proof add-on.
+ */
+const FIXED_PACKAGE_PRICES: Record<string, number> = {
+  qatar: 700000,
+  "united-arab-emirates": 300000,
+  ethiopia: 250000,
+  "south-africa": 1100000,
+  oman: 2500000,
+  morocco: 300000,
+  uganda: 180000,
+  kenya: 150000,
+};
+
+function applyPricingRules(d: VisaDestination): VisaDestination {
+  const fixed = FIXED_PACKAGE_PRICES[d.slug];
+  if (fixed != null) {
+    // Maintain the package price; no increases, no Visa Proof.
+    return { ...d, fixedPrice: fixed, noVisaProof: true };
+  }
+  const visaFee = d.visaFee + VISA_FEE_FX_MARKUP;
+  const processingFee = d.route === "submission" ? d.processingFee + COURIER_FEE : d.processingFee;
+  let serviceCharge = d.serviceCharge;
+  if (d.region === "Europe" && d.route === "submission") {
+    serviceCharge = EUROPE_SERVICE_CHARGE;
+  } else if (d.region === "Africa") {
+    serviceCharge = AFRICA_SERVICE_CHARGE;
+  }
+  return { ...d, visaFee, processingFee, serviceCharge };
+}
+
+export const VISA_DESTINATIONS: readonly VisaDestination[] = [...SUBMISSION, ...EVISA].map(
+  applyPricingRules,
+);
 
 // ---------------------------------------------------------------------------
 // Lookups & helpers
