@@ -278,6 +278,27 @@ export const submitTravelRequest = createServerFn({ method: "POST" })
         message:
           "Travel insurance is now available to quote and buy instantly at /travel-insurance.",
       };
+    } else if (normalizedCategory === "visa") {
+      // Visa pricing is server-derived from the destination (visa fee +
+      // VFS/e-Visa fee + service charge) × applicants, plus the optional
+      // Visa Proof add-on. Never trust a browser-supplied amount.
+      const { findVisaDestinationByName, visaBookingTotal, visaProofAllowed } = await import(
+        "./visa/destinations"
+      );
+      const destination = findVisaDestinationByName(data.destination_country);
+      if (!destination) {
+        return {
+          ok: false,
+          message: "Please choose a destination country Amazingfly handles for your visa.",
+        };
+      }
+      const applicants = Math.max(1, Math.floor(Number(data.traveller_count) || 1));
+      const proofRaw = (answerValue(data.answers, "visa_proof") ?? "").toLowerCase();
+      const visaProof = visaProofAllowed(destination) && proofRaw.startsWith("yes");
+      serviceAmount = visaBookingTotal(destination, applicants, visaProof);
+      serviceCurrency = "NGN";
+      serviceType = `${destination.name} Visa`;
+      packageName = `${destination.name} Visa${visaProof ? " + Visa Proof" : ""}`;
     } else if (!isFlightOrHotel && packageItem) {
       if (!Number.isFinite(packageItem.price) || packageItem.price <= 0) {
         return {
