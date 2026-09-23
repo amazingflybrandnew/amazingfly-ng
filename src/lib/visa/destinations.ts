@@ -485,8 +485,8 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Tourist / Visit", "Business"],
     processingTime: "Approx. 5–7 working days",
     popular: true,
-    // Japan revised its visa fee on 1 July 2026 — confirm current JVAC amount.
-    visaFee: 55000,
+    // Japan single-entry visa fee US$93 (≈ ₦153,000 at ₦1,650/$).
+    visaFee: 153000,
     processingFee: 16500,
     serviceCharge: 50000,
     documents: [
