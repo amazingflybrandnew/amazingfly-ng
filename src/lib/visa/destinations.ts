@@ -574,7 +574,7 @@ const EVISA: VisaDestination[] = [
   }),
   evisa("oman", "Oman", "OM", "Middle East", { visaFee: 40000 }),
   // Asia
-  evisa("malaysia", "Malaysia", "MY", "Asia", { visaFee: 45000, popular: true }),
+  evisa("malaysia", "Malaysia", "MY", "Asia", { visaFee: 58000, popular: true }),
   evisa("cambodia", "Cambodia", "KH", "Asia", { visaFee: 55000 }),
   evisa("pakistan", "Pakistan", "PK", "Asia", { visaFee: 40000 }),
   evisa("azerbaijan", "Azerbaijan", "AZ", "Asia", { visaFee: 40000 }),
