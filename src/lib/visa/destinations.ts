@@ -609,7 +609,8 @@ function applyPricingRules(d: VisaDestination): VisaDestination {
   const visaFee = d.visaFee + VISA_FEE_FX_MARKUP;
   const processingFee = d.route === "submission" ? d.processingFee + COURIER_FEE : d.processingFee;
   let serviceCharge = d.serviceCharge;
-  if (d.region === "Europe" && d.route === "submission") {
+  if (d.region === "Europe" || d.slug === "united-states") {
+    // All European destinations (submission + e-Visa) and the USA.
     serviceCharge = EUROPE_SERVICE_CHARGE;
   } else if (d.region === "Africa") {
     serviceCharge = AFRICA_SERVICE_CHARGE;
