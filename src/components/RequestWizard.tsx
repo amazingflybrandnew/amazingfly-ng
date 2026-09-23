@@ -193,7 +193,9 @@ export function RequestWizard({
       ? findVisaDestinationByName(answers["destination_country"])
       : undefined;
   const travellerCount = Math.max(1, Math.floor(Number(answers["traveller_count"] || 1)) || 1);
-  const visaProofSelected = (answers["visa_proof"] ?? "").toLowerCase().startsWith("yes");
+  const visaProofAllowed = !!visaDestination && !visaDestination.noVisaProof;
+  const visaProofSelected =
+    visaProofAllowed && (answers["visa_proof"] ?? "").toLowerCase().startsWith("yes");
   const visaAmount = visaDestination
     ? visaBookingTotal(visaDestination, travellerCount, visaProofSelected)
     : 0;
@@ -226,21 +228,27 @@ export function RequestWizard({
 
   const visaPriceRows = useMemo<[string, string][]>(() => {
     if (!visaDestination) return [];
-    const rows: [string, string][] = [
-      ["Visa fee (per applicant)", formatNaira(visaDestination.visaFee)],
-    ];
-    if (visaDestination.processingFee > 0) {
+    const rows: [string, string][] = [];
+    if (visaDestination.fixedPrice != null && visaDestination.fixedPrice > 0) {
       rows.push([
-        visaDestination.route === "evisa"
-          ? "e-Visa processing (per applicant)"
-          : "VFS / centre fee (per applicant)",
-        formatNaira(visaDestination.processingFee),
+        "Package price (all-inclusive, per applicant)",
+        formatNaira(visaDestination.fixedPrice),
+      ]);
+    } else {
+      rows.push(["Visa fee (per applicant)", formatNaira(visaDestination.visaFee)]);
+      if (visaDestination.processingFee > 0) {
+        rows.push([
+          visaDestination.route === "evisa"
+            ? "e-Visa processing (per applicant)"
+            : "VFS / centre + courier (per applicant)",
+          formatNaira(visaDestination.processingFee),
+        ]);
+      }
+      rows.push([
+        "Amazingfly service charge (per applicant)",
+        formatNaira(visaDestination.serviceCharge),
       ]);
     }
-    rows.push([
-      "Amazingfly service charge (per applicant)",
-      formatNaira(visaDestination.serviceCharge),
-    ]);
     rows.push(["Number of applicants", `× ${travellerCount}`]);
     if (visaProofSelected) {
       rows.push(["Visa Proof add-on", `${formatNaira(VISA_PROOF_FEE)} × ${travellerCount}`]);
@@ -661,7 +669,11 @@ export function RequestWizard({
                   <p className="text-sm text-muted-foreground">{activeSection.description}</p>
                 ) : null}
                 <QuestionGrid
-                  questions={activeSection.questions.filter((q) => isVisible(q, answers))}
+                  questions={activeSection.questions.filter(
+                    (q) =>
+                      isVisible(q, answers) &&
+                      !(q.id === "visa_proof" && visaDestination?.noVisaProof),
+                  )}
                   answers={answers}
                   errors={errors}
                   onChange={set}
@@ -714,10 +726,11 @@ export function RequestWizard({
                     <div className="rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm leading-relaxed text-navy">
                       <p className="font-bold">Refund policy</p>
                       <p className="mt-1">
-                        The visa fee and VFS/e-Visa fee are non-refundable.{" "}
-                        {visaProofSelected
-                          ? "Because you added Visa Proof, your Amazingfly service charge is refunded if your visa is refused (the ₦20,000 Visa Proof fee itself is non-refundable)."
-                          : "Add the optional Visa Proof (in the Travel Information step) to make your Amazingfly service charge refundable if your visa is refused."}
+                        {visaDestination.noVisaProof
+                          ? "This destination is a fixed-price package. All fees are non-refundable, and the Visa Proof option does not apply."
+                          : visaProofSelected
+                            ? "The visa fee and VFS/e-Visa fee are non-refundable. Because you added Visa Proof, your Amazingfly service charge is refunded if your visa is refused (the ₦20,000 Visa Proof fee itself is non-refundable)."
+                            : "The visa fee and VFS/e-Visa fee are non-refundable. Add the optional Visa Proof (in the Travel Information step) to make your Amazingfly service charge refundable if your visa is refused."}
                       </p>
                     </div>
                   </>
