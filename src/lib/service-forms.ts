@@ -20,6 +20,7 @@ export type FieldType =
   | "select"
   | "radio"
   | "country"
+  | "destination"
   | "catalogue";
 
 export type Question = {
@@ -124,13 +125,12 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
       {
         title: "Destination Information",
         description:
-          "Choose the visa service you need. The price, processing time and required documents are shown as soon as you select it.",
+          "Choose the country you are applying to and the visa category you need. Our specialist confirms the price and required documents for your destination.",
         questions: [
           {
-            id: "catalogue_id",
-            label: "Visa package",
-            type: "catalogue",
-            catalogueCategory: "visa",
+            id: "destination_country",
+            label: "Destination country",
+            type: "destination",
             required: true,
           },
           {
@@ -140,6 +140,13 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
             required: true,
             options: VISA_TYPES,
             half: true,
+          },
+          {
+            id: "catalogue_id",
+            label: "Fixed-price visa package (optional)",
+            type: "catalogue",
+            catalogueCategory: "visa",
+            hint: "If your destination has a ready-made package, select it to pay online now. Otherwise leave this and our specialist will send you a quote.",
           },
         ],
       },

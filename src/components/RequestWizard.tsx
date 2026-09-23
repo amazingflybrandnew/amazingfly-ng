@@ -43,6 +43,7 @@ import {
   type CatalogueCategory,
   type CatalogueItem,
 } from "@/lib/catalogue/visa-catalogue";
+import { VISA_DESTINATIONS_SORTED } from "@/lib/visa/destinations";
 import {
   calculateProofOfFundsFee,
   POLICE_CERTIFICATE_DIASPORA_PRICE_NGN,
@@ -910,6 +911,19 @@ function QuestionField({
           {COUNTRY_OPTIONS.map((country) => (
             <option key={country.code} value={country.name}>
               {countryCodeToFlag(country.code)} {country.name}
+            </option>
+          ))}
+        </select>
+      ) : question.type === "destination" ? (
+        <select
+          className={selectClass}
+          value={value}
+          onChange={(e) => onChange(question.id, e.target.value)}
+        >
+          <option value="">Select destination country</option>
+          {VISA_DESTINATIONS_SORTED.map((destination) => (
+            <option key={destination.slug} value={destination.name}>
+              {destination.flag} {destination.name}
             </option>
           ))}
         </select>
