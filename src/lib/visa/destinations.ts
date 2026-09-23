@@ -40,6 +40,18 @@ export interface VisaDestination {
   centreNote?: string;
   visaTypes: string[];
   processingTime: string;
+  /**
+   * Pricing (NGN, per applicant). ESTIMATES pending confirmation.
+   *  - visaFee: embassy/consular visa fee (submission) or the government
+   *    e-Visa fee (evisa). Non-refundable.
+   *  - processingFee: VFS Global / centre service fee (submission); 0 for
+   *    e-Visa. Non-refundable.
+   *  - serviceCharge: Amazingfly's charge. Refundable ONLY when the customer
+   *    bought Visa Proof and the visa is refused.
+   */
+  visaFee: number;
+  processingFee: number;
+  serviceCharge: number;
   /** Full document checklist (submission route). */
   documents?: string[];
   /** How the online application works (evisa route). */
@@ -48,6 +60,56 @@ export interface VisaDestination {
   eligibilityNote?: string;
   /** Featured in the homepage flag carousel. */
   popular?: boolean;
+}
+
+/**
+ * Optional add-on. If the customer buys Visa Proof and the visa is refused,
+ * Amazingfly refunds the serviceCharge. The visa fee, processing/VFS fee and
+ * this Visa Proof fee itself are never refundable.
+ */
+export const VISA_PROOF_FEE = 20000;
+
+export type VisaPricing = {
+  visaFee: number;
+  processingFee: number;
+  serviceCharge: number;
+  /** Per-applicant total, excluding the optional Visa Proof add-on. */
+  perApplicant: number;
+};
+
+/** Per-applicant pricing breakdown for a destination. */
+export function visaPricing(dest: VisaDestination): VisaPricing {
+  const perApplicant = dest.visaFee + dest.processingFee + dest.serviceCharge;
+  return {
+    visaFee: dest.visaFee,
+    processingFee: dest.processingFee,
+    serviceCharge: dest.serviceCharge,
+    perApplicant,
+  };
+}
+
+/**
+ * Full total for a booking.
+ * @param applicants number of applicants (min 1)
+ * @param visaProof whether the Visa Proof add-on was selected
+ */
+export function visaBookingTotal(
+  dest: VisaDestination,
+  applicants = 1,
+  visaProof = false,
+): number {
+  const count = Math.max(1, Math.floor(applicants || 1));
+  const base = visaPricing(dest).perApplicant * count;
+  return base + (visaProof ? VISA_PROOF_FEE * count : 0);
+}
+
+/** Format a NGN amount, e.g. ₦160,000. */
+export function formatNairaAmount(amount: number): string {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 /** Turn an ISO alpha-2 code (e.g. "NG") into its flag emoji (🇳🇬). */
@@ -115,6 +177,10 @@ function schengen(
     ...(opts.centreNote ? { centreNote: opts.centreNote } : {}),
     visaTypes: SCHENGEN_TYPES,
     processingTime: SCHENGEN_TIME,
+    // Schengen short-stay: €90 embassy fee + VFS service fee (NGN estimates).
+    visaFee: 160000,
+    processingFee: 25000,
+    serviceCharge: 50000,
     documents: [...SCHENGEN_DOCS],
     ...(opts.popular ? { popular: true } : {}),
   };
@@ -131,6 +197,10 @@ function evisa(
     evisaNote?: string;
     eligibilityNote?: string;
     popular?: boolean;
+    /** Government e-Visa fee (NGN estimate). */
+    visaFee?: number;
+    /** Amazingfly service charge (NGN). */
+    serviceCharge?: number;
   } = {},
 ): VisaDestination {
   return {
@@ -142,6 +212,10 @@ function evisa(
     route: "evisa",
     visaTypes: opts.visaTypes ?? ["Tourist", "Business"],
     processingTime: opts.processingTime ?? "Typically 3–10 working days (varies)",
+    // e-Visa: government fee only (no VFS) + service charge (NGN estimates).
+    visaFee: opts.visaFee ?? 60000,
+    processingFee: 0,
+    serviceCharge: opts.serviceCharge ?? 30000,
     documents: [...EVISA_DOCS],
     evisaNote:
       opts.evisaNote ??
@@ -167,6 +241,9 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Standard Visitor (Tourism)", "Business", "Family / Friends Visit"],
     processingTime: "Approx. 3 weeks (standard); priority services may be available",
     popular: true,
+    visaFee: 280000,
+    processingFee: 25000,
+    serviceCharge: 50000,
     documents: [
       "Nigerian passport valid for the duration of your stay with at least one blank page (plus previous passports)",
       "Completed online UK visa application (VAF) and printed confirmation",
@@ -192,6 +269,9 @@ const SUBMISSION: VisaDestination[] = [
     centre: "VFS Global",
     visaTypes: ["Short Stay 'C' — Tourist", "Business", "Family / Friends Visit"],
     processingTime: "Approx. 4–8 weeks",
+    visaFee: 105000,
+    processingFee: 20000,
+    serviceCharge: 50000,
     documents: [
       "Passport valid at least 6 months beyond your intended stay (plus previous passports)",
       "Completed AVATS online application summary sheet, signed",
@@ -234,6 +314,9 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Visitor (Tourism)", "Business", "Family Visit"],
     processingTime: "Varies (often several weeks) — check current IRCC times",
     popular: true,
+    visaFee: 215000,
+    processingFee: 25000,
+    serviceCharge: 50000,
     documents: [
       "Passport valid for your intended stay (plus previous passports)",
       "Completed IMM 5257 application and family information forms",
@@ -262,6 +345,9 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["B1/B2 (Business / Tourism)"],
     processingTime: "Interview-based; appointment wait times vary",
     popular: true,
+    visaFee: 290000,
+    processingFee: 0,
+    serviceCharge: 50000,
     documents: [
       "Passport valid at least 6 months beyond your intended stay",
       "Completed DS-160 confirmation page",
@@ -287,6 +373,9 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Visitor (subclass 600)"],
     processingTime: "Varies by stream",
     popular: true,
+    visaFee: 265000,
+    processingFee: 25000,
+    serviceCharge: 50000,
     documents: [
       "Passport valid for your intended stay",
       "Completed online application via ImmiAccount (Visitor visa subclass 600)",
@@ -314,6 +403,9 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Tourist", "Business", "Medical"],
     processingTime: "Approx. 3–7 working days",
     popular: true,
+    visaFee: 40000,
+    processingFee: 20000,
+    serviceCharge: 40000,
     documents: [
       "Passport valid at least 6 months with 2 blank pages",
       "Completed India visa application form (printed)",
@@ -337,6 +429,9 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Visitor's — Tourism", "Business", "Family Visit"],
     processingTime: "Approx. 5–10 working days",
     popular: true,
+    visaFee: 35000,
+    processingFee: 25000,
+    serviceCharge: 40000,
     documents: [
       "Passport valid at least 30 days beyond departure with 2 blank pages",
       "Completed BI-84 application form",
@@ -362,6 +457,9 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Tourist (L)", "Business (M)", "Family Visit"],
     processingTime: "Approx. 4–7 working days",
     popular: true,
+    visaFee: 90000,
+    processingFee: 20000,
+    serviceCharge: 50000,
     documents: [
       "Passport valid at least 6 months with 2 blank pages (plus a copy)",
       "Completed China visa application form (V.2013) with a recent photo",
@@ -384,59 +482,64 @@ const EVISA: VisaDestination[] = [
   evisa("kenya", "Kenya", "KE", "Africa", {
     visaTypes: ["Electronic Travel Authorisation (eTA)"],
     processingTime: "Typically 3 working days",
+    visaFee: 50000,
     popular: true,
   }),
-  evisa("ethiopia", "Ethiopia", "ET", "Africa", { popular: true }),
-  evisa("rwanda", "Rwanda", "RW", "Africa", { popular: true }),
-  evisa("uganda", "Uganda", "UG", "Africa"),
-  evisa("tanzania", "Tanzania", "TZ", "Africa"),
-  evisa("zambia", "Zambia", "ZM", "Africa"),
-  evisa("zimbabwe", "Zimbabwe", "ZW", "Africa"),
-  evisa("angola", "Angola", "AO", "Africa"),
-  evisa("botswana", "Botswana", "BW", "Africa"),
-  evisa("namibia", "Namibia", "NA", "Africa"),
-  evisa("djibouti", "Djibouti", "DJ", "Africa"),
-  evisa("gabon", "Gabon", "GA", "Africa"),
-  evisa("madagascar", "Madagascar", "MG", "Africa"),
-  evisa("malawi", "Malawi", "MW", "Africa"),
-  evisa("egypt", "Egypt", "EG", "Africa", { popular: true }),
+  evisa("ethiopia", "Ethiopia", "ET", "Africa", { visaFee: 130000, popular: true }),
+  evisa("rwanda", "Rwanda", "RW", "Africa", { visaFee: 80000, popular: true }),
+  evisa("uganda", "Uganda", "UG", "Africa", { visaFee: 80000 }),
+  evisa("tanzania", "Tanzania", "TZ", "Africa", { visaFee: 80000 }),
+  evisa("zambia", "Zambia", "ZM", "Africa", { visaFee: 60000 }),
+  evisa("zimbabwe", "Zimbabwe", "ZW", "Africa", { visaFee: 55000 }),
+  evisa("angola", "Angola", "AO", "Africa", { visaFee: 190000 }),
+  evisa("botswana", "Botswana", "BW", "Africa", { visaFee: 60000 }),
+  evisa("namibia", "Namibia", "NA", "Africa", { visaFee: 70000 }),
+  evisa("djibouti", "Djibouti", "DJ", "Africa", { visaFee: 40000 }),
+  evisa("gabon", "Gabon", "GA", "Africa", { visaFee: 120000 }),
+  evisa("madagascar", "Madagascar", "MG", "Africa", { visaFee: 55000 }),
+  evisa("malawi", "Malawi", "MW", "Africa", { visaFee: 100000 }),
+  evisa("egypt", "Egypt", "EG", "Africa", { visaFee: 45000, popular: true }),
   evisa("morocco", "Morocco", "MA", "Africa", {
+    visaFee: 40000,
     eligibilityNote:
       "Morocco's e-Visa is available to Nigerian passport holders who hold — or have previously held — a valid visa or entry stamp for a Schengen country, the United States, or Canada (and certain other developed countries). If you have never travelled to these regions, you may not be eligible for the e-Visa.",
   }),
-  evisa("cote-divoire", "Côte d'Ivoire", "CI", "Africa"),
-  evisa("benin", "Benin", "BJ", "Africa"),
-  evisa("cameroon", "Cameroon", "CM", "Africa"),
-  evisa("guinea", "Guinea", "GN", "Africa"),
-  evisa("lesotho", "Lesotho", "LS", "Africa"),
-  evisa("sao-tome-and-principe", "São Tomé & Príncipe", "ST", "Africa"),
-  evisa("burundi", "Burundi", "BI", "Africa"),
+  evisa("cote-divoire", "Côte d'Ivoire", "CI", "Africa", { visaFee: 115000 }),
+  evisa("benin", "Benin", "BJ", "Africa", { visaFee: 80000 }),
+  evisa("cameroon", "Cameroon", "CM", "Africa", { visaFee: 110000 }),
+  evisa("guinea", "Guinea", "GN", "Africa", { visaFee: 90000 }),
+  evisa("lesotho", "Lesotho", "LS", "Africa", { visaFee: 40000 }),
+  evisa("sao-tome-and-principe", "São Tomé & Príncipe", "ST", "Africa", { visaFee: 50000 }),
+  evisa("burundi", "Burundi", "BI", "Africa", { visaFee: 140000 }),
   // Middle East
-  evisa("qatar", "Qatar", "QA", "Middle East", { popular: true }),
-  evisa("united-arab-emirates", "United Arab Emirates", "AE", "Middle East", { popular: true }),
-  evisa("oman", "Oman", "OM", "Middle East"),
+  evisa("qatar", "Qatar", "QA", "Middle East", { visaFee: 30000, popular: true }),
+  evisa("united-arab-emirates", "United Arab Emirates", "AE", "Middle East", {
+    visaFee: 150000,
+    popular: true,
+  }),
+  evisa("oman", "Oman", "OM", "Middle East", { visaFee: 40000 }),
   // Asia
-  evisa("sri-lanka", "Sri Lanka", "LK", "Asia"),
-  evisa("malaysia", "Malaysia", "MY", "Asia", { popular: true }),
-  evisa("cambodia", "Cambodia", "KH", "Asia"),
-  evisa("pakistan", "Pakistan", "PK", "Asia"),
-  evisa("azerbaijan", "Azerbaijan", "AZ", "Asia"),
-  evisa("uzbekistan", "Uzbekistan", "UZ", "Asia"),
-  evisa("tajikistan", "Tajikistan", "TJ", "Asia"),
+  evisa("sri-lanka", "Sri Lanka", "LK", "Asia", { visaFee: 80000 }),
+  evisa("malaysia", "Malaysia", "MY", "Asia", { visaFee: 45000, popular: true }),
+  evisa("cambodia", "Cambodia", "KH", "Asia", { visaFee: 55000 }),
+  evisa("pakistan", "Pakistan", "PK", "Asia", { visaFee: 40000 }),
+  evisa("azerbaijan", "Azerbaijan", "AZ", "Asia", { visaFee: 40000 }),
+  evisa("uzbekistan", "Uzbekistan", "UZ", "Asia", { visaFee: 35000 }),
+  evisa("tajikistan", "Tajikistan", "TJ", "Asia", { visaFee: 80000 }),
   // Americas
-  evisa("antigua-and-barbuda", "Antigua & Barbuda", "AG", "Americas"),
-  evisa("ecuador", "Ecuador", "EC", "Americas"),
-  evisa("el-salvador", "El Salvador", "SV", "Americas"),
-  evisa("bolivia", "Bolivia", "BO", "Americas"),
-  evisa("guyana", "Guyana", "GY", "Americas"),
-  evisa("nicaragua", "Nicaragua", "NI", "Americas"),
-  evisa("suriname", "Suriname", "SR", "Americas"),
-  evisa("trinidad-and-tobago", "Trinidad & Tobago", "TT", "Americas"),
+  evisa("antigua-and-barbuda", "Antigua & Barbuda", "AG", "Americas", { visaFee: 150000 }),
+  evisa("ecuador", "Ecuador", "EC", "Americas", { visaFee: 80000 }),
+  evisa("el-salvador", "El Salvador", "SV", "Americas", { visaFee: 60000 }),
+  evisa("bolivia", "Bolivia", "BO", "Americas", { visaFee: 80000 }),
+  evisa("guyana", "Guyana", "GY", "Americas", { visaFee: 60000 }),
+  evisa("nicaragua", "Nicaragua", "NI", "Americas", { visaFee: 80000 }),
+  evisa("suriname", "Suriname", "SR", "Americas", { visaFee: 60000 }),
+  evisa("trinidad-and-tobago", "Trinidad & Tobago", "TT", "Americas", { visaFee: 70000 }),
   // Europe
-  evisa("albania", "Albania", "AL", "Europe"),
-  evisa("georgia", "Georgia", "GE", "Europe"),
-  evisa("moldova", "Moldova", "MD", "Europe"),
-  evisa("serbia", "Serbia", "RS", "Europe"),
+  evisa("albania", "Albania", "AL", "Europe", { visaFee: 60000 }),
+  evisa("georgia", "Georgia", "GE", "Europe", { visaFee: 40000 }),
+  evisa("moldova", "Moldova", "MD", "Europe", { visaFee: 60000 }),
+  evisa("serbia", "Serbia", "RS", "Europe", { visaFee: 60000 }),
 ];
 
 export const VISA_DESTINATIONS: readonly VisaDestination[] = [...SUBMISSION, ...EVISA];

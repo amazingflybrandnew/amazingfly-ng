@@ -30,7 +30,7 @@ export const SERVICE_CATEGORY_GROUPS: ServiceCategoryGroup[] = [
     title: "Visa Assistance",
     description: "Tourist, visit and business visa applications with full documentation support.",
     explanation:
-      "Pick your destination and visa category. Our specialist confirms the fee and the documents we need for your country — every visa is quoted for your specific application.",
+      "Pick your destination and visa category. The full price — visa fee + VFS/e-Visa fee + our service charge — is shown upfront, with an optional Visa Proof add-on that refunds your service charge if the visa is refused.",
     hasDestination: false,
     wizardCategoryId: "visa",
     serviceSlug: "visa-assistance",

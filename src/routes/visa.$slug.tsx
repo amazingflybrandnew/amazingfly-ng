@@ -3,7 +3,12 @@ import { ArrowRight, CheckCircle2, Clock, FileText, Globe2, MapPin } from "lucid
 
 import { PageHero } from "@/components/PageParts";
 import { Button } from "@/components/ui/button";
-import { getVisaDestination } from "@/lib/visa/destinations";
+import {
+  getVisaDestination,
+  visaPricing,
+  formatNairaAmount,
+  VISA_PROOF_FEE,
+} from "@/lib/visa/destinations";
 
 export const Route = createFileRoute("/visa/$slug")({
   loader: ({ params }) => {
@@ -132,6 +137,60 @@ function VisaDestinationPage() {
             </p>
           </div>
         ) : null}
+
+        {(() => {
+          const pricing = visaPricing(destination);
+          return (
+            <div className="mt-6 rounded-3xl border border-border bg-white/85 p-6 shadow-card">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-lg font-extrabold text-navy">Pricing</h2>
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  per applicant
+                </span>
+              </div>
+              <dl className="mt-4 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Visa fee</dt>
+                  <dd className="font-semibold text-navy">{formatNairaAmount(pricing.visaFee)}</dd>
+                </div>
+                {pricing.processingFee > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">
+                      {isEvisa ? "e-Visa processing" : "VFS / centre fee"}
+                    </dt>
+                    <dd className="font-semibold text-navy">
+                      {formatNairaAmount(pricing.processingFee)}
+                    </dd>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Amazingfly service charge</dt>
+                  <dd className="font-semibold text-navy">
+                    {formatNairaAmount(pricing.serviceCharge)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between border-t border-border pt-2 text-base">
+                  <dt className="font-extrabold text-navy">Total per applicant</dt>
+                  <dd className="font-extrabold text-navy">
+                    {formatNairaAmount(pricing.perApplicant)}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 rounded-2xl border border-mint/40 bg-mint-tint p-4 text-sm leading-relaxed text-navy">
+                <p className="font-bold">Optional: Visa Proof (+{formatNairaAmount(VISA_PROOF_FEE)} per applicant)</p>
+                <p className="mt-1">
+                  Add Visa Proof and, if your visa is <strong>refused</strong>, we refund your
+                  Amazingfly service charge. The visa fee, VFS/e-Visa fee and the Visa Proof fee
+                  itself are non-refundable.
+                </p>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Totals multiply by the number of applicants. The exact amount is confirmed at
+                checkout.
+              </p>
+            </div>
+          );
+        })()}
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <div>
