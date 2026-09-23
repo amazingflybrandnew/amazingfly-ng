@@ -89,7 +89,12 @@ function AdminFeaturedServicesPage() {
       if (result.ok) setDraft(null);
       invalidate();
     },
-    onError: () => setFeedback("Could not save the featured service."),
+    onError: (error) =>
+      setFeedback(
+        error instanceof Error && error.message
+          ? `Could not save: ${error.message}`
+          : "Could not save the featured service.",
+      ),
   });
 
   const remove = useMutation({
@@ -311,6 +316,10 @@ function AdminFeaturedServicesPage() {
                     onChange={(event) => setDraft({ ...draft, link_path: event.target.value })}
                     placeholder="/services/visa-assistance"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Must be an internal page path starting with “/”, e.g.
+                    /travel-insurance. Not a full web address.
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="fs-order">Display order</Label>
@@ -346,10 +355,25 @@ function AdminFeaturedServicesPage() {
             </Button>
             <Button
               onClick={() => {
-                if (draft) {
-                  setFeedback(null);
-                  save.mutate(draft);
-                }
+                if (!draft) return;
+                setFeedback(null);
+                // Normalise so common mistakes don't silently fail the save:
+                // trim the title, strip spaces from the path and add the
+                // required leading slash, and keep the order a valid 0–999 int.
+                const cleanedPath = draft.link_path.trim().replace(/\s+/g, "");
+                const order = Number.isFinite(draft.display_order)
+                  ? Math.min(999, Math.max(0, Math.round(draft.display_order)))
+                  : 0;
+                save.mutate({
+                  ...draft,
+                  title: draft.title.trim(),
+                  link_path: cleanedPath
+                    ? cleanedPath.startsWith("/")
+                      ? cleanedPath
+                      : `/${cleanedPath}`
+                    : cleanedPath,
+                  display_order: order,
+                });
               }}
               disabled={!draft?.title.trim() || !draft?.link_path.trim() || save.isPending}
             >
