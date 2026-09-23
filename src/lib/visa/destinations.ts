@@ -359,35 +359,6 @@ const SUBMISSION: VisaDestination[] = [
     ],
   },
   {
-    slug: "united-states",
-    name: "United States",
-    alpha: "US",
-    flag: alphaToFlagEmoji("US"),
-    region: "North America",
-    route: "submission",
-    centre: "US Embassy",
-    centreNote:
-      "US visas are not processed by a third-party centre — you attend an in-person interview at the US Embassy (Abuja) or Consulate (Lagos).",
-    visaTypes: ["B1/B2 (Business / Tourism)"],
-    processingTime: "Interview-based; appointment wait times vary",
-    popular: true,
-    visaFee: 338000,
-    processingFee: 0,
-    serviceCharge: 50000,
-    documents: [
-      "Passport valid at least 6 months beyond your intended stay",
-      "Completed DS-160 confirmation page",
-      "One recent photograph (per DS-160 specification)",
-      "Visa (MRV) fee payment receipt",
-      "Interview appointment confirmation (US Embassy Abuja / Consulate Lagos)",
-      "Evidence of funds (bank statements)",
-      "Proof of employment, business, or studies",
-      "Evidence of strong ties to Nigeria (family, job, property)",
-      "Purpose of trip and itinerary, or invitation letter",
-      "Previous travel history",
-    ],
-  },
-  {
     slug: "australia",
     name: "Australia",
     alpha: "AU",
@@ -666,14 +637,7 @@ function applyPricingRules(d: VisaDestination): VisaDestination {
   const NO_COURIER = new Set(["india"]);
   // Countries on the standard ₦150,000 service charge: all of Europe
   // (submission + e-Visa), the USA, Canada, Australia, India, Japan, S. Korea.
-  const STANDARD_150K = new Set([
-    "united-states",
-    "canada",
-    "australia",
-    "india",
-    "japan",
-    "south-korea",
-  ]);
+  const STANDARD_150K = new Set(["canada", "australia", "india", "japan", "south-korea"]);
   const visaFee = d.visaFee + (NO_FX_MARKUP.has(d.slug) ? 0 : VISA_FEE_FX_MARKUP);
   const processingFee =
     d.route === "submission" && !NO_COURIER.has(d.slug)
