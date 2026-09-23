@@ -183,6 +183,17 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
             max: 30,
             half: true,
           },
+          {
+            id: "visa_proof",
+            label: "Visa Proof (optional add-on)",
+            type: "radio",
+            required: true,
+            options: [
+              "No, thank you",
+              "Yes — add Visa Proof (+₦20,000 per applicant)",
+            ],
+            hint: "With Visa Proof, if your visa is refused we refund your Amazingfly service charge. The visa fee, VFS/e-Visa fee and the ₦20,000 Visa Proof fee are non-refundable.",
+          },
         ],
       },
       {

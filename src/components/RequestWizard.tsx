@@ -43,7 +43,12 @@ import {
   type CatalogueCategory,
   type CatalogueItem,
 } from "@/lib/catalogue/visa-catalogue";
-import { VISA_DESTINATIONS_SORTED } from "@/lib/visa/destinations";
+import {
+  VISA_DESTINATIONS_SORTED,
+  VISA_PROOF_FEE,
+  findVisaDestinationByName,
+  visaBookingTotal,
+} from "@/lib/visa/destinations";
 import {
   calculateProofOfFundsFee,
   POLICE_CERTIFICATE_DIASPORA_PRICE_NGN,
@@ -181,8 +186,22 @@ export function RequestWizard({
   const insurancePending = category?.id === "insurance" || documentService === "Travel insurance";
   const requiresQuote = false;
 
-  const dynamicAmount = proofOfFundsCalculation?.fee ??
-    (yellowFeverSelected ? YELLOW_FEVER_CARD_PRICE_NGN : policeCertificateAmount);
+  // Visa: fixed per-country pricing (visa fee + VFS/e-Visa fee + service charge)
+  // × applicants, plus the optional Visa Proof add-on.
+  const visaDestination =
+    category?.id === "visa"
+      ? findVisaDestinationByName(answers["destination_country"])
+      : undefined;
+  const travellerCount = Math.max(1, Math.floor(Number(answers["traveller_count"] || 1)) || 1);
+  const visaProofSelected = (answers["visa_proof"] ?? "").toLowerCase().startsWith("yes");
+  const visaAmount = visaDestination
+    ? visaBookingTotal(visaDestination, travellerCount, visaProofSelected)
+    : 0;
+
+  const dynamicAmount =
+    proofOfFundsCalculation?.fee ??
+    (yellowFeverSelected ? YELLOW_FEVER_CARD_PRICE_NGN : policeCertificateAmount) ??
+    (visaAmount > 0 ? visaAmount : null);
 
   const payableService = Boolean(
     dynamicAmount || (catalogueItem && (catalogueItem.price ?? 0) > 0),
@@ -192,6 +211,7 @@ export function RequestWizard({
     if (proofOfFundsCalculation) return formatNaira(proofOfFundsCalculation.fee);
     if (yellowFeverSelected) return formatNaira(YELLOW_FEVER_CARD_PRICE_NGN);
     if (policeCertificateAmount) return formatNaira(policeCertificateAmount);
+    if (visaAmount > 0) return formatNaira(visaAmount);
     if (catalogueItem && (catalogueItem.price ?? 0) > 0) return catalogueDisplayPrice(catalogueItem);
     if (insurancePending) return "Allianz live pricing pending";
     return null;
@@ -201,7 +221,33 @@ export function RequestWizard({
     policeCertificateAmount,
     proofOfFundsCalculation,
     yellowFeverSelected,
+    visaAmount,
   ]);
+
+  const visaPriceRows = useMemo<[string, string][]>(() => {
+    if (!visaDestination) return [];
+    const rows: [string, string][] = [
+      ["Visa fee (per applicant)", formatNaira(visaDestination.visaFee)],
+    ];
+    if (visaDestination.processingFee > 0) {
+      rows.push([
+        visaDestination.route === "evisa"
+          ? "e-Visa processing (per applicant)"
+          : "VFS / centre fee (per applicant)",
+        formatNaira(visaDestination.processingFee),
+      ]);
+    }
+    rows.push([
+      "Amazingfly service charge (per applicant)",
+      formatNaira(visaDestination.serviceCharge),
+    ]);
+    rows.push(["Number of applicants", `× ${travellerCount}`]);
+    if (visaProofSelected) {
+      rows.push(["Visa Proof add-on", `${formatNaira(VISA_PROOF_FEE)} × ${travellerCount}`]);
+    }
+    rows.push(["Total payable", formatNaira(visaAmount)]);
+    return rows;
+  }, [visaDestination, travellerCount, visaProofSelected, visaAmount]);
 
   const displayedCatalogueItem = useMemo<CatalogueItem | undefined>(() => {
     if (!catalogueItem || !policeCertificateSelected) return catalogueItem;
@@ -657,6 +703,24 @@ export function RequestWizard({
                     priceLabel={priceLabel}
                     paymentReady={!insurancePending}
                   />
+                ) : null}
+
+                {visaDestination ? (
+                  <>
+                    <PricePreview
+                      title={`${visaDestination.name} visa — payment summary`}
+                      rows={visaPriceRows}
+                    />
+                    <div className="rounded-2xl border border-orange/30 bg-orange-tint p-4 text-sm leading-relaxed text-navy">
+                      <p className="font-bold">Refund policy</p>
+                      <p className="mt-1">
+                        The visa fee and VFS/e-Visa fee are non-refundable.{" "}
+                        {visaProofSelected
+                          ? "Because you added Visa Proof, your Amazingfly service charge is refunded if your visa is refused (the ₦20,000 Visa Proof fee itself is non-refundable)."
+                          : "Add the optional Visa Proof (in the Travel Information step) to make your Amazingfly service charge refundable if your visa is refused."}
+                      </p>
+                    </div>
+                  </>
                 ) : null}
               </>
             ) : null}
