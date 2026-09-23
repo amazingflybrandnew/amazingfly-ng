@@ -16,7 +16,7 @@
  */
 
 export type VisaRoute = "submission" | "evisa";
-export type VisaCentre = "VFS Global" | "TLScontact" | "CVASC" | "US Embassy";
+export type VisaCentre = "VFS Global" | "TLScontact" | "CVASC" | "US Embassy" | "Embassy";
 export type VisaRegion =
   | "Europe"
   | "North America"
@@ -203,9 +203,9 @@ function schengen(
     ...(opts.centreNote ? { centreNote: opts.centreNote } : {}),
     visaTypes: SCHENGEN_TYPES,
     processingTime: SCHENGEN_TIME,
-    // Schengen short-stay: €90 embassy fee + VFS service fee (NGN estimates).
-    visaFee: 160000,
-    processingFee: 25000,
+    // Schengen short-stay: €90 embassy fee + VFS base service fee (NGN).
+    visaFee: 162000,
+    processingFee: 20000,
     serviceCharge: 50000,
     documents: [...SCHENGEN_DOCS],
     ...(opts.popular ? { popular: true } : {}),
@@ -267,8 +267,8 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Standard Visitor (Tourism)", "Business", "Family / Friends Visit"],
     processingTime: "Approx. 3 weeks (standard); priority services may be available",
     popular: true,
-    visaFee: 280000,
-    processingFee: 25000,
+    visaFee: 284000,
+    processingFee: 30000,
     serviceCharge: 50000,
     documents: [
       "Nigerian passport valid for the duration of your stay with at least one blank page (plus previous passports)",
@@ -295,7 +295,7 @@ const SUBMISSION: VisaDestination[] = [
     centre: "VFS Global",
     visaTypes: ["Short Stay 'C' — Tourist", "Business", "Family / Friends Visit"],
     processingTime: "Approx. 4–8 weeks",
-    visaFee: 105000,
+    visaFee: 108000,
     processingFee: 20000,
     serviceCharge: 50000,
     documents: [
@@ -340,7 +340,7 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Visitor (Tourism)", "Business", "Family Visit"],
     processingTime: "Varies (often several weeks) — check current IRCC times",
     popular: true,
-    visaFee: 215000,
+    visaFee: 222000,
     processingFee: 25000,
     serviceCharge: 50000,
     documents: [
@@ -371,7 +371,7 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["B1/B2 (Business / Tourism)"],
     processingTime: "Interview-based; appointment wait times vary",
     popular: true,
-    visaFee: 290000,
+    visaFee: 338000,
     processingFee: 0,
     serviceCharge: 50000,
     documents: [
@@ -399,7 +399,7 @@ const SUBMISSION: VisaDestination[] = [
     visaTypes: ["Visitor (subclass 600)"],
     processingTime: "Varies by stream",
     popular: true,
-    visaFee: 265000,
+    visaFee: 270000,
     processingFee: 25000,
     serviceCharge: 50000,
     documents: [
@@ -423,15 +423,18 @@ const SUBMISSION: VisaDestination[] = [
     flag: alphaToFlagEmoji("IN"),
     region: "Asia",
     route: "submission",
-    centre: "VFS Global",
+    centre: "Embassy",
     centreNote:
-      "Many travellers qualify for the India e-Visa online; the sticker visa is submitted via VFS Global.",
+      "India does not offer an e-Visa to Nigerian passport holders. Applications are lodged in person at the Indian High Commission (Abuja) or Consulate (Lagos) — no VFS centre.",
     visaTypes: ["Tourist", "Business", "Medical"],
     processingTime: "Approx. 3–7 working days",
     popular: true,
-    visaFee: 40000,
-    processingFee: 20000,
-    serviceCharge: 40000,
+    // Indian reciprocity fee for Nigerian nationals: US$585 + US$3 ICWF
+    // (≈ ₦970,000 at ₦1,650/$). No e-Visa and no VFS — in person at the
+    // High Commission (Abuja) / Consulate (Lagos).
+    visaFee: 970000,
+    processingFee: 0,
+    serviceCharge: 150000,
     documents: [
       "Passport valid at least 6 months with 2 blank pages",
       "Completed India visa application form (printed)",
@@ -479,12 +482,13 @@ const SUBMISSION: VisaDestination[] = [
     region: "Asia",
     route: "submission",
     centre: "CVASC",
-    centreNote: "Chinese visas in Nigeria are lodged at the Chinese Visa Application Service Centre (CVASC).",
+    centreNote: "Chinese visas in Nigeria are lodged at the Chinese Visa Application Service Centre (CVASC). Tourist (L) visas usually require an organised group tour.",
     visaTypes: ["Tourist (L)", "Business (M)", "Family Visit"],
     processingTime: "Approx. 4–7 working days",
     popular: true,
-    visaFee: 90000,
-    processingFee: 20000,
+    // Reduced government fee (₦10,500, policy to Dec 2026) + CVASC service fee.
+    visaFee: 10500,
+    processingFee: 74500,
     serviceCharge: 50000,
     documents: [
       "Passport valid at least 6 months with 2 blank pages (plus a copy)",
@@ -494,6 +498,64 @@ const SUBMISSION: VisaDestination[] = [
       "Invitation letter (for business/visit) from the Chinese host or company",
       "Bank statements / proof of funds",
       "Proof of employment",
+      "Visa fee payment",
+    ],
+  },
+  {
+    slug: "japan",
+    name: "Japan",
+    alpha: "JP",
+    flag: alphaToFlagEmoji("JP"),
+    region: "Asia",
+    route: "submission",
+    centre: "VFS Global",
+    centreNote:
+      "Japanese visas in Nigeria are lodged at the Japan Visa Application Centre (JVAC), operated by VFS Global in Abuja and Lagos.",
+    visaTypes: ["Tourist / Visit", "Business"],
+    processingTime: "Approx. 5–7 working days",
+    popular: true,
+    // Japan revised its visa fee on 1 July 2026 — confirm current JVAC amount.
+    visaFee: 55000,
+    processingFee: 16500,
+    serviceCharge: 50000,
+    documents: [
+      "Nigerian passport valid for the duration of your stay with 2 blank pages",
+      "Completed Japan visa application form with one recent photograph (45mm x 45mm)",
+      "Confirmed return flight itinerary",
+      "Detailed day-by-day itinerary in Japan",
+      "Proof of accommodation (hotel bookings) for the whole stay",
+      "Bank statements for the last 6 months",
+      "Proof of employment (introduction/leave letter), business (CAC), or studies",
+      "Proof of sufficient funds for the trip",
+      "Yellow fever vaccination certificate",
+      "Visa fee payment",
+    ],
+  },
+  {
+    slug: "south-korea",
+    name: "South Korea",
+    alpha: "KR",
+    flag: alphaToFlagEmoji("KR"),
+    region: "Asia",
+    route: "submission",
+    centre: "VFS Global",
+    centreNote:
+      "Korean visas in Nigeria are lodged via VFS Global (Abuja and Lagos).",
+    visaTypes: ["Short-term Visit (C-3)", "Business"],
+    processingTime: "Approx. 2–4 weeks",
+    popular: true,
+    visaFee: 66000,
+    processingFee: 16500,
+    serviceCharge: 50000,
+    documents: [
+      "Nigerian passport valid at least 6 months with blank pages",
+      "Completed Korea visa application form with a recent passport photograph",
+      "Confirmed return flight reservation and detailed itinerary",
+      "Proof of accommodation for the whole stay",
+      "Bank statements for the last 6 months and proof of funds",
+      "Proof of employment (leave/introduction letter), business (CAC), or studies",
+      "Cover letter stating the purpose and duration of your visit",
+      "Yellow fever vaccination certificate",
       "Visa fee payment",
     ],
   },
@@ -520,9 +582,7 @@ const EVISA: VisaDestination[] = [
   evisa("angola", "Angola", "AO", "Africa", { visaFee: 190000 }),
   evisa("botswana", "Botswana", "BW", "Africa", { visaFee: 60000 }),
   evisa("namibia", "Namibia", "NA", "Africa", { visaFee: 70000 }),
-  evisa("djibouti", "Djibouti", "DJ", "Africa", { visaFee: 40000 }),
   evisa("gabon", "Gabon", "GA", "Africa", { visaFee: 120000 }),
-  evisa("madagascar", "Madagascar", "MG", "Africa", { visaFee: 55000 }),
   evisa("malawi", "Malawi", "MW", "Africa", { visaFee: 100000 }),
   evisa("egypt", "Egypt", "EG", "Africa", { visaFee: 45000, popular: true }),
   evisa("morocco", "Morocco", "MA", "Africa", {
@@ -534,8 +594,6 @@ const EVISA: VisaDestination[] = [
   evisa("benin", "Benin", "BJ", "Africa", { visaFee: 80000 }),
   evisa("cameroon", "Cameroon", "CM", "Africa", { visaFee: 110000 }),
   evisa("guinea", "Guinea", "GN", "Africa", { visaFee: 90000 }),
-  evisa("lesotho", "Lesotho", "LS", "Africa", { visaFee: 40000 }),
-  evisa("sao-tome-and-principe", "São Tomé & Príncipe", "ST", "Africa", { visaFee: 50000 }),
   evisa("burundi", "Burundi", "BI", "Africa", { visaFee: 140000 }),
   // Middle East
   evisa("qatar", "Qatar", "QA", "Middle East", { visaFee: 30000, popular: true }),
@@ -545,13 +603,11 @@ const EVISA: VisaDestination[] = [
   }),
   evisa("oman", "Oman", "OM", "Middle East", { visaFee: 40000 }),
   // Asia
-  evisa("sri-lanka", "Sri Lanka", "LK", "Asia", { visaFee: 80000 }),
   evisa("malaysia", "Malaysia", "MY", "Asia", { visaFee: 45000, popular: true }),
   evisa("cambodia", "Cambodia", "KH", "Asia", { visaFee: 55000 }),
   evisa("pakistan", "Pakistan", "PK", "Asia", { visaFee: 40000 }),
   evisa("azerbaijan", "Azerbaijan", "AZ", "Asia", { visaFee: 40000 }),
   evisa("uzbekistan", "Uzbekistan", "UZ", "Asia", { visaFee: 35000 }),
-  evisa("tajikistan", "Tajikistan", "TJ", "Asia", { visaFee: 80000 }),
   // Americas
   evisa("antigua-and-barbuda", "Antigua & Barbuda", "AG", "Americas", { visaFee: 150000 }),
   evisa("ecuador", "Ecuador", "EC", "Americas", { visaFee: 80000 }),
@@ -559,8 +615,6 @@ const EVISA: VisaDestination[] = [
   evisa("bolivia", "Bolivia", "BO", "Americas", { visaFee: 80000 }),
   evisa("guyana", "Guyana", "GY", "Americas", { visaFee: 60000 }),
   evisa("nicaragua", "Nicaragua", "NI", "Americas", { visaFee: 80000 }),
-  evisa("suriname", "Suriname", "SR", "Americas", { visaFee: 60000 }),
-  evisa("trinidad-and-tobago", "Trinidad & Tobago", "TT", "Americas", { visaFee: 70000 }),
   // Europe
   evisa("albania", "Albania", "AL", "Europe", { visaFee: 60000 }),
   evisa("georgia", "Georgia", "GE", "Europe", { visaFee: 40000 }),
@@ -606,11 +660,25 @@ function applyPricingRules(d: VisaDestination): VisaDestination {
     // Maintain the package price; no increases, no Visa Proof.
     return { ...d, fixedPrice: fixed, noVisaProof: true };
   }
-  const visaFee = d.visaFee + VISA_FEE_FX_MARKUP;
-  const processingFee = d.route === "submission" ? d.processingFee + COURIER_FEE : d.processingFee;
+  // China's fee is a fixed Naira reduced fee (not USD), so no FX markup.
+  const NO_FX_MARKUP = new Set(["china"]);
+  // India is lodged in person (no centre), so no courier fee.
+  const NO_COURIER = new Set(["india"]);
   // Countries on the standard ₦150,000 service charge: all of Europe
-  // (submission + e-Visa), the USA, Canada, Australia and India.
-  const STANDARD_150K = new Set(["united-states", "canada", "australia", "india"]);
+  // (submission + e-Visa), the USA, Canada, Australia, India, Japan, S. Korea.
+  const STANDARD_150K = new Set([
+    "united-states",
+    "canada",
+    "australia",
+    "india",
+    "japan",
+    "south-korea",
+  ]);
+  const visaFee = d.visaFee + (NO_FX_MARKUP.has(d.slug) ? 0 : VISA_FEE_FX_MARKUP);
+  const processingFee =
+    d.route === "submission" && !NO_COURIER.has(d.slug)
+      ? d.processingFee + COURIER_FEE
+      : d.processingFee;
   let serviceCharge = d.serviceCharge;
   if (d.slug === "china") {
     serviceCharge = 600000;
