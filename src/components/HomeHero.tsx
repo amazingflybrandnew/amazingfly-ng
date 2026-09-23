@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import travellerImage from "@/assets/hero-traveller-cutout.png";
 import { getHeroContent } from "@/lib/cms.functions";
 import type { CustomerSuccess } from "@/lib/customer-successes";
 import {
@@ -38,6 +39,9 @@ const TRUST_STATS = [
   { value: "100%", label: "Secure & confidential", icon: Lock },
 ];
 
+/** Bold gradient words that rotate under the headline. */
+const ROTATING_WORDS = ["stress-free", "hassle-free", "with confidence"];
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#294f80]">
@@ -58,10 +62,25 @@ export function HomeHero({ customerSuccesses = [] }: { customerSuccesses?: Custo
 
   const badge = cms.badge ?? "Amazingfly.ng · Visas made simple";
   const backgroundImage = cms.backgroundImageUrl ?? "";
+  const traveller = cms.travellerImageUrl || travellerImage;
+  const rotating = cms.rotatingWords?.length ? cms.rotatingWords : ROTATING_WORDS;
 
   const [destination, setDestination] = useState<WorldCountry | null>(null);
   const [open, setOpen] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [wordIndex, setWordIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setWordIndex((current) => (current + 1) % rotating.length);
+    }, 3200);
+    return () => window.clearInterval(timer);
+  }, [rotating.length]);
+
+  const highlight = useMemo(
+    () => rotating[wordIndex % rotating.length] ?? rotating[0]!,
+    [rotating, wordIndex],
+  );
 
   const flagCarousel = useMemo(() => [...CAROUSEL_FLAGS, ...CAROUSEL_FLAGS], []);
 
@@ -104,8 +123,11 @@ export function HomeHero({ customerSuccesses = [] }: { customerSuccesses?: Custo
           </span>
           <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-[#123c73] md:text-6xl">
             <span className="block">Get your visa,</span>
-            <span className="mt-2 block bg-[linear-gradient(90deg,_#0756c7_0%,_#5c45cc_45%,_#ff651f_100%)] bg-clip-text text-transparent">
-              stress-free
+            <span
+              key={highlight}
+              className="hero-rotate mt-2 block bg-[linear-gradient(90deg,_#0756c7_0%,_#5c45cc_45%,_#ff651f_100%)] bg-clip-text text-transparent"
+            >
+              {highlight}
             </span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-[#365b86] md:text-lg">
@@ -244,27 +266,42 @@ export function HomeHero({ customerSuccesses = [] }: { customerSuccesses?: Custo
           )}
         </div>
 
-        {/* Auto-moving flag carousel */}
+        {/* Auto-moving flag carousel flowing behind the traveller image */}
         <div className="mx-auto mt-10 max-w-5xl">
           <p className="text-center text-sm font-extrabold uppercase tracking-[0.16em] text-[#294f80]">
             Apply for visa to your desired destinations
           </p>
-          <div className="hero-flag-fade relative mt-4 overflow-hidden">
-            <div className="customer-success-track flex w-max items-stretch gap-3">
-              {flagCarousel.map((country, i) => (
-                <div
-                  key={`${country.alpha}-${i}`}
-                  aria-hidden={i >= CAROUSEL_FLAGS.length || undefined}
-                  className="flex w-36 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-[#1268d8]/10 bg-white/85 px-3 py-3 shadow-sm backdrop-blur"
-                >
-                  <span className="text-3xl leading-none" aria-hidden="true">
-                    {country.flag}
-                  </span>
-                  <span className="text-center text-xs font-bold text-[#123c73]">
-                    {country.name}
-                  </span>
-                </div>
-              ))}
+
+          <div className="relative mt-6 min-h-[300px] md:min-h-[420px]">
+            {/* Flags — layered behind, vertically centred */}
+            <div className="hero-flag-fade absolute inset-0 z-0 flex items-center overflow-hidden">
+              <div className="customer-success-track flex w-max items-stretch gap-3">
+                {flagCarousel.map((country, i) => (
+                  <div
+                    key={`${country.alpha}-${i}`}
+                    aria-hidden={i >= CAROUSEL_FLAGS.length || undefined}
+                    className="flex w-36 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-[#1268d8]/10 bg-white/85 px-3 py-3 shadow-sm backdrop-blur"
+                  >
+                    <span className="text-3xl leading-none" aria-hidden="true">
+                      {country.flag}
+                    </span>
+                    <span className="text-center text-xs font-bold text-[#123c73]">
+                      {country.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Traveller image — on top of the flags, back on the right */}
+            <div className="pointer-events-none relative z-10 flex justify-center md:justify-end">
+              <img
+                src={traveller}
+                alt="Nigerian traveller holding a passport and boarding pass with luggage"
+                width={1024}
+                height={1280}
+                className="h-[300px] w-auto object-contain drop-shadow-[0_30px_45px_rgba(27,87,165,0.24)] md:h-[420px] md:mr-10"
+              />
             </div>
           </div>
         </div>
