@@ -555,7 +555,7 @@ const EVISA: VisaDestination[] = [
   evisa("namibia", "Namibia", "NA", "Africa", { visaFee: 70000 }),
   evisa("gabon", "Gabon", "GA", "Africa", { visaFee: 120000 }),
   evisa("malawi", "Malawi", "MW", "Africa", { visaFee: 100000 }),
-  evisa("egypt", "Egypt", "EG", "Africa", { visaFee: 45000, popular: true }),
+  evisa("egypt", "Egypt", "EG", "Africa", { visaFee: 132000, popular: true }),
   evisa("morocco", "Morocco", "MA", "Africa", {
     visaFee: 40000,
     eligibilityNote:
