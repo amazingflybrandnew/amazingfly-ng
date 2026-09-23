@@ -450,7 +450,12 @@ export const CATALOGUE: CatalogueItem[] = [
 
 ];
 
-export const ACTIVE_CATALOGUE = CATALOGUE.filter((item) => item.active);
+// Visa is now fully quote-based — no fixed-price visa packages are offered to
+// customers. Visa items stay in CATALOGUE so historical records still resolve
+// by id, but they are excluded from every customer-facing listing.
+export const ACTIVE_CATALOGUE = CATALOGUE.filter(
+  (item) => item.active && item.category !== "visa",
+);
 
 export function findCatalogueItem(id: string | undefined | null): CatalogueItem | undefined {
   if (!id) return undefined;
