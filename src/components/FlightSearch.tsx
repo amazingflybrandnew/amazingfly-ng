@@ -37,6 +37,11 @@ type SortKey = "recommended" | "price" | "duration" | "stops";
 type TripType = "one_way" | "round_trip" | "multi_city";
 type MultiCityLeg = { origin: string; destination: string; departureDate: string };
 
+// Customer-facing notice: sets the 2–3 business day ticket-issuance
+// expectation without exposing the internal funding/settlement reason.
+const TICKET_DELIVERY_NOTICE =
+  "✈️ Please note: flight tickets are issued and delivered within 2–3 business days after your payment is confirmed. Kindly book only if your travel is not immediate — for urgent or next-day travel, please contact us on Live Chat or WhatsApp before paying so we can advise. Thank you for choosing Amazingfly Travels.";
+
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "recommended", label: "Recommended" },
   { value: "price", label: "Lowest price" },
@@ -416,6 +421,19 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         noValidate
         className={`glass-card border border-white/70 ${compact ? "rounded-[1.75rem] p-4 md:p-5" : "rounded-[2rem] p-6 md:p-8"}`}
       >
+        <div
+          className="mb-3 flex items-center gap-2 overflow-hidden rounded-2xl border border-[#e9631a]/30 bg-[#fff3e9] px-3 py-2"
+          role="status"
+          aria-label="Ticket delivery notice"
+        >
+          <span className="shrink-0 text-base leading-none" aria-hidden="true">⏳</span>
+          <div className="relative flex-1 overflow-hidden">
+            <div className="ticket-notice-track flex w-max gap-16 whitespace-nowrap text-xs font-semibold text-[#8a3f12] sm:text-sm">
+              <span>{TICKET_DELIVERY_NOTICE}</span>
+              <span aria-hidden="true">{TICKET_DELIVERY_NOTICE}</span>
+            </div>
+          </div>
+        </div>
         <div className={`${compact ? "mb-3" : "mb-6"} flex flex-wrap gap-2`} role="tablist" aria-label="Trip type">
           {([
             ["one_way", "One way"],
