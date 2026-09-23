@@ -386,6 +386,32 @@
   }
 }
 
+@keyframes ticket-notice-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ticket-notice-track {
+  animation: ticket-notice-scroll 26s linear infinite;
+  will-change: transform;
+}
+
+.ticket-notice-track:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket-notice-track {
+    animation: none;
+    transform: none;
+    white-space: normal;
+  }
+}
+
 /* Soft fade on both edges of the auto-scrolling flag carousel. */
 .hero-flag-fade {
   -webkit-mask-image: linear-gradient(
