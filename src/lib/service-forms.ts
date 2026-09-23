@@ -141,13 +141,6 @@ export const SERVICE_CATEGORIES: ServiceCategory[] = [
             options: VISA_TYPES,
             half: true,
           },
-          {
-            id: "catalogue_id",
-            label: "Fixed-price visa package (optional)",
-            type: "catalogue",
-            catalogueCategory: "visa",
-            hint: "If your destination has a ready-made package, select it to pay online now. Otherwise leave this and our specialist will send you a quote.",
-          },
         ],
       },
       {
