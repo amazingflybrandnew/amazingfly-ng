@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -90,14 +90,7 @@ export function HomeHero({ customerSuccesses = [] }: { customerSuccesses?: Custo
       return;
     }
     setValidationMessage(null);
-    void navigate({
-      to: "/request",
-      search: {
-        service: "visa-assistance",
-        from: ORIGIN_COUNTRY.name,
-        to: destination.name,
-      },
-    });
+    void navigate({ to: "/visa/$slug", params: { slug: destination.slug } });
   };
 
   return (
@@ -276,20 +269,26 @@ export function HomeHero({ customerSuccesses = [] }: { customerSuccesses?: Custo
             {/* Flags — layered behind, vertically centred */}
             <div className="hero-flag-fade absolute inset-0 z-0 flex items-center overflow-hidden">
               <div className="customer-success-track flex w-max items-stretch gap-3">
-                {flagCarousel.map((country, i) => (
-                  <div
-                    key={`${country.alpha}-${i}`}
-                    aria-hidden={i >= CAROUSEL_FLAGS.length || undefined}
-                    className="flex w-36 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-[#1268d8]/10 bg-white/85 px-3 py-3 shadow-sm backdrop-blur"
-                  >
-                    <span className="text-3xl leading-none" aria-hidden="true">
-                      {country.flag}
-                    </span>
-                    <span className="text-center text-xs font-bold text-[#123c73]">
-                      {country.name}
-                    </span>
-                  </div>
-                ))}
+                {flagCarousel.map((country, i) => {
+                  const duplicate = i >= CAROUSEL_FLAGS.length;
+                  return (
+                    <Link
+                      key={`${country.alpha}-${i}`}
+                      to="/visa/$slug"
+                      params={{ slug: country.slug }}
+                      aria-hidden={duplicate || undefined}
+                      tabIndex={duplicate ? -1 : undefined}
+                      className="pointer-events-auto flex w-36 shrink-0 flex-col items-center gap-1.5 rounded-2xl border border-[#1268d8]/10 bg-white/85 px-3 py-3 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-[#1268d8]/40 hover:shadow-md"
+                    >
+                      <span className="text-3xl leading-none" aria-hidden="true">
+                        {country.flag}
+                      </span>
+                      <span className="text-center text-xs font-bold text-[#123c73]">
+                        {country.name}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
 

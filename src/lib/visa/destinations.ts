@@ -1,0 +1,486 @@
+/**
+ * Amazingfly visa destinations — the single source of truth for which
+ * countries appear on the site (hero search, flag carousel, visa section) and
+ * the requirements shown on each country page.
+ *
+ * Two routes:
+ *  - "submission": applicant lodges documents at a visa application centre in
+ *    Nigeria (VFS Global, TLScontact, CVASC) or the embassy (USA). These carry
+ *    a full requirements checklist.
+ *  - "evisa": Nigerian passport holders apply online; Amazingfly completes and
+ *    submits the application on the official government portal.
+ *
+ * The requirements are a practical guide, NOT a guarantee — embassies and
+ * immigration authorities set and change the final rules, and the decision is
+ * always theirs.
+ */
+
+export type VisaRoute = "submission" | "evisa";
+export type VisaCentre = "VFS Global" | "TLScontact" | "CVASC" | "US Embassy";
+export type VisaRegion =
+  | "Europe"
+  | "North America"
+  | "Africa"
+  | "Asia"
+  | "Middle East"
+  | "Americas"
+  | "Oceania";
+
+export interface VisaDestination {
+  slug: string;
+  name: string;
+  /** ISO alpha-2 code (drives the flag emoji). */
+  alpha: string;
+  flag: string;
+  region: VisaRegion;
+  route: VisaRoute;
+  /** Where the application is lodged (submission route only). */
+  centre?: VisaCentre;
+  /** Extra one-line note about the centre / lodging. */
+  centreNote?: string;
+  visaTypes: string[];
+  processingTime: string;
+  /** Full document checklist (submission route). */
+  documents?: string[];
+  /** How the online application works (evisa route). */
+  evisaNote?: string;
+  /** Eligibility restriction, e.g. Morocco. */
+  eligibilityNote?: string;
+  /** Featured in the homepage flag carousel. */
+  popular?: boolean;
+}
+
+/** Turn an ISO alpha-2 code (e.g. "NG") into its flag emoji (🇳🇬). */
+export function alphaToFlagEmoji(alpha: string): string {
+  const code = (alpha || "").trim().toUpperCase();
+  if (code.length !== 2 || !/^[A-Z]{2}$/.test(code)) return "🏳️";
+  const base = 0x1f1e6;
+  return String.fromCodePoint(base + (code.charCodeAt(0) - 65), base + (code.charCodeAt(1) - 65));
+}
+
+/** Nigeria is the fixed origin for every applicant. */
+export const ORIGIN_COUNTRY = {
+  name: "Nigeria",
+  alpha: "NG",
+  flag: alphaToFlagEmoji("NG"),
+} as const;
+
+// ---------------------------------------------------------------------------
+// Shared checklists
+// ---------------------------------------------------------------------------
+
+const SCHENGEN_DOCS: string[] = [
+  "Nigerian passport issued within the last 10 years, valid at least 3 months beyond your return date, with at least 2 blank pages",
+  "Completed and signed Schengen visa application form",
+  "Two recent biometric passport photographs (35mm x 45mm, white background)",
+  "Travel medical insurance covering the entire Schengen area (minimum €30,000 cover)",
+  "Confirmed return flight reservation / itinerary",
+  "Proof of accommodation for the whole stay (hotel booking, or invitation letter with host's ID and residence proof)",
+  "Cover letter stating the purpose and detailed itinerary of your trip",
+  "Personal bank statements for the last 6 months (stamped by your bank)",
+  "Proof of employment (introduction/leave letter), business registration (CAC), or school admission/ID",
+  "Proof of sufficient funds (recent salary slips, tax or other financial evidence)",
+  "Yellow fever vaccination certificate",
+  "Visa fee payment receipt",
+  "For business or family/friends visits: an invitation letter and the host's supporting documents",
+];
+
+const EVISA_DOCS: string[] = [
+  "Valid Nigerian passport (usually at least 6 months validity remaining)",
+  "Clear scan of your passport bio-data page",
+  "Recent digital passport photograph",
+  "Return / onward flight details",
+  "Proof of accommodation (hotel booking or host address)",
+  "A valid email address to receive the approved e-Visa",
+  "Proof of funds and/or yellow fever certificate (where required by the destination)",
+];
+
+const SCHENGEN_TYPES = ["Tourist", "Business", "Family / Friends Visit"];
+const SCHENGEN_TIME = "Approx. 15–30 working days (varies by consulate)";
+
+function schengen(
+  slug: string,
+  name: string,
+  alpha: string,
+  opts: { centre?: VisaCentre; centreNote?: string; popular?: boolean } = {},
+): VisaDestination {
+  return {
+    slug,
+    name,
+    alpha,
+    flag: alphaToFlagEmoji(alpha),
+    region: "Europe",
+    route: "submission",
+    centre: opts.centre ?? "VFS Global",
+    ...(opts.centreNote ? { centreNote: opts.centreNote } : {}),
+    visaTypes: SCHENGEN_TYPES,
+    processingTime: SCHENGEN_TIME,
+    documents: [...SCHENGEN_DOCS],
+    ...(opts.popular ? { popular: true } : {}),
+  };
+}
+
+function evisa(
+  slug: string,
+  name: string,
+  alpha: string,
+  region: VisaRegion,
+  opts: {
+    visaTypes?: string[];
+    processingTime?: string;
+    evisaNote?: string;
+    eligibilityNote?: string;
+    popular?: boolean;
+  } = {},
+): VisaDestination {
+  return {
+    slug,
+    name,
+    alpha,
+    flag: alphaToFlagEmoji(alpha),
+    region,
+    route: "evisa",
+    visaTypes: opts.visaTypes ?? ["Tourist", "Business"],
+    processingTime: opts.processingTime ?? "Typically 3–10 working days (varies)",
+    documents: [...EVISA_DOCS],
+    evisaNote:
+      opts.evisaNote ??
+      `${name}'s visa for Nigerian passport holders is applied for entirely online — no embassy visit. Amazingfly completes and submits your application on the official government portal and sends your approved e-Visa by email.`,
+    ...(opts.eligibilityNote ? { eligibilityNote: opts.eligibilityNote } : {}),
+    ...(opts.popular ? { popular: true } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Bucket A — submit at a visa application centre in Nigeria
+// ---------------------------------------------------------------------------
+
+const SUBMISSION: VisaDestination[] = [
+  {
+    slug: "united-kingdom",
+    name: "United Kingdom",
+    alpha: "GB",
+    flag: alphaToFlagEmoji("GB"),
+    region: "Europe",
+    route: "submission",
+    centre: "VFS Global",
+    visaTypes: ["Standard Visitor (Tourism)", "Business", "Family / Friends Visit"],
+    processingTime: "Approx. 3 weeks (standard); priority services may be available",
+    popular: true,
+    documents: [
+      "Nigerian passport valid for the duration of your stay with at least one blank page (plus previous passports)",
+      "Completed online UK visa application (VAF) and printed confirmation",
+      "Recent digital passport photograph (as specified during booking)",
+      "Tuberculosis (TB) test certificate from an IOM-approved clinic in Nigeria",
+      "Bank statements for the last 6 months",
+      "Proof of employment, business ownership (CAC), or studies",
+      "Evidence of accommodation and your travel itinerary",
+      "Cover letter explaining the purpose and length of your visit",
+      "Proof of funds to cover the trip",
+      "Sponsor's documents and invitation letter (if applicable)",
+      "Previous travel history (old passports)",
+      "Visa fee (and healthcare surcharge, if applicable) payment confirmation",
+    ],
+  },
+  {
+    slug: "ireland",
+    name: "Ireland",
+    alpha: "IE",
+    flag: alphaToFlagEmoji("IE"),
+    region: "Europe",
+    route: "submission",
+    centre: "VFS Global",
+    visaTypes: ["Short Stay 'C' — Tourist", "Business", "Family / Friends Visit"],
+    processingTime: "Approx. 4–8 weeks",
+    documents: [
+      "Passport valid at least 6 months beyond your intended stay (plus previous passports)",
+      "Completed AVATS online application summary sheet, signed",
+      "Two recent passport photographs",
+      "Signed application/cover letter stating the purpose and duration of your visit",
+      "Bank statements for the last 6 months",
+      "Proof of employment, business, or study",
+      "Evidence of accommodation and a flight reservation",
+      "Evidence of funds and of your obligations to return to Nigeria",
+      "Invitation letter and sponsor's documents (if visiting)",
+      "Visa fee payment",
+    ],
+  },
+  schengen("germany", "Germany", "DE", { popular: true }),
+  schengen("france", "France", "FR", {
+    centre: "TLScontact",
+    centreNote: "French visas in Nigeria are lodged at TLScontact (Lagos and Abuja).",
+    popular: true,
+  }),
+  schengen("italy", "Italy", "IT", { popular: true }),
+  schengen("netherlands", "Netherlands", "NL", { popular: true }),
+  schengen("belgium", "Belgium", "BE"),
+  schengen("austria", "Austria", "AT"),
+  schengen("sweden", "Sweden", "SE"),
+  schengen("norway", "Norway", "NO"),
+  schengen("denmark", "Denmark", "DK"),
+  schengen("finland", "Finland", "FI"),
+  schengen("portugal", "Portugal", "PT"),
+  schengen("switzerland", "Switzerland", "CH"),
+  schengen("malta", "Malta", "MT"),
+  {
+    slug: "canada",
+    name: "Canada",
+    alpha: "CA",
+    flag: alphaToFlagEmoji("CA"),
+    region: "North America",
+    route: "submission",
+    centre: "VFS Global",
+    centreNote: "Biometrics are captured at the VFS Global centre.",
+    visaTypes: ["Visitor (Tourism)", "Business", "Family Visit"],
+    processingTime: "Varies (often several weeks) — check current IRCC times",
+    popular: true,
+    documents: [
+      "Passport valid for your intended stay (plus previous passports)",
+      "Completed IMM 5257 application and family information forms",
+      "Recent passport photograph meeting Canadian specifications",
+      "Proof of funds (6 months bank statements)",
+      "Purpose of travel / cover letter and itinerary",
+      "Proof of employment, business, or studies",
+      "Evidence of ties to Nigeria (property, family, job)",
+      "Invitation letter from your host in Canada (if applicable)",
+      "Biometrics (fingerprints and photo) captured at VFS Global",
+      "Travel history",
+      "Visa (temporary resident) fee and biometrics fee payment",
+      "Upfront medical examination (only if requested for your case)",
+    ],
+  },
+  {
+    slug: "united-states",
+    name: "United States",
+    alpha: "US",
+    flag: alphaToFlagEmoji("US"),
+    region: "North America",
+    route: "submission",
+    centre: "US Embassy",
+    centreNote:
+      "US visas are not processed by a third-party centre — you attend an in-person interview at the US Embassy (Abuja) or Consulate (Lagos).",
+    visaTypes: ["B1/B2 (Business / Tourism)"],
+    processingTime: "Interview-based; appointment wait times vary",
+    popular: true,
+    documents: [
+      "Passport valid at least 6 months beyond your intended stay",
+      "Completed DS-160 confirmation page",
+      "One recent photograph (per DS-160 specification)",
+      "Visa (MRV) fee payment receipt",
+      "Interview appointment confirmation (US Embassy Abuja / Consulate Lagos)",
+      "Evidence of funds (bank statements)",
+      "Proof of employment, business, or studies",
+      "Evidence of strong ties to Nigeria (family, job, property)",
+      "Purpose of trip and itinerary, or invitation letter",
+      "Previous travel history",
+    ],
+  },
+  {
+    slug: "australia",
+    name: "Australia",
+    alpha: "AU",
+    flag: alphaToFlagEmoji("AU"),
+    region: "Oceania",
+    route: "submission",
+    centre: "VFS Global",
+    centreNote: "Biometrics are captured at the VFS Global centre.",
+    visaTypes: ["Visitor (subclass 600)"],
+    processingTime: "Varies by stream",
+    popular: true,
+    documents: [
+      "Passport valid for your intended stay",
+      "Completed online application via ImmiAccount (Visitor visa subclass 600)",
+      "Recent passport photograph",
+      "Proof of sufficient funds (bank statements)",
+      "Employment, business, or study evidence",
+      "Purpose of visit and itinerary",
+      "Evidence of ties and intention to return to Nigeria",
+      "Invitation from host (if visiting family / friends)",
+      "Overseas health insurance (recommended)",
+      "Health examination and biometrics (if requested)",
+      "Visa fee payment",
+    ],
+  },
+  {
+    slug: "india",
+    name: "India",
+    alpha: "IN",
+    flag: alphaToFlagEmoji("IN"),
+    region: "Asia",
+    route: "submission",
+    centre: "VFS Global",
+    centreNote:
+      "Many travellers qualify for the India e-Visa online; the sticker visa is submitted via VFS Global.",
+    visaTypes: ["Tourist", "Business", "Medical"],
+    processingTime: "Approx. 3–7 working days",
+    popular: true,
+    documents: [
+      "Passport valid at least 6 months with 2 blank pages",
+      "Completed India visa application form (printed)",
+      "Two passport photographs (51mm x 51mm, white background)",
+      "Confirmed return flight itinerary",
+      "Proof of accommodation or invitation",
+      "Bank statements and proof of funds",
+      "Cover letter stating the purpose of travel",
+      "Yellow fever vaccination certificate",
+      "Visa fee payment",
+    ],
+  },
+  {
+    slug: "south-africa",
+    name: "South Africa",
+    alpha: "ZA",
+    flag: alphaToFlagEmoji("ZA"),
+    region: "Africa",
+    route: "submission",
+    centre: "VFS Global",
+    visaTypes: ["Visitor's — Tourism", "Business", "Family Visit"],
+    processingTime: "Approx. 5–10 working days",
+    popular: true,
+    documents: [
+      "Passport valid at least 30 days beyond departure with 2 blank pages",
+      "Completed BI-84 application form",
+      "Two passport photographs",
+      "Bank statements for the last 3 months",
+      "Proof of employment, business, or study",
+      "Return flight itinerary and proof of accommodation",
+      "Yellow fever vaccination certificate",
+      "Cover letter and itinerary",
+      "Invitation letter (if visiting)",
+      "Visa fee payment",
+    ],
+  },
+  {
+    slug: "china",
+    name: "China",
+    alpha: "CN",
+    flag: alphaToFlagEmoji("CN"),
+    region: "Asia",
+    route: "submission",
+    centre: "CVASC",
+    centreNote: "Chinese visas in Nigeria are lodged at the Chinese Visa Application Service Centre (CVASC).",
+    visaTypes: ["Tourist (L)", "Business (M)", "Family Visit"],
+    processingTime: "Approx. 4–7 working days",
+    popular: true,
+    documents: [
+      "Passport valid at least 6 months with 2 blank pages (plus a copy)",
+      "Completed China visa application form (V.2013) with a recent photo",
+      "Round-trip flight booking and hotel reservation for the whole stay",
+      "Detailed day-by-day itinerary",
+      "Invitation letter (for business/visit) from the Chinese host or company",
+      "Bank statements / proof of funds",
+      "Proof of employment",
+      "Visa fee payment",
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Bucket B — e-Visa online for Nigerian passport holders
+// ---------------------------------------------------------------------------
+
+const EVISA: VisaDestination[] = [
+  // Africa
+  evisa("kenya", "Kenya", "KE", "Africa", {
+    visaTypes: ["Electronic Travel Authorisation (eTA)"],
+    processingTime: "Typically 3 working days",
+    popular: true,
+  }),
+  evisa("ethiopia", "Ethiopia", "ET", "Africa", { popular: true }),
+  evisa("rwanda", "Rwanda", "RW", "Africa", { popular: true }),
+  evisa("uganda", "Uganda", "UG", "Africa"),
+  evisa("tanzania", "Tanzania", "TZ", "Africa"),
+  evisa("zambia", "Zambia", "ZM", "Africa"),
+  evisa("zimbabwe", "Zimbabwe", "ZW", "Africa"),
+  evisa("angola", "Angola", "AO", "Africa"),
+  evisa("botswana", "Botswana", "BW", "Africa"),
+  evisa("namibia", "Namibia", "NA", "Africa"),
+  evisa("djibouti", "Djibouti", "DJ", "Africa"),
+  evisa("gabon", "Gabon", "GA", "Africa"),
+  evisa("madagascar", "Madagascar", "MG", "Africa"),
+  evisa("malawi", "Malawi", "MW", "Africa"),
+  evisa("egypt", "Egypt", "EG", "Africa", { popular: true }),
+  evisa("morocco", "Morocco", "MA", "Africa", {
+    eligibilityNote:
+      "Morocco's e-Visa is available to Nigerian passport holders who hold — or have previously held — a valid visa or entry stamp for a Schengen country, the United States, or Canada (and certain other developed countries). If you have never travelled to these regions, you may not be eligible for the e-Visa.",
+  }),
+  evisa("cote-divoire", "Côte d'Ivoire", "CI", "Africa"),
+  evisa("benin", "Benin", "BJ", "Africa"),
+  evisa("cameroon", "Cameroon", "CM", "Africa"),
+  evisa("guinea", "Guinea", "GN", "Africa"),
+  evisa("lesotho", "Lesotho", "LS", "Africa"),
+  evisa("sao-tome-and-principe", "São Tomé & Príncipe", "ST", "Africa"),
+  evisa("burundi", "Burundi", "BI", "Africa"),
+  // Middle East
+  evisa("qatar", "Qatar", "QA", "Middle East", { popular: true }),
+  evisa("united-arab-emirates", "United Arab Emirates", "AE", "Middle East", { popular: true }),
+  evisa("oman", "Oman", "OM", "Middle East"),
+  // Asia
+  evisa("sri-lanka", "Sri Lanka", "LK", "Asia"),
+  evisa("malaysia", "Malaysia", "MY", "Asia", { popular: true }),
+  evisa("cambodia", "Cambodia", "KH", "Asia"),
+  evisa("pakistan", "Pakistan", "PK", "Asia"),
+  evisa("azerbaijan", "Azerbaijan", "AZ", "Asia"),
+  evisa("uzbekistan", "Uzbekistan", "UZ", "Asia"),
+  evisa("tajikistan", "Tajikistan", "TJ", "Asia"),
+  // Americas
+  evisa("antigua-and-barbuda", "Antigua & Barbuda", "AG", "Americas"),
+  evisa("ecuador", "Ecuador", "EC", "Americas"),
+  evisa("el-salvador", "El Salvador", "SV", "Americas"),
+  evisa("bolivia", "Bolivia", "BO", "Americas"),
+  evisa("guyana", "Guyana", "GY", "Americas"),
+  evisa("nicaragua", "Nicaragua", "NI", "Americas"),
+  evisa("suriname", "Suriname", "SR", "Americas"),
+  evisa("trinidad-and-tobago", "Trinidad & Tobago", "TT", "Americas"),
+  // Europe
+  evisa("albania", "Albania", "AL", "Europe"),
+  evisa("georgia", "Georgia", "GE", "Europe"),
+  evisa("moldova", "Moldova", "MD", "Europe"),
+  evisa("serbia", "Serbia", "RS", "Europe"),
+];
+
+export const VISA_DESTINATIONS: readonly VisaDestination[] = [...SUBMISSION, ...EVISA];
+
+// ---------------------------------------------------------------------------
+// Lookups & helpers
+// ---------------------------------------------------------------------------
+
+export function getVisaDestination(slug: string | undefined | null): VisaDestination | undefined {
+  if (!slug) return undefined;
+  return VISA_DESTINATIONS.find((d) => d.slug === slug);
+}
+
+/** Match a free-text country name (e.g. from a search param) to a destination. */
+export function findVisaDestinationByName(name: string | undefined | null): VisaDestination | undefined {
+  if (!name) return undefined;
+  const key = name.trim().toLowerCase();
+  return VISA_DESTINATIONS.find((d) => d.name.toLowerCase() === key || d.slug === key);
+}
+
+/** Destinations sorted A→Z. */
+export const VISA_DESTINATIONS_SORTED: readonly VisaDestination[] = [...VISA_DESTINATIONS].sort(
+  (a, b) => a.name.localeCompare(b.name),
+);
+
+const REGION_ORDER: VisaRegion[] = [
+  "Europe",
+  "North America",
+  "Africa",
+  "Asia",
+  "Middle East",
+  "Americas",
+  "Oceania",
+];
+
+/** Destinations grouped by region (each group A→Z), for the browse page. */
+export function visaDestinationsByRegion(
+  route?: VisaRoute,
+): Array<{ region: VisaRegion; items: VisaDestination[] }> {
+  const source = route ? VISA_DESTINATIONS.filter((d) => d.route === route) : VISA_DESTINATIONS;
+  return REGION_ORDER.map((region) => ({
+    region,
+    items: source
+      .filter((d) => d.region === region)
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  })).filter((group) => group.items.length > 0);
+}

@@ -53,6 +53,8 @@ import { Route as PaymentRequestIdRouteImport } from './routes/payment.$requestI
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
+import { Route as VisaIndexRouteImport } from './routes/visa.index'
+import { Route as VisaSlugRouteImport } from './routes/visa.$slug'
 import { Route as VisaHotelGuaranteeRequestIdRouteImport } from './routes/visa-hotel-guarantee.$requestId'
 import { Route as AdminRequestsIndexRouteImport } from './routes/admin.requests.index'
 import { Route as AdminRequestsIdRouteImport } from './routes/admin.requests.$id'
@@ -281,6 +283,16 @@ const ServicesSlugRoute = ServicesSlugRouteImport.update({
   path: '/services/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VisaIndexRoute = VisaIndexRouteImport.update({
+  id: '/visa/',
+  path: '/visa/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VisaSlugRoute = VisaSlugRouteImport.update({
+  id: '/visa/$slug',
+  path: '/visa/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VisaHotelGuaranteeRequestIdRoute =
   VisaHotelGuaranteeRequestIdRouteImport.update({
     id: '/visa-hotel-guarantee/$requestId',
@@ -358,10 +370,12 @@ export interface FileRoutesByFullPath {
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
+  '/visa/$slug': typeof VisaSlugRoute
   '/visa-hotel-guarantee/$requestId': typeof VisaHotelGuaranteeRequestIdRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/services/': typeof ServicesIndexRoute
+  '/visa/': typeof VisaIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
@@ -410,10 +424,12 @@ export interface FileRoutesByTo {
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
+  '/visa/$slug': typeof VisaSlugRoute
   '/visa-hotel-guarantee/$requestId': typeof VisaHotelGuaranteeRequestIdRoute
   '/admin': typeof AdminIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/services': typeof ServicesIndexRoute
+  '/visa': typeof VisaIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests': typeof AdminRequestsIndexRoute
@@ -463,10 +479,12 @@ export interface FileRoutesById {
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
+  '/visa/$slug': typeof VisaSlugRoute
   '/visa-hotel-guarantee/$requestId': typeof VisaHotelGuaranteeRequestIdRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/services/': typeof ServicesIndexRoute
+  '/visa/': typeof VisaIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
@@ -517,10 +535,12 @@ export interface FileRouteTypes {
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
+    | '/visa/$slug'
     | '/visa-hotel-guarantee/$requestId'
     | '/admin/'
     | '/dashboard/'
     | '/services/'
+    | '/visa/'
     | '/admin/requests/$id'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests/'
@@ -569,10 +589,12 @@ export interface FileRouteTypes {
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
+    | '/visa/$slug'
     | '/visa-hotel-guarantee/$requestId'
     | '/admin'
     | '/dashboard'
     | '/services'
+    | '/visa'
     | '/admin/requests/$id'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests'
@@ -621,10 +643,12 @@ export interface FileRouteTypes {
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
+    | '/visa/$slug'
     | '/visa-hotel-guarantee/$requestId'
     | '/admin/'
     | '/dashboard/'
     | '/services/'
+    | '/visa/'
     | '/admin/requests/$id'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests/'
@@ -674,10 +698,12 @@ export interface RootRouteChildren {
   PaymentRequestIdRoute: typeof PaymentRequestIdRoute
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
+  VisaSlugRoute: typeof VisaSlugRoute
   VisaHotelGuaranteeRequestIdRoute: typeof VisaHotelGuaranteeRequestIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   ServicesIndexRoute: typeof ServicesIndexRoute
+  VisaIndexRoute: typeof VisaIndexRoute
   AdminRequestsIdRoute: typeof AdminRequestsIdRoute
   AdminRequestsIndexRoute: typeof AdminRequestsIndexRoute
   ApiPublicHotelsRatehawkWebhookRoute: typeof ApiPublicHotelsRatehawkWebhookRoute
@@ -994,6 +1020,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServicesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/visa/': {
+      id: '/visa/'
+      path: '/visa'
+      fullPath: '/visa/'
+      preLoaderRoute: typeof VisaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/visa/$slug': {
+      id: '/visa/$slug'
+      path: '/visa/$slug'
+      fullPath: '/visa/$slug'
+      preLoaderRoute: typeof VisaSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/visa-hotel-guarantee/$requestId': {
       id: '/visa-hotel-guarantee/$requestId'
       path: '/visa-hotel-guarantee/$requestId'
@@ -1093,10 +1133,12 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentRequestIdRoute: PaymentRequestIdRoute,
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,
+  VisaSlugRoute: VisaSlugRoute,
   VisaHotelGuaranteeRequestIdRoute: VisaHotelGuaranteeRequestIdRoute,
   AdminIndexRoute: AdminIndexRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   ServicesIndexRoute: ServicesIndexRoute,
+  VisaIndexRoute: VisaIndexRoute,
   AdminRequestsIdRoute: AdminRequestsIdRoute,
   AdminRequestsIndexRoute: AdminRequestsIndexRoute,
   ApiPublicHotelsRatehawkWebhookRoute: ApiPublicHotelsRatehawkWebhookRoute,

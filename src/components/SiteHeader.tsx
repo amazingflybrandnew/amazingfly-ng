@@ -79,7 +79,7 @@ export function SiteHeader() {
         <Logo />
 
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Main navigation">
-          <Link to="/services/$slug" params={{ slug: "visa-assistance" }} className={linkClass}>
+          <Link to="/visa" className={linkClass}>
             Visas
           </Link>
           <Dropdown
@@ -146,6 +146,14 @@ export function SiteHeader() {
               className="rounded-lg px-3 py-3 text-sm font-semibold text-navy hover:bg-navy-tint"
             >
               Home
+            </Link>
+
+            <Link
+              to="/visa"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm font-semibold text-navy hover:bg-navy-tint"
+            >
+              Visas
             </Link>
 
             <button
