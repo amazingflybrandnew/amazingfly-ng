@@ -21,6 +21,7 @@ export type AutomationEvent =
   | "document_review"
   | "payment_confirmed"
   | "hotel_booking_confirmed"
+  | "hotel_booking_cancelled"
   | "admin_payment_received"
   | "quotation_ready"
   | "request_completed";
@@ -289,6 +290,29 @@ export function composeHotelBookingConfirmed(ctx: {
       "",
       "Your hotel confirmation is attached as a PDF. Please present it (printed or on your phone) at check-in, together with your passport.",
       "You can also download it any time from your Amazingfly account.",
+      SIGN_OFF,
+    ),
+  };
+}
+
+export function composeHotelBookingCancelled(ctx: {
+  reference: string;
+  fullName: string;
+  email: string;
+}): ComposedEmail {
+  return {
+    to: ctx.email,
+    kind: "hotel_booking_cancelled",
+    subject: `Your hotel booking has been cancelled (${ctx.reference})`,
+    body: lines(
+      greeting(ctx.fullName),
+      "",
+      "Your hotel booking has been cancelled with the hotel, as you requested.",
+      "",
+      `Reference: ${ctx.reference}`,
+      "",
+      "The hotel's cancellation terms shown at booking apply. If a refund is due, our team will process it separately and contact you.",
+      "If you did not request this cancellation, please contact us immediately.",
       SIGN_OFF,
     ),
   };
@@ -699,6 +723,28 @@ export async function notifyHotelBookingConfirmed(input: {
       inApp: {
         title: "Your hotel booking is confirmed",
         message: `Booking ${who.reference} is confirmed. Your hotel confirmation PDF is in your email and account.`,
+      },
+    },
+  );
+}
+
+/** Confirms a customer-initiated hotel cancellation. */
+export async function notifyHotelBookingCancelled(input: { requestId: string }) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  await sendAutomated(
+    composeHotelBookingCancelled({
+      reference: who.reference,
+      fullName: who.fullName,
+      email: who.email,
+    }),
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: {
+        title: "Your hotel booking has been cancelled",
+        message: `Hotel booking ${who.reference} has been cancelled.`,
       },
     },
   );

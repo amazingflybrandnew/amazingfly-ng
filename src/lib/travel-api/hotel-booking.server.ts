@@ -687,7 +687,13 @@ export async function cancelStoredHotelRequest(
   if (!row?.partner_order_id) throw new HotelBookingError("We could not find a RateHawk booking to cancel.");
   if (row.status !== "ok") throw new HotelBookingError("Only a successfully confirmed hotel booking can be cancelled.");
 
-  await bookingRequest("/hotel/order/cancel/", { partner_order_id: row.partner_order_id });
+  try {
+    await bookingRequest("/hotel/order/cancel/", { partner_order_id: row.partner_order_id });
+  } catch (error) {
+    // A retry after a timed-out first attempt: RateHawk already cancelled it.
+    const code = errorCode(error);
+    if (!(code.includes("already") && code.includes("cancel"))) throw error;
+  }
   await db
     .from("hotel_bookings")
     .update({ provider_status: "cancelled", updated_at: new Date().toISOString() })
@@ -698,5 +704,7 @@ export async function cancelStoredHotelRequest(
     status: "cancelled",
     message: "Hotel booking cancelled with RateHawk.",
   });
+  const { notifyHotelBookingCancelled } = await import("../notifications.server");
+  await notifyHotelBookingCancelled({ requestId });
   return { partnerOrderId: row.partner_order_id, cancelled: true };
 }
