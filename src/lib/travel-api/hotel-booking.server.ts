@@ -69,6 +69,7 @@ export function b2bContactEmail(): string {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function resolveBookingRequestIp(explicit?: string): string {
+  if (explicit?.trim()) return explicit.trim();
   const forwarded = getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim();
   const resolved =
     explicit?.trim() ||
@@ -117,7 +118,8 @@ function errorCode(error: unknown): string {
 }
 
 function isTransientBookingError(error: unknown): boolean {
-  if (!(error instanceof HotelBookingError)) return false;
+  // A network/proxy failure is not a provider answer: the outcome is unknown.
+  if (!(error instanceof HotelBookingError)) return true;
   return (
     error.providerCode === "unknown" ||
     error.providerCode === "timeout" ||
@@ -213,9 +215,45 @@ export async function applyBookingStatus(input: {
     await markRequestBooked(input.partnerOrderId, input.orderId ?? null);
   } else if (input.status === "failed") {
     await markRequestBookingStatus(input.partnerOrderId, "failed");
+    await handlePaidBookingFailure(input.partnerOrderId, incomingProviderStatus, input.errorMessage);
   } else {
     await markRequestBookingStatus(input.partnerOrderId, "processing");
   }
+}
+
+async function requestIdFor(partnerOrderId: string): Promise<string | null> {
+  const db = await admin();
+  const { data } = await db
+    .from("hotel_bookings")
+    .select("request_id")
+    .eq("partner_order_id", partnerOrderId)
+    .maybeSingle();
+  return (data as { request_id?: string | null } | null)?.request_id ?? null;
+}
+
+/**
+ * A definitive supplier failure on a paid request is refunded automatically.
+ * A booking timeout has an UNKNOWN outcome (RateHawk may still confirm it), so
+ * it is never auto-refunded; operations are alerted to check it instead.
+ */
+async function handlePaidBookingFailure(
+  partnerOrderId: string,
+  providerStatus: string,
+  message: string | null | undefined,
+) {
+  const requestId = await requestIdFor(partnerOrderId);
+  if (!requestId) return;
+  if (providerStatus === "booking_timeout") {
+    const { notifyAdminHotelBookingIssue } = await import("../notifications.server");
+    await notifyAdminHotelBookingIssue({
+      requestId,
+      headline: "Hotel booking outcome UNKNOWN after timeout - check RateHawk before refunding",
+      details: [`Partner order ID: ${partnerOrderId}`, message ?? ""],
+    });
+    return;
+  }
+  const { refundFailedPaidHotelBooking } = await import("../payment/hotel-refund.server");
+  await refundFailedPaidHotelBooking(requestId, `${providerStatus || "failed"}: ${message ?? ""}`);
 }
 
 async function markRequestBookingStatus(partnerOrderId: string, status: string) {
@@ -254,14 +292,26 @@ async function markRequestBooked(partnerOrderId: string, orderId: string | null)
     })
     .eq("id", row.request_id)
     .or("booking_status.is.null,booking_status.neq.confirmed")
-    .select("id");
+    .select("id, payment_status");
   if (error) {
     console.error("[hotel-booking] confirm request failed", error.message);
     return;
   }
   if (!updated?.length) return;
 
-  const { notifyHotelBookingConfirmed } = await import("../notifications.server");
+  const { notifyHotelBookingConfirmed, notifyAdminHotelBookingIssue } = await import(
+    "../notifications.server"
+  );
+  const paymentStatus = String((updated[0] as { payment_status?: string }).payment_status ?? "");
+  if (paymentStatus.startsWith("refund")) {
+    // Supplier confirmed after we refunded: a human must cancel or re-charge.
+    await notifyAdminHotelBookingIssue({
+      requestId: row.request_id,
+      headline: "URGENT: hotel booking CONFIRMED after the payment was refunded",
+      details: [`RateHawk order: ${supplierOrderId}`, "Cancel the booking or contact the customer."],
+    });
+    return;
+  }
   await notifyHotelBookingConfirmed({ requestId: row.request_id, supplierOrderId });
 }
 
@@ -528,7 +578,20 @@ export async function runBookingSequence(input: {
     userIp: input.userIp ?? "",
     certificationScenario: input.certificationScenario ?? null,
   });
+  return finishCreatedBooking(created, input);
+}
 
+/** Runs booking/finish + status check for an already created booking process. */
+async function finishCreatedBooking(
+  created: Pick<CreateBookingResult, "partnerOrderId" | "orderId" | "paymentTypes">,
+  input: {
+    email: string;
+    phone: string;
+    guests: BookingGuest[];
+    paymentType: HotelBookingPaymentType;
+    comment?: string;
+  },
+): Promise<{ partnerOrderId: string; orderId: string; result: CheckBookingResult }> {
   const payment = created.paymentTypes.find((option) => option.type === input.paymentType);
   if (!payment) {
     const message = "The selected hotel payment method is no longer available. Please choose the rate again.";
@@ -574,30 +637,22 @@ export async function runBookingSequence(input: {
   return { partnerOrderId: created.partnerOrderId, orderId: created.orderId, result };
 }
 
-export async function bookStoredHotelRequest(
+type StoredHotelBooking = {
+  bookHash: string;
+  guests: BookingGuest[];
+  email: string;
+  phone: string;
+  providerAmount: number | null;
+  providerCurrency: string | null;
+  certificationScenario: CertificationScenario | null;
+};
+
+/** Loads and validates everything needed to book a stored hotel request. */
+async function loadStoredHotelBooking(
   requestId: string,
   expectedPaymentType: HotelBookingPaymentType,
-  certificationScenario?: CertificationScenario | null,
-  userIp?: string,
-): Promise<{ partnerOrderId: string; orderId: string | null; status: BookingStatus }> {
+): Promise<StoredHotelBooking> {
   const db = await admin();
-
-  const { data: existing } = await db
-    .from("hotel_bookings")
-    .select("partner_order_id, status, order_id")
-    .eq("request_id", requestId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    const row = existing as { partner_order_id: string; status: BookingStatus; order_id?: string | null };
-    if (row.status !== "failed") {
-      return { partnerOrderId: row.partner_order_id, orderId: row.order_id ?? null, status: row.status };
-    }
-    // A failed/interrupted attempt is not terminal for a customer retry. Create a
-    // fresh RateHawk booking process with a new partner_order_id below.
-  }
-
   const { data: request, error: requestError } = await db
     .from("service_requests")
     .select("*")
@@ -648,18 +703,189 @@ export async function bookStoredHotelRequest(
     throw new HotelBookingError("A booking contact email and phone number are required.");
   }
 
+  const providerAmount = Number(row["hotel_provider_payment_amount"]);
+  const providerCurrency = String(row["hotel_provider_payment_currency"] ?? "").trim().toUpperCase();
+  return {
+    bookHash,
+    guests,
+    email,
+    phone,
+    providerAmount: Number.isFinite(providerAmount) && providerAmount > 0 ? providerAmount : null,
+    providerCurrency: providerCurrency.length === 3 ? providerCurrency : null,
+    certificationScenario: CERTIFICATION_SCENARIOS.includes(
+      row["hotel_certification_scenario"] as CertificationScenario,
+    )
+      ? (row["hotel_certification_scenario"] as CertificationScenario)
+      : null,
+  };
+}
+
+type LatestHotelBooking = {
+  partner_order_id: string;
+  status: BookingStatus;
+  order_id?: string | null;
+  payload?: { payment_types?: BookingFormPaymentOption[] } | null;
+  created_at?: string | null;
+};
+
+async function latestHotelBooking(requestId: string): Promise<LatestHotelBooking | null> {
+  const db = await admin();
+  const { data } = await db
+    .from("hotel_bookings")
+    .select("partner_order_id, status, order_id, payload, created_at")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as LatestHotelBooking | null) ?? null;
+}
+
+/** A reserved (booking/form) process is reused for payment within this window. */
+const RESERVATION_REUSE_MS = 20 * 60 * 1000;
+
+/**
+ * Called when the post-payment booking step threw. Refunds only when there is
+ * no supplier booking in flight (none created, or it definitively failed).
+ */
+export async function refundIfPaidBookingDidNotStart(requestId: string, reason: string) {
+  const latest = await latestHotelBooking(requestId);
+  if (latest && latest.status !== "failed") return; // still in flight or confirmed
+  const db = await admin();
+  const { data } = await db
+    .from("hotel_bookings")
+    .select("provider_status")
+    .eq("partner_order_id", latest?.partner_order_id ?? "")
+    .maybeSingle();
+  if ((data as { provider_status?: string | null } | null)?.provider_status === "booking_timeout") return;
+  const { refundFailedPaidHotelBooking } = await import("../payment/hotel-refund.server");
+  await refundFailedPaidHotelBooking(requestId, reason);
+}
+
+export type HotelReservationCheck =
+  | { ok: true; partnerOrderId: string }
+  | { ok: false; message: string };
+
+/**
+ * Runs BEFORE the customer is charged: creates the RateHawk booking process
+ * (booking/form) so an unavailable or re-priced rate is caught while no money
+ * has been taken. Payment is only started when this succeeds.
+ */
+export async function reserveHotelBeforePayment(
+  requestId: string,
+  userIp?: string,
+): Promise<HotelReservationCheck> {
+  let stored: StoredHotelBooking;
+  try {
+    stored = await loadStoredHotelBooking(requestId, "deposit");
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "This hotel booking is not ready for payment." };
+  }
+
+  const existing = await latestHotelBooking(requestId);
+  if (existing && ["started", "processing", "ok"].includes(existing.status)) {
+    return { ok: false, message: "This hotel booking is already being processed. No new payment is needed." };
+  }
+  const reusable =
+    existing?.status === "created" &&
+    existing.order_id &&
+    existing.payload?.payment_types?.length &&
+    Date.now() - Date.parse(existing.created_at ?? "") < RESERVATION_REUSE_MS;
+  if (reusable) return { ok: true, partnerOrderId: existing.partner_order_id };
+
+  const unavailable =
+    "Sorry, this room is no longer available at this price. You have not been charged. Please go back and choose another room.";
+  let created: CreateBookingResult;
+  try {
+    created = await createBookingProcess({
+      bookHash: stored.bookHash,
+      requestId,
+      userIp: userIp ?? "",
+      certificationScenario: stored.certificationScenario,
+    });
+  } catch (error) {
+    console.error("[hotel-booking] pre-payment reservation failed", errorCode(error), error instanceof Error ? error.message : error);
+    return { ok: false, message: unavailable };
+  }
+
+  const deposit = created.paymentTypes.find((option) => option.type === "deposit");
+  const depositAmount = Number(deposit?.amount);
+  const priceRose =
+    stored.providerAmount !== null &&
+    stored.providerCurrency !== null &&
+    deposit !== undefined &&
+    (deposit.currencyCode.toUpperCase() !== stored.providerCurrency ||
+      depositAmount > stored.providerAmount + 0.01);
+  if (!deposit || deposit.requiresCard || deposit.requiresCvc || !Number.isFinite(depositAmount) || priceRose) {
+    await applyBookingStatus({
+      partnerOrderId: created.partnerOrderId,
+      status: "failed",
+      providerStatus: priceRose ? "price_changed_before_payment" : "payment_type_unavailable",
+      errorMessage: "Rate changed before payment; customer was not charged.",
+    });
+    return { ok: false, message: unavailable };
+  }
+  return { ok: true, partnerOrderId: created.partnerOrderId };
+}
+
+export async function bookStoredHotelRequest(
+  requestId: string,
+  expectedPaymentType: HotelBookingPaymentType,
+  certificationScenario?: CertificationScenario | null,
+  userIp?: string,
+): Promise<{ partnerOrderId: string; orderId: string | null; status: BookingStatus }> {
+  const db = await admin();
+  const existing = await latestHotelBooking(requestId);
+  const reserved =
+    existing?.status === "created" && existing.order_id && existing.payload?.payment_types?.length
+      ? existing
+      : null;
+  if (existing && ["started", "processing", "ok"].includes(existing.status)) {
+    return { partnerOrderId: existing.partner_order_id, orderId: existing.order_id ?? null, status: existing.status };
+  }
+  // A failed, interrupted or incomplete attempt is not terminal: a reserved
+  // process is finished below, anything else gets a fresh booking process.
+
+  const stored = await loadStoredHotelBooking(requestId, expectedPaymentType);
+
+  if (reserved) {
+    // Paystack webhook and browser callback can both get here: only the caller
+    // that moves the reserved process out of "created" may finish it.
+    const { data: claimed } = await db
+      .from("hotel_bookings")
+      .update({ status: "started", updated_at: new Date().toISOString() })
+      .eq("partner_order_id", reserved.partner_order_id)
+      .eq("status", "created")
+      .select("partner_order_id");
+    if (!claimed?.length) {
+      return { partnerOrderId: reserved.partner_order_id, orderId: reserved.order_id ?? null, status: "started" };
+    }
+  }
+
   await db.from("service_requests").update({ booking_status: "processing" }).eq("id", requestId);
   try {
-    const booked = await runBookingSequence({
-      bookHash,
-      requestId,
-      email,
-      phone,
-      guests,
+    const bookingInput = {
+      email: stored.email,
+      phone: stored.phone,
+      guests: stored.guests,
       paymentType: expectedPaymentType,
-      certificationScenario: certificationScenario ?? null,
-      userIp,
-    });
+    };
+    // Finish the process reserved before payment; otherwise create one now.
+    const booked = reserved
+      ? await finishCreatedBooking(
+          {
+            partnerOrderId: reserved.partner_order_id,
+            orderId: String(reserved.order_id),
+            paymentTypes: reserved.payload?.payment_types ?? [],
+          },
+          bookingInput,
+        )
+      : await runBookingSequence({
+          ...bookingInput,
+          bookHash: stored.bookHash,
+          requestId,
+          certificationScenario: certificationScenario ?? null,
+          userIp,
+        });
     return {
       partnerOrderId: booked.partnerOrderId,
       orderId: booked.orderId,

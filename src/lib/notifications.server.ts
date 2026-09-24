@@ -22,6 +22,8 @@ export type AutomationEvent =
   | "payment_confirmed"
   | "hotel_booking_confirmed"
   | "hotel_booking_cancelled"
+  | "hotel_booking_failed_refund"
+  | "admin_hotel_booking_issue"
   | "admin_payment_received"
   | "quotation_ready"
   | "request_completed";
@@ -725,6 +727,65 @@ export async function notifyHotelBookingConfirmed(input: {
         message: `Booking ${who.reference} is confirmed. Your hotel confirmation PDF is in your email and account.`,
       },
     },
+  );
+}
+
+/** Paid hotel booking the supplier rejected: tell the customer a refund is on its way. */
+export async function notifyHotelBookingFailedRefund(input: { requestId: string; amountLabel: string }) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  await sendAutomated(
+    {
+      to: who.email,
+      kind: "hotel_booking_failed_refund",
+      subject: `Your hotel booking could not be confirmed - full refund initiated (${who.reference})`,
+      body: lines(
+        greeting(who.fullName),
+        "",
+        "We are sorry: the hotel could not confirm your reservation because the room was no longer available.",
+        "",
+        `Reference: ${who.reference}`,
+        input.amountLabel ? `Amount: ${input.amountLabel}` : "",
+        "",
+        "We have started a FULL refund of your payment to your original payment method. Depending on your bank, it can take a few working days to appear.",
+        "You do not need to do anything. Please do not make another payment for this request.",
+        "If you would still like to stay, our team can help you choose another room or hotel.",
+        SIGN_OFF,
+      ),
+    },
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: {
+        title: "Hotel booking not confirmed - refund initiated",
+        message: `The hotel could not confirm booking ${who.reference}. A full refund has been initiated.`,
+      },
+    },
+  );
+}
+
+/** Operations alert for paid hotel bookings that need attention. */
+export async function notifyAdminHotelBookingIssue(input: {
+  requestId: string;
+  headline: string;
+  details: string[];
+}) {
+  const who = await requestRecipient(input.requestId);
+  await sendAutomated(
+    {
+      to: ADMIN_RECIPIENT,
+      kind: "admin_hotel_booking_issue",
+      subject: `${input.headline} (${who?.reference ?? input.requestId})`,
+      body: lines(
+        input.headline,
+        "",
+        `Reference: ${who?.reference ?? "-"}`,
+        `Customer: ${who?.fullName ?? "-"} <${who?.email ?? "-"}>`,
+        ...input.details,
+      ),
+    },
+    { requestId: input.requestId, reference: who?.reference ?? null, inApp: false },
   );
 }
 
