@@ -188,6 +188,88 @@ async function enrichBookingFinishGuests(path: string, body: unknown): Promise<u
   return { ...root, rooms: enrichedRooms };
 }
 
+type SimpleResponse = { status: number; ok: boolean; text: string };
+
+/**
+ * POST through an HTTP CONNECT proxy (RATEHAWK_PROXY_URL, e.g.
+ * http://user:pass@1.2.3.4:8888) so RateHawk sees one static egress IP.
+ * Uses Node built-ins only; TLS runs end-to-end to RateHawk inside the tunnel.
+ */
+async function postViaProxy(
+  proxyUrl: string,
+  targetUrl: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<SimpleResponse> {
+  const http = await import("node:http");
+  const https = await import("node:https");
+  const tls = await import("node:tls");
+
+  const proxy = new URL(proxyUrl);
+  const target = new URL(targetUrl);
+  const targetPort = Number(target.port || 443);
+  const timeoutMs = 30_000;
+
+  const connectHeaders: Record<string, string> = { Host: `${target.hostname}:${targetPort}` };
+  if (proxy.username) {
+    const creds = `${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`;
+    connectHeaders["Proxy-Authorization"] =
+      `Basic ${Buffer.from(creds, "utf8").toString("base64")}`;
+  }
+
+  const socket = await new Promise<import("node:net").Socket>((resolve, reject) => {
+    const req = http.request({
+      host: proxy.hostname,
+      port: Number(proxy.port || 80),
+      method: "CONNECT",
+      path: `${target.hostname}:${targetPort}`,
+      headers: connectHeaders,
+      timeout: timeoutMs,
+    });
+    req.once("connect", (res, sock) => {
+      if (res.statusCode === 200) return resolve(sock);
+      sock.destroy();
+      reject(new RateHawkApiError(502, `RateHawk proxy refused CONNECT (${res.statusCode}).`));
+    });
+    req.once("timeout", () => req.destroy(new Error("RateHawk proxy connect timed out.")));
+    req.once("error", reject);
+    req.end();
+  });
+
+  const tlsSocket = tls.connect({ socket, servername: target.hostname });
+
+  return new Promise<SimpleResponse>((resolve, reject) => {
+    const req = https.request(
+      {
+        host: target.hostname,
+        port: targetPort,
+        method: "POST",
+        path: `${target.pathname}${target.search}`,
+        headers: { ...headers, "Content-Length": String(Buffer.byteLength(body)) },
+        agent: false,
+        createConnection: () => tlsSocket,
+        timeout: timeoutMs,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          const status = res.statusCode ?? 0;
+          resolve({
+            status,
+            ok: status >= 200 && status < 300,
+            text: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        res.on("error", reject);
+      },
+    );
+    req.once("timeout", () => req.destroy(new Error("RateHawk request via proxy timed out.")));
+    req.once("error", reject);
+    req.end(body);
+  });
+}
+
 /** Return the full ETG response envelope so booking status is not discarded. */
 export async function ratehawkRequest<T>(
   path: string,
@@ -197,18 +279,29 @@ export async function ratehawkRequest<T>(
   const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   const requestBody = await enrichBookingFinishGuests(path, body);
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: basicAuthHeader(username, password),
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": "Amazingfly/1.0 (RateHawk B2B v3)",
-    },
-    body: JSON.stringify(requestBody ?? {}),
-  });
+  const headers = {
+    Authorization: basicAuthHeader(username, password),
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "Amazingfly/1.0 (RateHawk B2B v3)",
+  };
+  const bodyText = JSON.stringify(requestBody ?? {});
 
-  const payload = (await response.json().catch(() => null)) as RateHawkResponse<T> | null;
+  const proxyUrl = process.env["RATEHAWK_PROXY_URL"]?.trim();
+  const response = proxyUrl
+    ? await postViaProxy(proxyUrl, url, headers, bodyText)
+    : await fetch(url, { method: "POST", headers, body: bodyText }).then(async (r) => ({
+        status: r.status,
+        ok: r.ok,
+        text: await r.text(),
+      }));
+
+  let payload: RateHawkResponse<T> | null = null;
+  try {
+    payload = JSON.parse(response.text) as RateHawkResponse<T>;
+  } catch {
+    payload = null;
+  }
   if (!response.ok || payload?.status === "error") {
     throw new RateHawkApiError(
       response.status,
