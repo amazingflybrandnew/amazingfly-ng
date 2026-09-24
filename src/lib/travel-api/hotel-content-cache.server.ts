@@ -1,10 +1,10 @@
 /**
- * Server-only cache for ETG hotel static content (table ratehawk_hotel_content).
+ * Server-only cache for ETG hotel static content (table ratehawk_hotel_content_cache).
  * Every failure is swallowed: if the cache is unavailable the caller falls back
  * to the Content API, which ETG allows for first-seen or missing hotels.
  */
 
-const TABLE = "ratehawk_hotel_content";
+const TABLE = "ratehawk_hotel_content_cache";
 /** ETG: refresh static content daily or weekly, never on every search. */
 export const HOTEL_CONTENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -24,7 +24,7 @@ export async function readCachedHotelContent<T>(keys: string[]): Promise<Map<str
       .from(TABLE)
       .select("hotel_key, content")
       .in("hotel_key", keys)
-      .gte("fetched_at", cutoff);
+      .gte("updated_at", cutoff);
     if (error) throw error;
     for (const row of (data ?? []) as { hotel_key: string; content: T }[]) {
       found.set(row.hotel_key, row.content);
@@ -39,17 +39,16 @@ export async function readCachedHotelContent<T>(keys: string[]): Promise<Map<str
 }
 
 export async function writeCachedHotelContent(
-  rows: { key: string; hid: number | null; content: unknown }[],
+  rows: { key: string; content: unknown }[],
 ): Promise<void> {
   if (!rows.length) return;
   try {
-    const fetchedAt = new Date().toISOString();
+    const updatedAt = new Date().toISOString();
     const { error } = await (await db()).from(TABLE).upsert(
       rows.map((row) => ({
         hotel_key: row.key,
-        hid: row.hid,
         content: row.content,
-        fetched_at: fetchedAt,
+        updated_at: updatedAt,
       })),
       { onConflict: "hotel_key" },
     );
