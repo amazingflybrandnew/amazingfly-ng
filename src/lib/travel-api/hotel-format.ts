@@ -75,9 +75,14 @@ export function cancellationPeriods(
   policy: CancellationPolicy,
   now: number = Date.now(),
 ): string[] {
-  const periods = (policy.penalties ?? []).filter(
-    (period) => !period.endAt || !hasPassed(period.endAt, now),
-  );
+  // A free period with an open end really ends at free_cancellation_before.
+  const periods = (policy.penalties ?? [])
+    .map((period) =>
+      period.amount === 0 && !period.endAt && policy.freeCancellationUntil
+        ? { ...period, endAt: policy.freeCancellationUntil }
+        : period,
+    )
+    .filter((period) => !period.endAt || !hasPassed(period.endAt, now));
   if (!periods.length) {
     return [describeCancellation(policy.refundable, policy.freeCancellationUntil)];
   }
