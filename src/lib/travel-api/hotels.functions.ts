@@ -223,8 +223,13 @@ const prebookInput = z
     bookHash: z.string().trim().min(1).max(2000),
     expectedPrice: z.number().nonnegative(),
     expectedCurrency: z.string().trim().min(3).max(3),
+    /** Sandbox-only certification aid: show the price-change step on demand. */
+    simulatePriceChange: z.boolean().optional(),
   })
   .strict();
+
+/** Simulated "previous" price is this much lower than the live prebook price. */
+const SIMULATED_PRICE_CHANGE = 0.95;
 
 export type HotelPrebookPayload =
   | { ok: true; status: "available"; room: RoomResult }
@@ -242,6 +247,20 @@ export const prebookHotelStayRate = createServerFn({ method: "POST" })
         data.expectedCurrency,
       );
       if (outcome.status === "unavailable") return { ok: false, error: outcome.message };
+      if (outcome.status === "available" && data.simulatePriceChange) {
+        const { isRateHawkSandbox } = await import("../ratehawk.server");
+        if (isRateHawkSandbox()) {
+          // The room keeps the real, current RateHawk price; only the "was"
+          // price is simulated, so accepting and paying stays consistent.
+          const room = await localizeRoom(outcome.room);
+          return {
+            ok: true,
+            status: "price_changed",
+            room,
+            previousPrice: Math.floor(room.price * SIMULATED_PRICE_CHANGE),
+          };
+        }
+      }
       if (outcome.status === "price_changed") {
         const [room, previousPrice] = await Promise.all([
           localizeRoom(outcome.room),
