@@ -52,17 +52,31 @@ function RoomCard({
         isPending ? "border-orange ring-4 ring-orange/30" : "border-white/70 hover:border-orange/40"
       }`}
     >
+      {room.images?.[0] ? (
+        <img
+          src={room.images[0]}
+          alt={room.roomName}
+          loading="lazy"
+          className="aspect-[16/10] w-full rounded-xl object-cover"
+        />
+      ) : null}
       <div className="min-w-0">
-        <p className="truncate text-sm font-bold text-navy">{room.roomName}</p>
+        <p className="text-sm font-bold text-navy">{room.roomName}</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {[room.roomType, room.bedType].filter(Boolean).join(" · ") || "Room details on request"}
+          {[
+            room.roomType !== room.roomName ? room.roomType : null,
+            room.bedType,
+            room.bathroom,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "Room details on request"}
         </p>
       </div>
 
       <ul className="space-y-1.5 text-xs">
         <li className="flex items-center gap-1.5 text-muted-foreground">
           <Users className="h-3.5 w-3.5 shrink-0 text-orange" aria-hidden="true" />
-          Sleeps {room.capacity}
+          For {room.capacity} guest{room.capacity === 1 ? "" : "s"}
         </li>
         <li className="flex items-center gap-1.5 text-muted-foreground">
           <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-orange" aria-hidden="true" />
@@ -95,6 +109,19 @@ function RoomCard({
           </div>
         </li>
       </ul>
+
+      {room.amenities?.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Room amenities">
+          {room.amenities.slice(0, 8).map((amenity) => (
+            <li
+              key={amenity}
+              className="rounded-full bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-navy"
+            >
+              {amenity}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {room.taxesPayableAtHotel?.length ? (
         <div className="rounded-xl bg-sky-tint px-3 py-2 text-[11px] text-navy">
@@ -268,6 +295,9 @@ export function HotelDetailsModal({
             <p className="font-bold text-navy">
               {formatStayDate(hotel.checkInDate ?? stay?.checkInDate)}
             </p>
+            {full?.checkInTime ? (
+              <p className="text-xs text-muted-foreground">from {full.checkInTime} (local time)</p>
+            ) : null}
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -276,6 +306,9 @@ export function HotelDetailsModal({
             <p className="font-bold text-navy">
               {formatStayDate(hotel.checkOutDate ?? stay?.checkOutDate)}
             </p>
+            {full?.checkOutTime ? (
+              <p className="text-xs text-muted-foreground">until {full.checkOutTime} (local time)</p>
+            ) : null}
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

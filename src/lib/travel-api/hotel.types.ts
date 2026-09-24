@@ -69,7 +69,11 @@ export type RoomResult = {
   roomName: string;
   roomType: string;
   bedType: string;
-  capacity: number; // max guests per room
+  capacity: number; // guests this rate is priced for
+  /** Room photos, only from a static room group whose rg_ext fully matches. */
+  images?: string[];
+  amenities?: string[];
+  bathroom?: string;
   cancellationPolicy: CancellationPolicy;
   boardType?: string; // e.g. "Room only", "Breakfast included"
   price: number; // traveller-facing total for the stay

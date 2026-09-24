@@ -58,6 +58,14 @@ export type BookingConfirmation = {
   contactEmail: string;
   hotelSupplierReferences: HotelSupplierReferences | null;
   rateHawkDiagnostics: RateHawkSandboxDiagnostics | null;
+  /** Hotel check-in/out times and property conditions for the voucher. */
+  hotelVoucher?: HotelVoucherDetails | null;
+};
+
+export type HotelVoucherDetails = {
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  importantInfo: { title: string; items: string[] }[];
 };
 
 /** Loads customer-safe confirmation data scoped to the signed-in customer. */
