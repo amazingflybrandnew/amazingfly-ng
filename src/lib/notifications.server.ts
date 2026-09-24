@@ -20,6 +20,7 @@ export type AutomationEvent =
   | "document_request"
   | "document_review"
   | "payment_confirmed"
+  | "hotel_booking_confirmed"
   | "admin_payment_received"
   | "quotation_ready"
   | "request_completed";
@@ -263,6 +264,31 @@ export function composePaymentConfirmation(ctx: {
       ctx.transactionReference ? `Transaction: ${ctx.transactionReference}` : "",
       "",
       "Your application continues with our travel specialists and you will be notified at every step.",
+      SIGN_OFF,
+    ),
+  };
+}
+
+export function composeHotelBookingConfirmed(ctx: {
+  reference: string;
+  fullName: string;
+  email: string;
+  supplierOrderId?: string | null;
+}): ComposedEmail {
+  return {
+    to: ctx.email,
+    kind: "hotel_booking_confirmed",
+    subject: `Your hotel booking is confirmed (${ctx.reference})`,
+    body: lines(
+      greeting(ctx.fullName),
+      "",
+      "Great news: the hotel has confirmed your booking.",
+      "",
+      `Reference: ${ctx.reference}`,
+      ctx.supplierOrderId ? `Booking confirmation number: ${ctx.supplierOrderId}` : "",
+      "",
+      "Your hotel confirmation is attached as a PDF. Please present it (printed or on your phone) at check-in, together with your passport.",
+      "You can also download it any time from your Amazingfly account.",
       SIGN_OFF,
     ),
   };
@@ -643,6 +669,36 @@ export async function notifyPaymentReceived(input: {
       inApp: {
         title: "Payment received successfully",
         message: `We received ${input.amountLabel} for request ${who.reference}. Thank you.`,
+      },
+    },
+  );
+}
+
+/** Sends the customer their hotel confirmation PDF once the supplier confirms. */
+export async function notifyHotelBookingConfirmed(input: {
+  requestId: string;
+  supplierOrderId?: string | null;
+}) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  const attachment = await bookingOutcomeAttachment(input.requestId, who);
+  await sendAutomated(
+    {
+      ...composeHotelBookingConfirmed({
+        reference: who.reference,
+        fullName: who.fullName,
+        email: who.email,
+        supplierOrderId: input.supplierOrderId ?? null,
+      }),
+      ...(attachment ? { attachments: [attachment] } : {}),
+    },
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: {
+        title: "Your hotel booking is confirmed",
+        message: `Booking ${who.reference} is confirmed. Your hotel confirmation PDF is in your email and account.`,
       },
     },
   );

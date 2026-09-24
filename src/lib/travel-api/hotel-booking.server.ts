@@ -240,16 +240,29 @@ async function markRequestBooked(partnerOrderId: string, orderId: string | null)
   const row = data as { request_id?: string | null; order_id?: string | null } | null;
   if (!row?.request_id) return;
 
-  await db
+  const supplierOrderId = orderId ?? row.order_id ?? partnerOrderId;
+  // Only the first transition to "confirmed" matches, so polling and the
+  // webhook can never send the customer's confirmation email twice.
+  const { data: updated, error } = await db
     .from("service_requests")
     .update({
       booking_status: "confirmed",
-      hotel_booking_reference: orderId ?? row.order_id ?? partnerOrderId,
-      booking_reference: orderId ?? row.order_id ?? partnerOrderId,
-      pnr: orderId ?? row.order_id ?? partnerOrderId,
+      hotel_booking_reference: supplierOrderId,
+      booking_reference: supplierOrderId,
+      pnr: supplierOrderId,
       hotel_booked_at: new Date().toISOString(),
     })
-    .eq("id", row.request_id);
+    .eq("id", row.request_id)
+    .or("booking_status.is.null,booking_status.neq.confirmed")
+    .select("id");
+  if (error) {
+    console.error("[hotel-booking] confirm request failed", error.message);
+    return;
+  }
+  if (!updated?.length) return;
+
+  const { notifyHotelBookingConfirmed } = await import("../notifications.server");
+  await notifyHotelBookingConfirmed({ requestId: row.request_id, supplierOrderId });
 }
 
 export type CreateBookingResult = {
