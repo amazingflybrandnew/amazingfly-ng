@@ -152,7 +152,16 @@ type RhRate = {
   room_name?: string;
   meal?: string;
   room_data_info?: { types?: { bedding_type?: string } };
-  rg_ext?: { capacity?: number; bedding?: number; class?: number };
+  /** Unique room identifier within the hotel; matched against room_groups. */
+  rg_ext?: Record<string, number>;
+  room_data_trans?: {
+    main_room_type?: string;
+    main_name?: string;
+    bathroom?: string | null;
+    bedding_type?: string | null;
+    misc_room_type?: string | null;
+  };
+  amenities_data?: string[];
   payment_options?: { payment_types?: RhPaymentType[] };
   daily_prices?: RhDailyPrice[] | string[];
 };
@@ -173,9 +182,29 @@ type RhHotelInfo = {
   amenity_groups?: { group_name?: string; amenities?: string[] }[];
   description_struct?: { title?: string; paragraphs?: string[] }[];
   policy_struct?: { title?: string; paragraphs?: string[] }[];
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  room_groups?: RhRoomGroup[];
+  /** Our cache format version; older cached rows are refreshed. */
+  cache_version?: number;
   metapolicy_struct?: unknown;
   metapolicy_extra_info?: string | null;
 };
+
+type RhRoomGroup = {
+  room_group_id?: number;
+  name?: string;
+  name_struct?: { main_name?: string; bedding_type?: string | null; bathroom?: string | null };
+  rg_ext?: Record<string, number>;
+  images?: string[];
+  images_ext?: { url?: string }[];
+  room_amenities?: string[];
+};
+
+/** Bump when trimHotelInfo keeps new fields so stale cached rows refresh. */
+const HOTEL_CONTENT_CACHE_VERSION = 2;
+
+type RoomContext = { groups?: RhRoomGroup[] | undefined; guests?: number | undefined };
 
 type HotelRef = { id?: string; hid?: number };
 
@@ -282,16 +311,64 @@ function mapPayableTaxes(rate: RhRate): HotelPayableTax[] {
     .filter((tax) => tax.amount > 0 && tax.currency);
 }
 
-function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
+/**
+ * ETG: room images/amenities may only be taken from a static room group whose
+ * rg_ext matches the rate's rg_ext on every field; otherwise use the rate's own
+ * amenities_data / room_name / room_data_trans.
+ */
+export function matchRoomGroup(
+  rgExt: Record<string, number> | undefined,
+  groups: RhRoomGroup[] | undefined,
+): RhRoomGroup | null {
+  if (!rgExt || !groups?.length) return null;
+  return (
+    groups.find((group) => {
+      if (!group.rg_ext) return false;
+      const keys = new Set([...Object.keys(rgExt), ...Object.keys(group.rg_ext)]);
+      return [...keys].every((key) => (rgExt[key] ?? 0) === (group.rg_ext?.[key] ?? 0));
+    }) ?? null
+  );
+}
+
+function roomGroupImages(group: RhRoomGroup | null): string[] {
+  if (!group) return [];
+  const templates = [
+    ...(group.images ?? []),
+    ...((group.images_ext ?? []).map((image) => image.url).filter(Boolean) as string[]),
+  ];
+  return Array.from(new Set(templates.map((t) => imageUrl(t)).filter(Boolean) as string[])).slice(
+    0,
+    6,
+  );
+}
+
+function mapRate(rate: RhRate, fallbackCurrency: string, context: RoomContext = {}): RoomResult {
   const { price, currency } = ratePrice(rate, fallbackCurrency);
   const name = rate.room_name ?? "Standard room";
+  const group = matchRoomGroup(rate.rg_ext, context.groups);
+  const trans = rate.room_data_trans;
+  const bedType =
+    group?.name_struct?.bedding_type ||
+    trans?.bedding_type ||
+    rate.room_data_info?.types?.bedding_type ||
+    "";
+  const amenities =
+    (group?.room_amenities?.length ? group.room_amenities : rate.amenities_data) ?? [];
+  const images = roomGroupImages(group);
   return {
     roomId: rate.book_hash ?? rate.match_hash ?? name,
     bookHash: rate.book_hash ?? null,
     roomName: name,
-    roomType: name,
-    bedType: rate.room_data_info?.types?.bedding_type ?? "Not specified",
-    capacity: rate.rg_ext?.capacity ?? 2,
+    roomType: group?.name_struct?.main_name || trans?.main_room_type || name,
+    bedType: bedType ? humanise(bedType) : "",
+    // Rates are returned for the searched occupancy; rg_ext.capacity is a
+    // room-class code, not a reliable guest count.
+    capacity: context.guests || rate.rg_ext?.["capacity"] || 2,
+    ...(images.length ? { images } : {}),
+    ...(amenities.length
+      ? { amenities: Array.from(new Set(amenities.map(humanise))).slice(0, 10) }
+      : {}),
+    ...(trans?.bathroom ? { bathroom: humanise(trans.bathroom) } : {}),
     cancellationPolicy: mapCancellation(rate, fallbackCurrency),
     ...(rate.meal ? { boardType: mealLabel(rate.meal) } : {}),
     price,
@@ -299,6 +376,10 @@ function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
     paymentOptions: mapPaymentOptions(rate, fallbackCurrency),
     taxesPayableAtHotel: mapPayableTaxes(rate),
   };
+}
+
+function guestCount(request: HotelSearchRequest): number {
+  return Math.max(1, request.guests.adults || 1) + (request.guests.children ?? 0);
 }
 
 function mealLabel(meal: string): string {
@@ -317,8 +398,9 @@ function mapHotel(
   nights: number,
 ): HotelResult {
   const currency = providerCurrency(request.currency);
+  const context: RoomContext = { groups: info?.room_groups, guests: guestCount(request) };
   const rooms = (serp.rates ?? [])
-    .map((rate) => mapRate(rate, currency))
+    .map((rate) => mapRate(rate, currency, context))
     .sort((a, b) => a.price - b.price)
     .slice(0, MAX_RATES_PER_HOTEL);
   const cheapest = rooms[0] ?? null;
@@ -377,6 +459,22 @@ function trimHotelInfo(hotel: RhHotelInfo): RhHotelInfo {
     ...(hotel.description_struct ? { description_struct: hotel.description_struct } : {}),
     ...(hotel.policy_struct ? { policy_struct: hotel.policy_struct } : {}),
     ...(hotel.metapolicy_struct ? { metapolicy_struct: hotel.metapolicy_struct } : {}),
+    ...(hotel.check_in_time ? { check_in_time: hotel.check_in_time } : {}),
+    ...(hotel.check_out_time ? { check_out_time: hotel.check_out_time } : {}),
+    ...(hotel.room_groups
+      ? {
+          room_groups: hotel.room_groups.map((group) => ({
+            ...(group.room_group_id != null ? { room_group_id: group.room_group_id } : {}),
+            ...(group.name ? { name: group.name } : {}),
+            ...(group.name_struct ? { name_struct: group.name_struct } : {}),
+            ...(group.rg_ext ? { rg_ext: group.rg_ext } : {}),
+            ...(group.room_amenities ? { room_amenities: group.room_amenities } : {}),
+            ...(group.images ? { images: group.images.slice(0, 6) } : {}),
+            ...(group.images_ext ? { images_ext: group.images_ext.slice(0, 6) } : {}),
+          })),
+        }
+      : {}),
+    cache_version: HOTEL_CONTENT_CACHE_VERSION,
     ...(hotel.metapolicy_extra_info ? { metapolicy_extra_info: hotel.metapolicy_extra_info } : {}),
   };
 }
@@ -390,7 +488,10 @@ async function fetchHotelInfo(refs: string[]): Promise<Map<string, RhHotelInfo>>
   const keys = Array.from(new Set(refs.map((ref) => refKey(parseHotelRef(ref))).filter(Boolean)));
   const { readCachedHotelContent, writeCachedHotelContent } =
     await import("./hotel-content-cache.server");
-  const mapped = await readCachedHotelContent<RhHotelInfo>(keys);
+  const cached = await readCachedHotelContent<RhHotelInfo>(keys);
+  const mapped = new Map(
+    [...cached].filter(([, content]) => content.cache_version === HOTEL_CONTENT_CACHE_VERSION),
+  );
   const missing = keys.filter((key) => !mapped.has(key)).map(parseHotelRef);
   if (!missing.length) return mapped;
 
@@ -465,7 +566,33 @@ export type HotelStaticDetails = {
   description: string;
   policies: string;
   importantInfo: HotelPolicySection[];
+  /** Local hotel times, e.g. "14:00". */
+  checkInTime: string | null;
+  checkOutTime: string | null;
 };
+
+/** "14:00:00" -> "14:00". */
+function hotelTime(value: string | null | undefined): string | null {
+  const match = value?.trim().match(/^(\d{1,2}):(\d{2})/);
+  return match ? `${match[1]!.padStart(2, "0")}:${match[2]}` : null;
+}
+
+/** Static details printed on the customer's hotel confirmation (from cache). */
+export async function getHotelVoucherDetails(hotelId: string): Promise<{
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  importantInfo: HotelPolicySection[];
+} | null> {
+  const key = refKey(parseHotelRef(hotelId));
+  if (!key) return null;
+  const info = (await fetchHotelInfo([key])).get(key);
+  if (!info) return null;
+  return {
+    checkInTime: hotelTime(info.check_in_time),
+    checkOutTime: hotelTime(info.check_out_time),
+    importantInfo: formatHotelMetapolicy(info.metapolicy_struct, info.metapolicy_extra_info),
+  };
+}
 
 export async function getHotelDetails(
   hotelId: string,
@@ -512,6 +639,8 @@ export async function getHotelDetails(
     description: flatten(info.description_struct),
     policies: flatten(policyBlocks),
     importantInfo: formatHotelMetapolicy(info.metapolicy_struct, info.metapolicy_extra_info),
+    checkInTime: hotelTime(info.check_in_time),
+    checkOutTime: hotelTime(info.check_out_time),
   };
 }
 
@@ -522,24 +651,30 @@ export async function getHotelRooms(
   assertValidStay(request);
   const currency = providerCurrency(request.currency);
   const ref = parseHotelRef(hotelId);
-  const data = await rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/search/hp/", {
-    ...ref,
-    checkin: request.checkInDate,
-    checkout: request.checkOutDate,
-    guests: buildGuests(request),
-    residency: (request.nationality ?? "gb").toLowerCase(),
-    currency,
-    language: "en",
-  });
+  const key = refKey(ref);
+  // Static room groups come from our content cache (not a live call per page).
+  const [data, info] = await Promise.all([
+    rateHawkFetch<{ hotels?: RhSerpHotel[] }>("/search/hp/", {
+      ...ref,
+      checkin: request.checkInDate,
+      checkout: request.checkOutDate,
+      guests: buildGuests(request),
+      residency: (request.nationality ?? "gb").toLowerCase(),
+      currency,
+      language: "en",
+    }),
+    fetchHotelInfo([key]).then((map) => map.get(key)),
+  ]);
+  const context: RoomContext = { groups: info?.room_groups, guests: guestCount(request) };
 
   const rates = data?.hotels?.[0]?.rates ?? [];
   const seen = new Set<string>();
   const rooms: RoomResult[] = [];
   for (const rate of rates) {
-    const room = mapRate(rate, currency);
-    const key = `${room.roomId}|${room.price}|${room.boardType ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const room = mapRate(rate, currency, context);
+    const dedupeKey = `${room.roomId}|${room.price}|${room.boardType ?? ""}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
     rooms.push(room);
   }
   return rooms.sort((a, b) => a.price - b.price);

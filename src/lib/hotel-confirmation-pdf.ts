@@ -41,7 +41,7 @@ function rgb([r, g, b]: PdfColor): string {
 function normaliseText(value: string): string {
   return value
     .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')
     .replace(/[\u2013\u2014]/g, "-")
     .replace(/\u2022/g, "-")
     .replace(/\u2192/g, "to")
@@ -304,9 +304,10 @@ function buildPdfBytes(pages: PdfPage[]): Uint8Array {
   return new TextEncoder().encode(pdf);
 }
 
-export function createHotelConfirmationPdf(
-  confirmation: BookingConfirmation,
-): { bytes: Uint8Array; filename: string } {
+export function createHotelConfirmationPdf(confirmation: BookingConfirmation): {
+  bytes: Uint8Array;
+  filename: string;
+} {
   const review = confirmation.review;
   const hotel = review.hotel;
 
@@ -346,14 +347,23 @@ export function createHotelConfirmationPdf(
   addRow(pages, "Property", hotel.name);
   addRow(pages, "Address", hotel.address ?? hotel.location);
   addRow(pages, "Location", hotel.location);
+  const voucher = confirmation.hotelVoucher ?? null;
   addRow(pages, "Check-in", date(hotel.checkIn));
+  addRow(
+    pages,
+    "Check-in time",
+    voucher?.checkInTime ? `From ${voucher.checkInTime} (local time)` : null,
+  );
   addRow(pages, "Check-out", date(hotel.checkOut));
   addRow(
     pages,
+    "Check-out time",
+    voucher?.checkOutTime ? `Until ${voucher.checkOutTime} (local time)` : null,
+  );
+  addRow(
+    pages,
     "Stay",
-    hotel.nights != null
-      ? `${hotel.nights} night${hotel.nights === 1 ? "" : "s"}`
-      : null,
+    hotel.nights != null ? `${hotel.nights} night${hotel.nights === 1 ? "" : "s"}` : null,
   );
   addRow(pages, "Room type", hotel.roomType);
   addRow(pages, "Board basis", hotel.boardType);
@@ -390,15 +400,15 @@ export function createHotelConfirmationPdf(
   );
 
   addSectionTitle(pages, "Important information");
+  for (const section of voucher?.importantInfo ?? []) {
+    addParagraph(pages, `${section.title}: ${section.items.join(" ").replace(/\s+/g, " ")}`);
+  }
   addParagraph(
     pages,
     "Keep this confirmation with your travel records. Hotel check-in requirements, local taxes, deposits, incidental charges and identification requirements may be set directly by the property. This document confirms the booking details held by Amazingfly Travels; it does not replace any supplier voucher where the accommodation provider issues one separately.",
   );
 
-  const reference = (review.reference || review.requestId).replace(
-    /[^a-zA-Z0-9_-]+/g,
-    "-",
-  );
+  const reference = (review.reference || review.requestId).replace(/[^a-zA-Z0-9_-]+/g, "-");
 
   return {
     bytes: buildPdfBytes(pages),
@@ -418,9 +428,10 @@ function outcomeTitle(confirmation: BookingConfirmation): string {
   return "Booking Status Document";
 }
 
-export function createBookingOutcomePdf(
-  confirmation: BookingConfirmation,
-): { bytes: Uint8Array; filename: string } {
+export function createBookingOutcomePdf(confirmation: BookingConfirmation): {
+  bytes: Uint8Array;
+  filename: string;
+} {
   const { review } = confirmation;
   if (review.kind === "hotel" && review.bookingStatus === "confirmed") {
     return createHotelConfirmationPdf(confirmation);

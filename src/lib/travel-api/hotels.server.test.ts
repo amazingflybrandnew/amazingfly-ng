@@ -154,7 +154,10 @@ describe("RateHawk hotel content mapping", () => {
       requestedUrls.push(url);
       if (url.startsWith("https://cache.supabase.test/rest/v1/ratehawk_hotel_content_cache")) {
         return Response.json([
-          { hotel_key: "hid:10004834", content: { hid: 10004834, name: "Cached Conrad" } },
+          {
+            hotel_key: "hid:10004834",
+            content: { hid: 10004834, name: "Cached Conrad", cache_version: 2 },
+          },
         ]);
       }
       if (url.endsWith("/api/b2b/v3/search/serp/hotels/")) {
