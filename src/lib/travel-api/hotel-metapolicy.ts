@@ -76,7 +76,9 @@ function describeEntry(entry: Entry): string | null {
   if (!isBlank(ageStart) || !isBlank(ageEnd)) {
     parts.push(`ages ${ageStart ?? 0}–${ageEnd ?? "17"}`);
   }
-  if (entry["extra_bed"] === true) parts.push("extra bed");
+  if (entry["extra_bed"] === true || entry["extra_bed"] === "available") {
+    parts.push("extra bed available");
+  }
   if (!isBlank(entry["amount"])) parts.push(`up to ${entry["amount"]}`);
   if (!isBlank(entry["availability"])) parts.push(words(entry["availability"]).toLowerCase());
   if (!isBlank(entry["payment_type"])) {
@@ -117,6 +119,7 @@ function describeSection(key: string, value: unknown): string[] {
 
 export function stripHtml(value: string): string {
   return value
+    .replace(/\r/g, "")
     .replace(/<\s*br\s*\/?>/gi, "\n")
     .replace(/<\/(p|li|div)>/gi, "\n")
     .replace(/<[^>]+>/g, "")

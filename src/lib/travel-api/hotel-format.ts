@@ -55,26 +55,42 @@ export function formatUtcDateTime(value?: string | null) {
   return `${text} UTC`;
 }
 
+function hasPassed(value: string, now: number) {
+  const time = Date.parse(value);
+  return Number.isFinite(time) && time <= now;
+}
+
 export function describeCancellation(refundable: boolean, until?: string | null) {
   if (!refundable) return "Non-refundable";
   if (!until) return "Free cancellation";
+  if (hasPassed(until, Date.now())) return "Non-refundable";
   return `Free cancellation until ${formatUtcDateTime(until)}`;
 }
 
-/** One line per ETG penalty period (all three layers), times in UTC. */
-export function cancellationPeriods(policy: CancellationPolicy): string[] {
-  const periods = policy.penalties ?? [];
-  if (!periods.length)
+/**
+ * One line per ETG penalty period (all three layers), times in UTC. Periods
+ * that have already ended are dropped; the current one is shown from now.
+ */
+export function cancellationPeriods(
+  policy: CancellationPolicy,
+  now: number = Date.now(),
+): string[] {
+  const periods = (policy.penalties ?? []).filter(
+    (period) => !period.endAt || !hasPassed(period.endAt, now),
+  );
+  if (!periods.length) {
     return [describeCancellation(policy.refundable, policy.freeCancellationUntil)];
+  }
   return periods.map((period) => {
+    const startAt = period.startAt && !hasPassed(period.startAt, now) ? period.startAt : null;
     const window =
-      period.startAt && period.endAt
-        ? `${formatUtcDateTime(period.startAt)} – ${formatUtcDateTime(period.endAt)}`
-        : period.startAt
-          ? `From ${formatUtcDateTime(period.startAt)}`
+      startAt && period.endAt
+        ? `${formatUtcDateTime(startAt)} – ${formatUtcDateTime(period.endAt)}`
+        : startAt
+          ? `From ${formatUtcDateTime(startAt)}`
           : period.endAt
             ? `Until ${formatUtcDateTime(period.endAt)}`
-            : "Any time";
+            : "Until check-in";
     const charge =
       period.amount > 0
         ? `cancellation fee ${formatHotelPrice(period.amount, period.currency)}`

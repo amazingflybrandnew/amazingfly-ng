@@ -14,7 +14,7 @@ import type {
   HotelSearchRequest,
   RoomResult,
 } from "./hotel.types";
-import { formatHotelMetapolicy, type HotelPolicySection } from "./hotel-metapolicy";
+import { formatHotelMetapolicy, stripHtml, type HotelPolicySection } from "./hotel-metapolicy";
 
 export class HotelApiNotConfiguredError extends Error {
   constructor(missing: string[]) {
@@ -262,7 +262,8 @@ function mapCancellation(rate: RhRate, fallbackCurrency: string): CancellationPo
     currency,
   }));
   return {
-    refundable: Boolean(freeUntil),
+    // A free-cancellation deadline that has already passed is not refundable now.
+    refundable: Boolean(freeUntil && Date.parse(freeUntil) > Date.now()),
     freeCancellationUntil: freeUntil,
     description: freeUntil ? `Free cancellation until ${freeUntil}` : "Non-refundable rate",
     penalties: periods,
@@ -292,12 +293,16 @@ function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
     bedType: rate.room_data_info?.types?.bedding_type ?? "Not specified",
     capacity: rate.rg_ext?.capacity ?? 2,
     cancellationPolicy: mapCancellation(rate, fallbackCurrency),
-    ...(rate.meal ? { boardType: humanise(rate.meal) } : {}),
+    ...(rate.meal ? { boardType: mealLabel(rate.meal) } : {}),
     price,
     currency,
     paymentOptions: mapPaymentOptions(rate, fallbackCurrency),
     taxesPayableAtHotel: mapPayableTaxes(rate),
   };
+}
+
+function mealLabel(meal: string): string {
+  return meal === "nomeal" ? "Room only" : humanise(meal);
 }
 
 function humanise(value: string): string {
@@ -474,8 +479,18 @@ export async function getHotelDetails(
   const amenities = (info.amenity_groups ?? []).flatMap((g) => g.amenities ?? []);
   const flatten = (blocks: { title?: string; paragraphs?: string[] }[] | undefined) =>
     (blocks ?? [])
-      .map((b) => [b.title, ...(b.paragraphs ?? [])].filter(Boolean).join("\n"))
+      .map((b) =>
+        [b.title, ...(b.paragraphs ?? [])]
+          .map((text) => stripHtml(text ?? ""))
+          .filter(Boolean)
+          .join("\n"),
+      )
+      .filter(Boolean)
       .join("\n\n");
+  // "Extra info" repeats metapolicy_extra_info, already shown under Important information.
+  const policyBlocks = info.metapolicy_extra_info
+    ? (info.policy_struct ?? []).filter((b) => b.title?.trim().toLowerCase() !== "extra info")
+    : info.policy_struct;
 
   return {
     hotelId: info.hid ? `hid:${info.hid}` : (info.id ?? hotelId),
@@ -495,7 +510,7 @@ export async function getHotelDetails(
     currency: "USD",
     availability: false,
     description: flatten(info.description_struct),
-    policies: flatten(info.policy_struct),
+    policies: flatten(policyBlocks),
     importantInfo: formatHotelMetapolicy(info.metapolicy_struct, info.metapolicy_extra_info),
   };
 }
