@@ -117,3 +117,19 @@ describe("metapolicy details", () => {
     expect(sections[1]!.items[0]).toBe("Line one.\n\nLine two.");
   });
 });
+
+describe("open-ended free period", () => {
+  test("ends at the free-cancellation deadline", () => {
+    const lines = cancellationPeriods(
+      {
+        refundable: true,
+        freeCancellationUntil: "2026-09-25T00:00:00Z",
+        penalties: [{ startAt: null, endAt: null, amount: 0, currency: "NGN" }],
+      },
+      Date.parse("2026-09-24T16:00:00Z"),
+    );
+    expect(lines).toEqual([
+      `Until ${formatUtcDateTime("2026-09-25T00:00:00Z")}: free cancellation`,
+    ]);
+  });
+});

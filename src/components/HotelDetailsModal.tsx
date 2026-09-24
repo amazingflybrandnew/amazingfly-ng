@@ -62,15 +62,15 @@ function RoomCard({
       ) : null}
       <div className="min-w-0">
         <p className="text-sm font-bold text-navy">{room.roomName}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {[
-            room.roomType !== room.roomName ? room.roomType : null,
-            room.bedType,
-            room.bathroom,
-          ]
-            .filter(Boolean)
-            .join(" · ") || "Room details on request"}
-        </p>
+        {[room.roomType !== room.roomName ? room.roomType : null, room.bedType, room.bathroom].some(
+          Boolean,
+        ) ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {[room.roomType !== room.roomName ? room.roomType : null, room.bedType, room.bathroom]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
       </div>
 
       <ul className="space-y-1.5 text-xs">
