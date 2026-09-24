@@ -54,6 +54,12 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 
 const RESIDENCIES = RESIDENCY_COUNTRIES;
 
+/** `?rh_test=price_change` — honoured by the server only in RateHawk sandbox. */
+function simulatePriceChangeRequested(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("rh_test") === "price_change";
+}
+
 function todayISO() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
@@ -325,6 +331,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           bookHash: room.bookHash as string,
           expectedPrice: room.providerPrice ?? room.price,
           expectedCurrency: room.providerCurrency ?? room.currency,
+          ...(simulatePriceChangeRequested() ? { simulatePriceChange: true } : {}),
         },
       });
       return { result, hotel, room };
