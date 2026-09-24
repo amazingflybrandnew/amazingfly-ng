@@ -14,6 +14,8 @@ import type {
 const HOTEL_SEARCH_TIMEOUT_MS = 25_000;
 const HOTEL_INFO_TIMEOUT_MS = 5_000;
 const HOTEL_ROOMS_TIMEOUT_MS = HOTEL_SEARCH_TIMEOUT_MS;
+/** Rate re-check on "Select Room"; the proxy itself allows longer for bookings. */
+const PREBOOK_TIMEOUT_MS = 30_000;
 const CUSTOMER_HOTEL_CURRENCY = "NGN";
 
 async function convertHotelAmount(amount: number, currency: string) {
@@ -241,10 +243,10 @@ export const prebookHotelStayRate = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<HotelPrebookPayload> => {
     const { prebookHotelRate } = await import("./hotels.server");
     try {
-      const outcome = await prebookHotelRate(
-        data.bookHash,
-        data.expectedPrice,
-        data.expectedCurrency,
+      const outcome = await withTimeout(
+        prebookHotelRate(data.bookHash, data.expectedPrice, data.expectedCurrency),
+        PREBOOK_TIMEOUT_MS,
+        "The hotel is taking too long to confirm this rate. Please try again or choose another room.",
       );
       if (outcome.status === "unavailable") return { ok: false, error: outcome.message };
       if (outcome.status === "available" && data.simulatePriceChange) {
