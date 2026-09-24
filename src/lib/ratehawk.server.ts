@@ -208,7 +208,11 @@ async function postViaProxy(
   const proxy = new URL(proxyUrl);
   const target = new URL(targetUrl);
   const targetPort = Number(target.port || 443);
-  const timeoutMs = 30_000;
+  // Idle-socket limit. Searches have their own 25s app-level timeout; booking
+  // and cancellation calls can legitimately take longer at RateHawk.
+  const configuredTimeout = Number(process.env["RATEHAWK_PROXY_TIMEOUT_MS"] ?? "");
+  const timeoutMs =
+    Number.isFinite(configuredTimeout) && configuredTimeout >= 10_000 ? configuredTimeout : 120_000;
 
   const connectHeaders: Record<string, string> = { Host: `${target.hostname}:${targetPort}` };
   if (proxy.username) {
