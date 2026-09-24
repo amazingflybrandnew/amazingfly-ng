@@ -1,15 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { toHotelRequest } from "./hotel-stay";
+import type { HotelStaticDetails } from "./hotels.server";
 import type {
+  CancellationPenalty,
   HotelPaymentOption,
   HotelResult,
   HotelSearchResponse,
   RoomResult,
 } from "./hotel.types";
 
+// ETG recommends 20-30s for search requests (SERP and hotel page).
+const HOTEL_SEARCH_TIMEOUT_MS = 25_000;
 const HOTEL_INFO_TIMEOUT_MS = 5_000;
-const HOTEL_ROOMS_TIMEOUT_MS = 18_000;
+const HOTEL_ROOMS_TIMEOUT_MS = HOTEL_SEARCH_TIMEOUT_MS;
 const CUSTOMER_HOTEL_CURRENCY = "NGN";
 
 async function convertHotelAmount(amount: number, currency: string) {
@@ -30,13 +34,32 @@ async function localizePaymentOption(option: HotelPaymentOption): Promise<HotelP
   };
 }
 
+async function localizePenalties(
+  penalties: CancellationPenalty[] | undefined,
+): Promise<CancellationPenalty[] | undefined> {
+  if (!penalties) return undefined;
+  return Promise.all(
+    penalties.map(async (penalty) => ({
+      ...penalty,
+      amount: await convertHotelAmount(penalty.amount, penalty.currency),
+      currency: CUSTOMER_HOTEL_CURRENCY,
+    })),
+  );
+}
+
 async function localizeRoom(room: RoomResult): Promise<RoomResult> {
-  const [price, paymentOptions] = await Promise.all([
+  // Taxes payable at the hotel intentionally stay in their original currency.
+  const [price, paymentOptions, penalties] = await Promise.all([
     convertHotelAmount(room.price, room.currency),
     Promise.all(room.paymentOptions.map(localizePaymentOption)),
+    localizePenalties(room.cancellationPolicy.penalties),
   ]);
   return {
     ...room,
+    cancellationPolicy: {
+      ...room.cancellationPolicy,
+      ...(penalties ? { penalties } : {}),
+    },
     providerPrice: room.providerPrice ?? room.price,
     providerCurrency: room.providerCurrency ?? room.currency,
     price,
@@ -110,7 +133,7 @@ const detailsInput = z
 export type HotelDetailsPayload =
   | {
       ok: true;
-      hotel: (HotelResult & { description: string; policies: string }) | null;
+      hotel: (HotelResult & HotelStaticDetails) | null;
       rooms: RoomResult[];
     }
   | { ok: false; error: string };
@@ -124,7 +147,11 @@ export const searchHotelStays = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<HotelSearchResponse> => {
     const { searchHotels } = await import("./hotels.server");
     try {
-      const providerResults = await searchHotels(toHotelRequest(data));
+      const providerResults = await withTimeout(
+        searchHotels(toHotelRequest(data)),
+        HOTEL_SEARCH_TIMEOUT_MS,
+        "Hotel search is taking too long. Please try again or adjust your search.",
+      );
       const results = await Promise.all(providerResults.map(localizeHotel));
       return { ok: true, results };
     } catch (error) {

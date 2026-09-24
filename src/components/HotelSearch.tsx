@@ -35,7 +35,13 @@ import type { HotelPaymentOption, HotelResult, RoomResult } from "@/lib/travel-a
 import { createHotelRequest } from "@/lib/hotel-request.functions";
 import { HotelSearchSkeleton } from "@/components/HotelSearchSkeleton";
 import { HotelConfirmation } from "@/components/HotelConfirmation";
-import { formatHotelPrice, nightsBetween, perNightPrice } from "@/lib/travel-api/hotel-format";
+import { RESIDENCY_COUNTRIES } from "@/lib/geo/residency-countries";
+import {
+  cancellationSummary,
+  formatHotelPrice,
+  nightsBetween,
+  perNightPrice,
+} from "@/lib/travel-api/hotel-format";
 import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
 
 type SortKey = "recommended" | "price" | "rating";
@@ -46,15 +52,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "rating", label: "Highest rating" },
 ];
 
-const RESIDENCIES = [
-  { code: "NG", label: "Nigeria" },
-  { code: "UZ", label: "Uzbekistan" },
-  { code: "GB", label: "United Kingdom" },
-  { code: "US", label: "United States" },
-  { code: "AE", label: "United Arab Emirates" },
-  { code: "DE", label: "Germany" },
-  { code: "FR", label: "France" },
-];
+const RESIDENCIES = RESIDENCY_COUNTRIES;
 
 function todayISO() {
   const now = new Date();
@@ -295,9 +293,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           rooms: submittedStay?.rooms ?? 1,
           roomType: room.roomName,
           boardType: room.boardType ?? null,
-          cancellationPolicy: room.cancellationPolicy.refundable
-            ? `Free cancellation${room.cancellationPolicy.freeCancellationUntil ? ` until ${room.cancellationPolicy.freeCancellationUntil}` : ""}`
-            : "Non-refundable",
+          cancellationPolicy: cancellationSummary(room.cancellationPolicy),
           price: payment.showAmount || room.price,
           currency: payment.showCurrency || room.currency,
           bookHash: room.bookHash ?? null,

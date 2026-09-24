@@ -16,10 +16,29 @@ export type HotelSearchRequest = {
   currency?: string; // preferred display currency, e.g. "NGN"
 };
 
+/**
+ * One cancellation-penalty period. ETG returns all times in UTC+0; a null
+ * `startAt` means "from booking", a null `endAt` means "until check-in".
+ */
+export type CancellationPenalty = {
+  startAt: string | null;
+  endAt: string | null;
+  amount: number; // 0 = free cancellation in this period
+  currency: string;
+};
+
 export type CancellationPolicy = {
   refundable: boolean;
-  freeCancellationUntil?: string | null; // ISO 8601 datetime
+  freeCancellationUntil?: string | null; // ISO 8601 datetime, UTC
   description?: string;
+  penalties?: CancellationPenalty[];
+};
+
+/** A tax the guest pays at the property; never added to the booking price. */
+export type HotelPayableTax = {
+  name: string;
+  amount: number;
+  currency: string; // original currency_code from ETG
 };
 
 export type HotelPaymentType = "deposit" | "hotel" | "now";
@@ -60,6 +79,8 @@ export type RoomResult = {
   providerCurrency?: string;
   /** Payment methods are rate-specific and may change again at prebook. */
   paymentOptions: HotelPaymentOption[];
+  /** tax_data.taxes with included_by_supplier: false, shown separately. */
+  taxesPayableAtHotel?: HotelPayableTax[];
 };
 
 export type HotelResult = {

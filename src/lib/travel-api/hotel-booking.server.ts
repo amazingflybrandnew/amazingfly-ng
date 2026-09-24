@@ -60,6 +60,12 @@ export class HotelBookingError extends Error {
   }
 }
 
+const DEFAULT_B2B_CONTACT_EMAIL = "amazingflyinternational@gmail.com";
+
+export function b2bContactEmail(): string {
+  return process.env["RATEHAWK_B2B_EMAIL"]?.trim() || DEFAULT_B2B_CONTACT_EMAIL;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function resolveBookingRequestIp(explicit?: string): string {
@@ -362,7 +368,9 @@ export async function startBookingProcess(input: StartBookingInput): Promise<voi
 
   try {
     const envelope = await bookingRequest("/hotel/order/booking/finish/", {
-      user: { email: input.email, phone: input.phone, comment: input.comment ?? "" },
+      // B2B: ETG sends net-priced documents to user.email, so this must be our
+      // corporate address. The customer gets Amazingfly's own confirmation.
+      user: { email: b2bContactEmail(), phone: input.phone, comment: input.comment ?? "" },
       supplier_data: {
         first_name_original: lead.firstName,
         last_name_original: lead.lastName,
