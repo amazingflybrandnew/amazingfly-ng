@@ -152,7 +152,7 @@ describe("RateHawk hotel content mapping", () => {
     globalThis.fetch = (async (input) => {
       const url = String(input instanceof Request ? input.url : input);
       requestedUrls.push(url);
-      if (url.startsWith("https://cache.supabase.test/rest/v1/ratehawk_hotel_content")) {
+      if (url.startsWith("https://cache.supabase.test/rest/v1/ratehawk_hotel_content_cache")) {
         return Response.json([
           { hotel_key: "hid:10004834", content: { hid: 10004834, name: "Cached Conrad" } },
         ]);

@@ -397,13 +397,13 @@ async function fetchHotelInfo(refs: string[]): Promise<Map<string, RhHotelInfo>>
       ...(ids.length ? { ids } : {}),
       language: "en",
     });
-    const rows: { key: string; hid: number | null; content: RhHotelInfo }[] = [];
+    const rows: { key: string; content: RhHotelInfo }[] = [];
     for (const hotel of content ?? []) {
       const trimmed = trimHotelInfo(hotel);
       if (hotel.hid) mapped.set(`hid:${hotel.hid}`, trimmed);
       if (hotel.id) mapped.set(hotel.id, trimmed);
       const key = hotel.hid && hids.includes(hotel.hid) ? `hid:${hotel.hid}` : hotel.id;
-      if (key) rows.push({ key, hid: hotel.hid ?? null, content: trimmed });
+      if (key) rows.push({ key, content: trimmed });
     }
     await writeCachedHotelContent(rows);
   } catch (error) {
