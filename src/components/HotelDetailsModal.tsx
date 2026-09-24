@@ -178,7 +178,11 @@ export function HotelDetailsModal({
   const full = payload?.hotel ?? null;
   // Only live hotelpage (/search/hp/) rates may be selected — never fall back
   // to the SERP rates carried on the search result.
-  const rooms = (payload?.rooms ?? []).filter((room) => Boolean(room.bookHash));
+  // ETG B2B contract: regular hotel bookings use the Deposit payment type only.
+  const rooms = (payload?.rooms ?? []).filter(
+    (room) =>
+      Boolean(room.bookHash) && room.paymentOptions.some((option) => option.type === "deposit"),
+  );
   const images = (full?.images?.length ? full.images : (hotel.images ?? [])).filter(Boolean);
   const gallery = images.length ? images : hotel.hotelImage ? [hotel.hotelImage] : [];
   const amenities = full?.amenities?.length ? full.amenities : hotel.amenities;

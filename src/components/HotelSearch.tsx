@@ -297,7 +297,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           price: payment.showAmount || room.price,
           currency: payment.showCurrency || room.currency,
           bookHash: room.bookHash ?? null,
-          paymentType: payment.type,
+          paymentType: "deposit",
           paymentRequiresCard: payment.requiresCard,
           paymentRequiresCvc: payment.requiresCvc,
           providerPaymentAmount: payment.amount,
@@ -479,13 +479,15 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
 
   const choosePayment = (payment: HotelPaymentOption) => {
     if (!selected || !selectedRoom || !selectedRoom.bookHash) return;
-    if (payment.type === "now") return;
-    if (payment.type === "hotel" && payment.requiresCard) return;
+    if (payment.type !== "deposit") return;
     setSelectedPayment(payment);
     createRequest.mutate({ hotel: selected, room: selectedRoom, payment });
   };
 
-  const livePaymentOptions = selectedRoom?.paymentOptions ?? [];
+  // ETG B2B contract: regular hotel bookings use the Deposit payment type only.
+  const livePaymentOptions = (selectedRoom?.paymentOptions ?? []).filter(
+    (option) => option.type === "deposit",
+  );
 
   return (
     <div className="space-y-8">
