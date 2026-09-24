@@ -186,16 +186,21 @@ async function confirmBooking(requestId: string) {
  * Idempotently starts the relevant supplier booking after a verified payment.
  * Normal hotel `deposit` bookings keep their certified flow. Visa Hotel
  * Reservation uses a separate adapter for the selected pay-at-property rate.
- * A supplier failure never reverses a verified customer payment.
+ * A definitive supplier failure on a paid regular hotel booking is refunded
+ * automatically (see hotel-refund.server).
  */
 async function ensurePaidHotelBooking(requestId: string): Promise<void> {
   const supabase = await admin();
   const { data } = await supabase
     .from("service_requests")
-    .select("service_category, service_type, hotel_payment_type, hotel_certification_scenario")
+    .select(
+      "service_category, service_type, hotel_payment_type, hotel_certification_scenario, payment_status",
+    )
     .eq("id", requestId)
     .maybeSingle();
   const row = (data as Record<string, unknown> | null) ?? {};
+  // Never (re)book once the payment is being refunded.
+  if (String(row["payment_status"] ?? "").startsWith("refund")) return;
   const category = String(row["service_category"] ?? "").toLowerCase();
 
   if (category === VISA_HOTEL_RESERVATION_CATEGORY) {
@@ -222,8 +227,14 @@ async function ensurePaidHotelBooking(requestId: string): Promise<void> {
     const { bookStoredHotelRequest } = await import("../travel-api/hotel-booking.server");
     await bookStoredHotelRequest(requestId, "deposit", certificationScenario);
   } catch (error) {
-    // Payment remains successful; booking status/error is handled by hotel booking persistence.
+    // Payment remains successful; booking status/error is handled by hotel booking
+    // persistence. If no supplier booking is in flight, refund automatically.
     console.error("[paystack] paid hotel supplier booking failed", error);
+    const { refundIfPaidBookingDidNotStart } = await import("../travel-api/hotel-booking.server");
+    await refundIfPaidBookingDidNotStart(
+      requestId,
+      error instanceof Error ? error.message : "Hotel booking could not be started.",
+    );
   }
 }
 
@@ -433,11 +444,22 @@ export async function finalizePaystackPayment(input: {
       );
       const { formatMoney } = await import("../payment-status");
       const amountLabel = formatMoney(amount, currency);
-      await notifyPaymentReceived({
-        requestId,
-        amountLabel,
-        transactionReference: reference,
-      });
+      // A booking that already failed and was refunded has sent its own email.
+      const { data: current } = await supabase
+        .from("service_requests")
+        .select("payment_status")
+        .eq("id", requestId)
+        .maybeSingle();
+      const refunded = String(
+        (current as { payment_status?: string } | null)?.payment_status ?? "",
+      ).startsWith("refund");
+      if (!refunded) {
+        await notifyPaymentReceived({
+          requestId,
+          amountLabel,
+          transactionReference: reference,
+        });
+      }
       await notifyAdminPaidRequest({ requestId, amountLabel, transactionReference: reference });
     } catch (error) {
       console.error("[paystack] notify", error);

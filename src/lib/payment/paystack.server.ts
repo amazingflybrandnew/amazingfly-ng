@@ -131,6 +131,27 @@ export async function startPaystackCheckout(
     };
   }
 
+  // Same rule for hotels: never take real money for a RateHawk SANDBOX booking,
+  // which is not a genuine hotel reservation.
+  if (review.kind === "hotel" && paystackIsLive) {
+    const { isRateHawkSandbox } = await import("../ratehawk.server");
+    if (isRateHawkSandbox()) {
+      return {
+        ok: false,
+        message:
+          "Hotel payments are temporarily paused while the hotel connection is in test mode. No charge was made.",
+      };
+    }
+  }
+
+  // Reserve the room with RateHawk BEFORE charging: an unavailable or re-priced
+  // rate must be caught while no money has been taken.
+  if (review.kind === "hotel" && review.hotel?.paymentType === "deposit") {
+    const { reserveHotelBeforePayment } = await import("../travel-api/hotel-booking.server");
+    const reservation = await reserveHotelBeforePayment(requestId);
+    if (!reservation.ok) return { ok: false, message: reservation.message };
+  }
+
   // Paystack can only charge currencies enabled on the merchant account (NGN
   // for Nigerian accounts). Duffel/RateHawk fares are often USD, so we convert
   // the CUSTOMER charge only — the supplier booking keeps its own currency.
