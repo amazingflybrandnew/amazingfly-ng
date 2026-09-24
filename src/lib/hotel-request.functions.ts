@@ -26,7 +26,8 @@ const hotelInput = z
     price: z.number().nonnegative(),
     currency: z.string().trim().min(3).max(6),
     bookHash: z.string().trim().max(600).nullable().optional(),
-    paymentType: z.enum(["deposit", "hotel", "now"]),
+    // ETG B2B contract: hotel bookings use the Deposit payment type only.
+    paymentType: z.literal("deposit"),
     paymentRequiresCard: z.boolean(),
     paymentRequiresCvc: z.boolean(),
     providerPaymentAmount: z.number().nonnegative(),
@@ -80,12 +81,7 @@ export const createHotelRequest = createServerFn({ method: "POST" })
       .select("id")
       .maybeSingle();
 
-    const paymentLabel =
-      data.paymentType === "hotel"
-        ? "Reserve now — pay at property"
-        : data.paymentType === "deposit"
-          ? "Pay now"
-          : "Provider card payment";
+    const paymentLabel = "Pay now";
 
     const summary = [
       data.hotelName,
