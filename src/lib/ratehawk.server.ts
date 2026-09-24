@@ -249,7 +249,13 @@ async function postViaProxy(
         port: targetPort,
         method: "POST",
         path: `${target.pathname}${target.search}`,
-        headers: { ...headers, "Content-Length": String(Buffer.byteLength(body)) },
+        // One tunnel per request: ask RateHawk to close it, and close it ourselves,
+        // so connections never pile up on the proxy (tinyproxy MaxClients).
+        headers: {
+          ...headers,
+          Connection: "close",
+          "Content-Length": String(Buffer.byteLength(body)),
+        },
         agent: false,
         createConnection: () => tlsSocket,
         timeout: timeoutMs,
@@ -258,6 +264,7 @@ async function postViaProxy(
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => {
+          tlsSocket.destroy();
           const status = res.statusCode ?? 0;
           resolve({
             status,
@@ -265,11 +272,21 @@ async function postViaProxy(
             text: Buffer.concat(chunks).toString("utf8"),
           });
         });
-        res.on("error", reject);
+        res.on("error", (error) => {
+          tlsSocket.destroy();
+          reject(error);
+        });
       },
     );
     req.once("timeout", () => req.destroy(new Error("RateHawk request via proxy timed out.")));
-    req.once("error", reject);
+    req.once("error", (error) => {
+      tlsSocket.destroy();
+      reject(error);
+    });
+    tlsSocket.once("error", (error) => {
+      tlsSocket.destroy();
+      reject(error);
+    });
     req.end(body);
   });
 }
