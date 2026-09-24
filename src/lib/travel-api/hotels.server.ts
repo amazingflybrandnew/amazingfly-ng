@@ -5,13 +5,16 @@
 
 import { RateHawkApiError, RateHawkAuthError, ratehawkFetch } from "@/lib/ratehawk.server";
 import type {
+  CancellationPenalty,
   CancellationPolicy,
+  HotelPayableTax,
   HotelPaymentOption,
   HotelPaymentType,
   HotelResult,
   HotelSearchRequest,
   RoomResult,
 } from "./hotel.types";
+import { formatHotelMetapolicy, type HotelPolicySection } from "./hotel-metapolicy";
 
 export class HotelApiNotConfiguredError extends Error {
   constructor(missing: string[]) {
@@ -126,7 +129,20 @@ type RhPaymentType = {
   is_need_cvc?: boolean;
   cancellation_penalties?: {
     free_cancellation_before?: string | null;
-    policies?: { start_at?: string | null; end_at?: string | null; amount_show?: string }[];
+    policies?: {
+      start_at?: string | null;
+      end_at?: string | null;
+      amount_charge?: string;
+      amount_show?: string;
+    }[];
+  };
+  tax_data?: {
+    taxes?: {
+      name?: string;
+      included_by_supplier?: boolean;
+      amount?: string;
+      currency_code?: string;
+    }[];
   };
 };
 
@@ -157,6 +173,8 @@ type RhHotelInfo = {
   amenity_groups?: { group_name?: string; amenities?: string[] }[];
   description_struct?: { title?: string; paragraphs?: string[] }[];
   policy_struct?: { title?: string; paragraphs?: string[] }[];
+  metapolicy_struct?: unknown;
+  metapolicy_extra_info?: string | null;
 };
 
 type HotelRef = { id?: string; hid?: number };
@@ -226,14 +244,41 @@ function ratePrice(rate: RhRate, fallbackCurrency: string): { price: number; cur
   return { price: amount, currency };
 }
 
-function mapCancellation(rate: RhRate): CancellationPolicy {
-  const penalties = rate.payment_options?.payment_types?.[0]?.cancellation_penalties;
-  const freeUntil = penalties?.free_cancellation_before ?? null;
+/** ETG returns UTC+0 times without a zone suffix; make that explicit. */
+function utcTimestamp(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`;
+}
+
+function mapCancellation(rate: RhRate, fallbackCurrency: string): CancellationPolicy {
+  const option = rate.payment_options?.payment_types?.[0];
+  const penalties = option?.cancellation_penalties;
+  const freeUntil = utcTimestamp(penalties?.free_cancellation_before);
+  const currency = option?.show_currency_code ?? option?.currency_code ?? fallbackCurrency;
+  const periods: CancellationPenalty[] = (penalties?.policies ?? []).map((policy) => ({
+    startAt: utcTimestamp(policy.start_at),
+    endAt: utcTimestamp(policy.end_at),
+    amount: numberOrZero(policy.amount_show ?? policy.amount_charge),
+    currency,
+  }));
   return {
     refundable: Boolean(freeUntil),
     freeCancellationUntil: freeUntil,
     description: freeUntil ? `Free cancellation until ${freeUntil}` : "Non-refundable rate",
+    penalties: periods,
   };
+}
+
+function mapPayableTaxes(rate: RhRate): HotelPayableTax[] {
+  const taxes = rate.payment_options?.payment_types?.[0]?.tax_data?.taxes ?? [];
+  return taxes
+    .filter((tax) => tax.included_by_supplier === false)
+    .map((tax) => ({
+      name: humanise(tax.name ?? "Local tax"),
+      amount: numberOrZero(tax.amount),
+      currency: (tax.currency_code ?? "").toUpperCase(),
+    }))
+    .filter((tax) => tax.amount > 0 && tax.currency);
 }
 
 function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
@@ -246,11 +291,12 @@ function mapRate(rate: RhRate, fallbackCurrency: string): RoomResult {
     roomType: name,
     bedType: rate.room_data_info?.types?.bedding_type ?? "Not specified",
     capacity: rate.rg_ext?.capacity ?? 2,
-    cancellationPolicy: mapCancellation(rate),
+    cancellationPolicy: mapCancellation(rate, fallbackCurrency),
     ...(rate.meal ? { boardType: humanise(rate.meal) } : {}),
     price,
     currency,
     paymentOptions: mapPaymentOptions(rate, fallbackCurrency),
+    taxesPayableAtHotel: mapPayableTaxes(rate),
   };
 }
 
@@ -309,49 +355,65 @@ async function resolveRegionId(destination: string): Promise<number> {
   return region.id;
 }
 
-async function fetchHotelInfo(refs: string[]): Promise<Map<string, RhHotelInfo>> {
-  const parsed = refs.map(parseHotelRef);
-  const hids = parsed.flatMap((ref) => (ref.hid ? [ref.hid] : []));
-  const ids = parsed.flatMap((ref) => (ref.id ? [ref.id] : []));
+/** Keep only the static fields we render, so cached rows stay small. */
+function trimHotelInfo(hotel: RhHotelInfo): RhHotelInfo {
+  return {
+    ...(hotel.id ? { id: hotel.id } : {}),
+    ...(hotel.hid ? { hid: hotel.hid } : {}),
+    ...(hotel.name ? { name: hotel.name } : {}),
+    ...(hotel.star_rating != null ? { star_rating: hotel.star_rating } : {}),
+    ...(hotel.address ? { address: hotel.address } : {}),
+    ...(hotel.region ? { region: hotel.region } : {}),
+    ...(hotel.latitude != null ? { latitude: hotel.latitude } : {}),
+    ...(hotel.longitude != null ? { longitude: hotel.longitude } : {}),
+    ...(hotel.images ? { images: hotel.images.slice(0, 30) } : {}),
+    ...(hotel.images_ext ? { images_ext: hotel.images_ext.slice(0, 30) } : {}),
+    ...(hotel.amenity_groups ? { amenity_groups: hotel.amenity_groups } : {}),
+    ...(hotel.description_struct ? { description_struct: hotel.description_struct } : {}),
+    ...(hotel.policy_struct ? { policy_struct: hotel.policy_struct } : {}),
+    ...(hotel.metapolicy_struct ? { metapolicy_struct: hotel.metapolicy_struct } : {}),
+    ...(hotel.metapolicy_extra_info ? { metapolicy_extra_info: hotel.metapolicy_extra_info } : {}),
+  };
+}
 
-  // Numeric HIDs returned by SERP need to be mapped to static hotel content.
-  // Fetch the requested properties in one Content API call instead of making
-  // one request per result. This also covers every sandbox property returned
-  // by search, not only the certification hotel.
+/**
+ * Static hotel content comes from our cache. The Content API is only called
+ * (once, batched) for hotels seen for the first time or whose cached content
+ * is missing or older than the refresh window — never on every search.
+ */
+async function fetchHotelInfo(refs: string[]): Promise<Map<string, RhHotelInfo>> {
+  const keys = Array.from(new Set(refs.map((ref) => refKey(parseHotelRef(ref))).filter(Boolean)));
+  const { readCachedHotelContent, writeCachedHotelContent } =
+    await import("./hotel-content-cache.server");
+  const mapped = await readCachedHotelContent<RhHotelInfo>(keys);
+  const missing = keys.filter((key) => !mapped.has(key)).map(parseHotelRef);
+  if (!missing.length) return mapped;
+
+  const hids = missing.flatMap((ref) => (ref.hid ? [ref.hid] : []));
+  const ids = missing.flatMap((ref) => (ref.id ? [ref.id] : []));
   try {
     const content = await ratehawkFetch<RhHotelInfo[]>("/api/content/v1/hotel_content_by_ids/", {
       ...(hids.length ? { hids } : {}),
       ...(ids.length ? { ids } : {}),
       language: "en",
     });
-    if (content?.length) {
-      const mapped = new Map<string, RhHotelInfo>();
-      for (const hotel of content) {
-        if (hotel.hid) mapped.set(`hid:${hotel.hid}`, hotel);
-        if (hotel.id) mapped.set(hotel.id, hotel);
-      }
-      return mapped;
+    const rows: { key: string; hid: number | null; content: RhHotelInfo }[] = [];
+    for (const hotel of content ?? []) {
+      const trimmed = trimHotelInfo(hotel);
+      if (hotel.hid) mapped.set(`hid:${hotel.hid}`, trimmed);
+      if (hotel.id) mapped.set(hotel.id, trimmed);
+      const key = hotel.hid && hids.includes(hotel.hid) ? `hid:${hotel.hid}` : hotel.id;
+      if (key) rows.push({ key, hid: hotel.hid ?? null, content: trimmed });
     }
-  } catch {
-    // Keep the legacy hotel-info fallback for accounts where Content API is
-    // unavailable, while allowing search rates to remain usable.
+    await writeCachedHotelContent(rows);
+  } catch (error) {
+    // Rates stay usable without static content; details fall back separately.
+    console.warn(
+      "[Hotels] content API lookup failed",
+      error instanceof Error ? error.message : error,
+    );
   }
-
-  const entries = await Promise.all(
-    refs.map(async (key) => {
-      const ref = parseHotelRef(key);
-      try {
-        const data = await rateHawkFetch<RhHotelInfo>("/hotel/info/", {
-          ...ref,
-          language: "en",
-        });
-        return data ? ([key, data] as const) : null;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return new Map(entries.filter(Boolean) as (readonly [string, RhHotelInfo])[]);
+  return mapped;
 }
 
 function directHid(destination: string): number | null {
@@ -394,16 +456,18 @@ export async function searchHotels(request: HotelSearchRequest): Promise<HotelRe
     .sort((a, b) => a.price - b.price);
 }
 
-export type HotelStaticDetails = { description: string; policies: string };
+export type HotelStaticDetails = {
+  description: string;
+  policies: string;
+  importantInfo: HotelPolicySection[];
+};
 
 export async function getHotelDetails(
   hotelId: string,
 ): Promise<(HotelResult & HotelStaticDetails) | null> {
   const ref = parseHotelRef(hotelId);
   const key = refKey(ref);
-  const contentInfo = (await fetchHotelInfo([key])).get(key);
-  const info =
-    contentInfo ?? (await rateHawkFetch<RhHotelInfo>("/hotel/info/", { ...ref, language: "en" }));
+  const info = (await fetchHotelInfo([key])).get(key);
   if (!info) return null;
 
   const images = hotelImages(info);
@@ -432,6 +496,7 @@ export async function getHotelDetails(
     availability: false,
     description: flatten(info.description_struct),
     policies: flatten(info.policy_struct),
+    importantInfo: formatHotelMetapolicy(info.metapolicy_struct, info.metapolicy_extra_info),
   };
 }
 
