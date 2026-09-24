@@ -40,9 +40,24 @@ function providerCurrency(requested: string | undefined): string {
   return SUPPORTED_CURRENCIES.has(code) ? code : "USD";
 }
 
+/** ETG search-side failures that are usually transient; retried once. */
+const TRANSIENT_SEARCH_ERRORS = new Set(["core_search_error", "timeout", "unknown"]);
+
 async function rateHawkFetch<T>(path: string, body: unknown): Promise<T | null> {
   try {
-    return await ratehawkFetch<T>(`/api/b2b/v3${path}`, body);
+    try {
+      return await ratehawkFetch<T>(`/api/b2b/v3${path}`, body);
+    } catch (error) {
+      if (
+        path.startsWith("/search/") &&
+        error instanceof RateHawkApiError &&
+        TRANSIENT_SEARCH_ERRORS.has(error.code)
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return await ratehawkFetch<T>(`/api/b2b/v3${path}`, body);
+      }
+      throw error;
+    }
   } catch (error) {
     if (error instanceof RateHawkAuthError) {
       throw new HotelApiNotConfiguredError(["RATEHAWK_KEY_ID", "RATEHAWK_API_TOKEN"]);
@@ -74,6 +89,8 @@ function friendlyProviderError(code: string | null | undefined, status: number):
     case "hotels_not_found":
     case "no_results":
       return "No hotels are available for those dates.";
+    case "core_search_error":
+      return "The hotel provider could not complete this search right now. Please try again in a moment, or try different dates.";
     default:
       return `Hotel search failed (${code ?? status}). Please try again.`;
   }

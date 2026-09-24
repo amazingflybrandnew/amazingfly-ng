@@ -110,3 +110,33 @@ describe("rg_ext room matching", () => {
     expect(unmatched.roomType).toBe("Standard");
   });
 });
+
+describe("transient search errors", () => {
+  test("retries a core_search_error once", async () => {
+    process.env["RATEHAWK_KEY_ID"] = "k";
+    process.env["RATEHAWK_API_TOKEN"] = "t";
+    let serpCalls = 0;
+    globalThis.fetch = (async (input) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (url.endsWith("/search/serp/hotels/")) {
+        serpCalls += 1;
+        if (serpCalls === 1) {
+          return Response.json({ status: "error", error: "core_search_error", data: null });
+        }
+        return Response.json({ status: "ok", data: { hotels: [] } });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    }) as typeof fetch;
+
+    const results = await searchHotels({
+      destination: "1234567",
+      checkInDate: "2027-03-10",
+      checkOutDate: "2027-03-12",
+      guests: { adults: 2, children: 0, childAges: [] },
+      rooms: 1,
+      currency: "USD",
+    });
+    expect(results).toEqual([]);
+    expect(serpCalls).toBe(2);
+  });
+});
