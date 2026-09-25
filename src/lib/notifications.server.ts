@@ -47,7 +47,10 @@ export type RequestNotificationContext = {
   documentCount: number;
 };
 
-const ADMIN_RECIPIENT = process.env["ADMIN_NOTIFICATION_EMAIL"] ?? "info@amazingfly.ng";
+// Operations alerts (new/paid requests, failed bookings, refunds) must reach an
+// inbox that is actually read. ADMIN_NOTIFICATION_EMAIL overrides it.
+const ADMIN_RECIPIENT =
+  process.env["ADMIN_NOTIFICATION_EMAIL"]?.trim() || "amazingflyinternational@gmail.com";
 const SIGN_OFF = ["", "Amazingfly Travels - Amazingfly.ng", ""].join("\n");
 
 const lines = (...parts: (string | false | null | undefined)[]) =>
