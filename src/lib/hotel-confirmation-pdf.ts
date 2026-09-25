@@ -1,3 +1,5 @@
+import { contactDetails } from "@/data/contact";
+import { PDF_LOGO } from "./pdf-logo";
 import type { BookingConfirmation } from "./payment/verify.functions";
 
 const PAGE_WIDTH = 595.28;
@@ -21,6 +23,14 @@ const TEXT: PdfColor = [0.12, 0.16, 0.22];
 const MUTED: PdfColor = [0.42, 0.46, 0.52];
 const LIGHT: PdfColor = [0.95, 0.96, 0.98];
 const WHITE: PdfColor = [1, 1, 1];
+// Brand palette (logo): coral -> purple gradient, navy + orange lettering.
+const BRAND_CORAL: PdfColor = [1, 0.37, 0.4];
+const BRAND_PURPLE: PdfColor = [0.55, 0.36, 0.96];
+const BRAND_NAVY: PdfColor = [0.11, 0.17, 0.45];
+const GREEN: PdfColor = [0.07, 0.55, 0.36];
+const GREEN_TINT: PdfColor = [0.9, 0.97, 0.93];
+const LAVENDER: PdfColor = [0.96, 0.95, 1];
+const HEADER_HEIGHT = 104;
 
 const PASSENGER_TITLE_LABELS: Record<string, string> = {
   mr: "Mr",
@@ -126,17 +136,83 @@ function addLine(
   );
 }
 
+/** Approximate Helvetica text width (points) for right-aligning. */
+function textWidth(value: string, fontSize: number, font: PdfFont = "F1"): number {
+  return normaliseText(value).length * fontSize * (font === "F2" ? 0.56 : 0.5);
+}
+
+function mix(a: PdfColor, b: PdfColor, t: number): PdfColor {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
+/** Horizontal coral -> purple gradient made of thin vertical strips. */
+function addGradient(page: PdfPage, x: number, y: number, width: number, height: number) {
+  const steps = 80;
+  const strip = width / steps;
+  for (let i = 0; i < steps; i += 1) {
+    addFilledRect(
+      page,
+      x + i * strip,
+      y,
+      strip + 0.6,
+      height,
+      mix(BRAND_CORAL, BRAND_PURPLE, i / (steps - 1)),
+    );
+  }
+}
+
+/** Filled rectangle with rounded corners (Bezier arcs). */
+function addRoundedRect(
+  page: PdfPage,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+  color: PdfColor,
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  const k = r * 0.5523;
+  const n = pdfNumber;
+  page.commands.push(
+    [
+      `${rgb(color)} rg`,
+      `${n(x + r)} ${n(y)} m`,
+      `${n(x + width - r)} ${n(y)} l`,
+      `${n(x + width - r + k)} ${n(y)} ${n(x + width)} ${n(y + r - k)} ${n(x + width)} ${n(y + r)} c`,
+      `${n(x + width)} ${n(y + height - r)} l`,
+      `${n(x + width)} ${n(y + height - r + k)} ${n(x + width - r + k)} ${n(y + height)} ${n(x + width - r)} ${n(y + height)} c`,
+      `${n(x + r)} ${n(y + height)} l`,
+      `${n(x + r - k)} ${n(y + height)} ${n(x)} ${n(y + height - r + k)} ${n(x)} ${n(y + height - r)} c`,
+      `${n(x)} ${n(y + r)} l`,
+      `${n(x)} ${n(y + r - k)} ${n(x + r - k)} ${n(y)} ${n(x + r)} ${n(y)} c`,
+      "f",
+    ].join(" "),
+  );
+}
+
+function addLogo(page: PdfPage, x: number, y: number, size: number) {
+  page.commands.push(
+    `q ${pdfNumber(size)} 0 0 ${pdfNumber(size)} ${pdfNumber(x)} ${pdfNumber(y)} cm /Logo Do Q`,
+  );
+}
+
 function drawHeader(page: PdfPage) {
-  addFilledRect(page, 0, PAGE_HEIGHT - 92, PAGE_WIDTH, 92, NAVY);
-  addFilledRect(page, 0, PAGE_HEIGHT - 96, PAGE_WIDTH, 4, ORANGE);
-  addText(page, "AMAZINGFLY TRAVELS", MARGIN, PAGE_HEIGHT - 45, 20, "F2", WHITE);
-  addText(page, page.documentTitle, MARGIN, PAGE_HEIGHT - 67, 11, "F1", WHITE);
-  addText(page, "Amazingfly.ng", PAGE_WIDTH - MARGIN - 78, PAGE_HEIGHT - 50, 9, "F2", WHITE);
-  page.cursorY = PAGE_HEIGHT - 125;
+  const top = PAGE_HEIGHT - HEADER_HEIGHT;
+  addGradient(page, 0, top, PAGE_WIDTH, HEADER_HEIGHT);
+  addLogo(page, MARGIN, top + 18, 68);
+  addText(page, "Amazingfly Travels", MARGIN + 84, top + 58, 21, "F2", WHITE);
+  addText(page, page.documentTitle, MARGIN + 84, top + 36, 11.5, "F1", WHITE);
+  const site = "amazingfly.ng";
+  addText(page, site, PAGE_WIDTH - MARGIN - textWidth(site, 10, "F2"), top + 58, 10, "F2", WHITE);
+  const phone = contactDetails.phoneDisplay;
+  addText(page, phone, PAGE_WIDTH - MARGIN - textWidth(phone, 9), top + 40, 9, "F1", WHITE);
+  addFilledRect(page, 0, top - 4, PAGE_WIDTH, 4, ORANGE);
+  page.cursorY = top - 34;
 }
 
 function makePage(documentTitle: string): PdfPage {
-  const page: PdfPage = { commands: [], cursorY: PAGE_HEIGHT - 125, documentTitle };
+  const page: PdfPage = { commands: [], cursorY: PAGE_HEIGHT - HEADER_HEIGHT - 34, documentTitle };
   drawHeader(page);
   return page;
 }
@@ -151,12 +227,12 @@ function ensureSpace(pages: PdfPage[], required: number): PdfPage {
 }
 
 function addSectionTitle(pages: PdfPage[], title: string) {
-  const page = ensureSpace(pages, 52);
-  page.cursorY -= 10;
-  addFilledRect(page, MARGIN, page.cursorY - 3, CONTENT_WIDTH, 28, LIGHT);
-  addFilledRect(page, MARGIN, page.cursorY - 3, 4, 28, ORANGE);
-  addText(page, title, MARGIN + 14, page.cursorY + 6, 12, "F2", NAVY);
-  page.cursorY -= 38;
+  const page = ensureSpace(pages, 56);
+  page.cursorY -= 12;
+  addRoundedRect(page, MARGIN, page.cursorY - 5, CONTENT_WIDTH, 28, 8, LAVENDER);
+  addGradient(page, MARGIN + 12, page.cursorY + 3, 22, 3);
+  addText(page, title.toUpperCase(), MARGIN + 42, page.cursorY + 4, 10.5, "F2", BRAND_NAVY);
+  page.cursorY -= 32;
 }
 
 function addRow(pages: PdfPage[], label: string, value: string | null | undefined) {
@@ -250,7 +326,8 @@ function buildPdfBytes(pages: PdfPage[]): Uint8Array {
   const pageCount = pages.length;
   const fontRegularId = 3;
   const fontBoldId = 4;
-  const firstPageId = 5;
+  const logoId = 5;
+  const firstPageId = 6;
   const objects: string[] = [];
 
   const pageKids = pages.map((_, index) => `${firstPageId + index * 2} 0 R`).join(" ");
@@ -260,6 +337,10 @@ function buildPdfBytes(pages: PdfPage[]): Uint8Array {
     `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`;
   objects[fontBoldId] =
     `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`;
+  // Hex-encoded JPEG keeps the whole file ASCII, so string offsets stay exact.
+  const logoStream = `${PDF_LOGO.hex}>`;
+  objects[logoId] =
+    `<< /Type /XObject /Subtype /Image /Width ${PDF_LOGO.width} /Height ${PDF_LOGO.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${logoStream.length} >>\nstream\n${logoStream}\nendstream`;
 
   pages.forEach((page, index) => {
     const pageId = firstPageId + index * 2;
@@ -279,7 +360,7 @@ function buildPdfBytes(pages: PdfPage[]): Uint8Array {
 
     const stream = page.commands.join("\n");
     objects[pageId] =
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfNumber(PAGE_WIDTH)} ${pdfNumber(PAGE_HEIGHT)}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> >> /Contents ${contentId} 0 R >>`;
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfNumber(PAGE_WIDTH)} ${pdfNumber(PAGE_HEIGHT)}] /Resources << /Font << /F1 ${fontRegularId} 0 R /F2 ${fontBoldId} 0 R >> /XObject << /Logo ${logoId} 0 R >> >> /Contents ${contentId} 0 R >>`;
     objects[contentId] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
   });
 
@@ -316,87 +397,138 @@ export function createHotelConfirmationPdf(confirmation: BookingConfirmation): {
   }
 
   const pages: PdfPage[] = [makePage("Hotel Booking Confirmation")];
+  const page = pages[0]!;
   const transaction = review.transaction;
   const amount = transaction?.amount ?? review.amount;
   const currency = transaction?.currency ?? review.currency;
   const guestCount = hotel.guests ?? review.passengerCount ?? 1;
+  const roomCount = hotel.rooms ?? 1;
   const providerReference = confirmation.hotelSupplierReferences?.providerReference ?? null;
   const orderId = confirmation.hotelSupplierReferences?.orderId ?? null;
-  const bookingReference = review.pnr;
+  const hotelConfirmation = providerReference || orderId || review.pnr || null;
+  const amazingflyReference = review.reference || review.requestId;
+  const voucher = confirmation.hotelVoucher ?? null;
   const amountLabel = transaction?.status === "successful" ? "Amount paid" : "Booking amount";
 
-  addSectionTitle(pages, "Confirmation summary");
-  addRow(pages, "Amazingfly reference", review.reference || review.requestId);
-  addRow(pages, "Booking status", "Confirmed");
-  addRow(pages, "Hotel supplier reference", providerReference);
-  addRow(pages, "RateHawk order ID", orderId && orderId !== providerReference ? orderId : null);
-  addRow(
-    pages,
-    "Booking reference",
-    bookingReference && bookingReference !== providerReference && bookingReference !== orderId
-      ? bookingReference
-      : null,
+  // ---- Confirmed banner ---------------------------------------------------
+  let y = page.cursorY + 12;
+  addRoundedRect(page, MARGIN, y - 62, CONTENT_WIDTH, 62, 12, GREEN_TINT);
+  addRoundedRect(page, MARGIN + 16, y - 32, 148, 22, 11, GREEN);
+  addText(page, "BOOKING CONFIRMED", MARGIN + 29, y - 25, 10, "F2", WHITE);
+  if (hotelConfirmation) {
+    addText(
+      page,
+      `Hotel confirmation no. ${hotelConfirmation}`,
+      MARGIN + 18,
+      y - 50,
+      9.5,
+      "F1",
+      TEXT,
+    );
+  }
+  const refLabel = "AMAZINGFLY REFERENCE";
+  addText(
+    page,
+    refLabel,
+    PAGE_WIDTH - MARGIN - 24 - textWidth(refLabel, 8, "F2"),
+    y - 24,
+    8,
+    "F2",
+    MUTED,
   );
-  addRow(pages, "Transaction reference", transaction?.transaction_reference ?? null);
-  addRow(pages, amountLabel, money(amount, currency));
-  addRow(pages, "Payment date", dateTime(transaction?.paid_at ?? null));
-  addRow(pages, "Booking contact", confirmation.contactName || null);
-  addRow(pages, "Contact email", confirmation.contactEmail || null);
+  addText(
+    page,
+    amazingflyReference,
+    PAGE_WIDTH - MARGIN - 24 - textWidth(amazingflyReference, 13, "F2"),
+    y - 43,
+    13,
+    "F2",
+    BRAND_NAVY,
+  );
+  y -= 62 + 30;
 
-  addSectionTitle(pages, "Hotel details");
-  addRow(pages, "Property", hotel.name);
-  addRow(pages, "Address", hotel.address ?? hotel.location);
-  addRow(pages, "Location", hotel.location);
-  const voucher = confirmation.hotelVoucher ?? null;
-  addRow(pages, "Check-in", date(hotel.checkIn));
-  addRow(
-    pages,
-    "Check-in time",
-    voucher?.checkInTime ? `From ${voucher.checkInTime} (local time)` : null,
-  );
-  addRow(pages, "Check-out", date(hotel.checkOut));
-  addRow(
-    pages,
-    "Check-out time",
-    voucher?.checkOutTime ? `Until ${voucher.checkOutTime} (local time)` : null,
-  );
-  addRow(
-    pages,
-    "Stay",
-    hotel.nights != null ? `${hotel.nights} night${hotel.nights === 1 ? "" : "s"}` : null,
-  );
+  // ---- Hotel ---------------------------------------------------------------
+  const nameLines = wrapText(hotel.name ?? "Your hotel", 19, CONTENT_WIDTH);
+  nameLines.slice(0, 2).forEach((line, index) => {
+    addText(page, line, MARGIN, y - index * 23, 19, "F2", BRAND_NAVY);
+  });
+  y -= Math.min(2, nameLines.length) * 23;
+  const address = hotel.address ?? hotel.location;
+  wrapText(address ?? "", 10, CONTENT_WIDTH)
+    .slice(0, 2)
+    .forEach((line) => {
+      addText(page, line, MARGIN, y, 10, "F1", MUTED);
+      y -= 14;
+    });
+  y -= 14;
+
+  // ---- Stay tiles ------------------------------------------------------------
+  const gap = 10;
+  const tileWidth = (CONTENT_WIDTH - gap * 2) / 3;
+  const tileHeight = 78;
+  const nights =
+    hotel.nights != null ? `${hotel.nights} night${hotel.nights === 1 ? "" : "s"}` : "Your stay";
+  const tiles: [string, string, string][] = [
+    [
+      "CHECK-IN",
+      date(hotel.checkIn) ?? "-",
+      voucher?.checkInTime ? `from ${voucher.checkInTime} (local time)` : "Hotel check-in time",
+    ],
+    [
+      "CHECK-OUT",
+      date(hotel.checkOut) ?? "-",
+      voucher?.checkOutTime ? `until ${voucher.checkOutTime} (local time)` : "Hotel check-out time",
+    ],
+    [
+      "YOUR STAY",
+      nights,
+      `${guestCount} guest${guestCount === 1 ? "" : "s"}, ${roomCount} room${roomCount === 1 ? "" : "s"}`,
+    ],
+  ];
+  tiles.forEach(([label, value, sub], index) => {
+    const x = MARGIN + index * (tileWidth + gap);
+    addRoundedRect(page, x, y - tileHeight, tileWidth, tileHeight, 12, LAVENDER);
+    addGradient(page, x + 14, y - 16, 18, 3);
+    addText(page, label, x + 14, y - 32, 8, "F2", MUTED);
+    addText(page, value, x + 14, y - 52, 13, "F2", BRAND_NAVY);
+    addText(page, sub, x + 14, y - 67, 8.5, "F1", TEXT);
+  });
+  page.cursorY = y - tileHeight - 20;
+
+  // ---- Details -------------------------------------------------------------
+  addSectionTitle(pages, "Your room");
   addRow(pages, "Room type", hotel.roomType);
   addRow(pages, "Board basis", hotel.boardType);
   addRow(pages, "Guests", `${guestCount}`);
-  addRow(pages, "Rooms", hotel.rooms != null ? `${hotel.rooms}` : null);
+  addRow(pages, "Rooms", `${roomCount}`);
 
   if (confirmation.passengers.length > 0) {
-    addSectionTitle(pages, "Travellers");
+    addSectionTitle(pages, "Guests");
     confirmation.passengers.forEach((passenger, index) => {
       const name = travellerName(passenger);
       addRow(
         pages,
-        `Traveller ${index + 1}`,
+        `Guest ${index + 1}`,
         passenger.nationality ? `${name} - ${passenger.nationality}` : name,
       );
     });
   }
 
-  addSectionTitle(pages, "Cancellation terms");
-  if (hotel.cancellationPolicy) {
-    addParagraph(pages, hotel.cancellationPolicy);
-  } else {
-    addParagraph(
-      pages,
-      "No detailed cancellation wording is stored for this booking. Supplier cancellation terms and any applicable penalties still apply. Contact Amazingfly Travels before cancelling if you need the current supplier terms.",
-    );
+  addSectionTitle(pages, "Payment");
+  addRow(pages, amountLabel, money(amount, currency));
+  addRow(pages, "Transaction reference", transaction?.transaction_reference ?? null);
+  addRow(pages, "Payment date", dateTime(transaction?.paid_at ?? null));
+  addRow(pages, "Booking contact", confirmation.contactName || null);
+  addRow(pages, "Contact email", confirmation.contactEmail || null);
+  if (orderId && providerReference && orderId !== providerReference) {
+    addRow(pages, "Supplier order", orderId);
   }
 
-  addSectionTitle(pages, "Amazingfly service-fee note");
+  addSectionTitle(pages, "Cancellation terms");
   addParagraph(
     pages,
-    "Any Amazingfly Travels service fee is separate from supplier hotel cancellation penalties and third-party hotel charges. Service-fee refunds follow Amazingfly Travels' refund policy and depend on whether service work has already begun. This note does not change the supplier's cancellation terms above.",
-    MUTED,
+    hotel.cancellationPolicy ||
+      "No detailed cancellation wording is stored for this booking. Supplier cancellation terms and any applicable penalties still apply. Contact Amazingfly Travels before cancelling if you need the current supplier terms.",
   );
 
   addSectionTitle(pages, "Important information");
@@ -405,11 +537,51 @@ export function createHotelConfirmationPdf(confirmation: BookingConfirmation): {
   }
   addParagraph(
     pages,
-    "Keep this confirmation with your travel records. Hotel check-in requirements, local taxes, deposits, incidental charges and identification requirements may be set directly by the property. This document confirms the booking details held by Amazingfly Travels; it does not replace any supplier voucher where the accommodation provider issues one separately.",
+    "Please present this confirmation (printed or on your phone) together with a valid passport or ID at check-in. Hotel check-in requirements, local taxes, deposits and incidental charges may be set directly by the property.",
+  );
+  addParagraph(
+    pages,
+    "Any Amazingfly Travels service fee is separate from supplier cancellation penalties and hotel charges, and follows Amazingfly Travels' refund policy.",
+    MUTED,
   );
 
-  const reference = (review.reference || review.requestId).replace(/[^a-zA-Z0-9_-]+/g, "-");
+  // ---- Thank-you box -------------------------------------------------------
+  const closing = ensureSpace(pages, 96);
+  closing.cursorY -= 10;
+  const boxTop = closing.cursorY;
+  addRoundedRect(closing, MARGIN, boxTop - 78, CONTENT_WIDTH, 78, 12, LAVENDER);
+  addGradient(closing, MARGIN, boxTop - 4, CONTENT_WIDTH, 4);
+  addLogo(closing, MARGIN + 14, boxTop - 66, 50);
+  addText(
+    closing,
+    "Thank you for booking with Amazingfly Travels",
+    MARGIN + 76,
+    boxTop - 28,
+    12,
+    "F2",
+    BRAND_NAVY,
+  );
+  addText(
+    closing,
+    `Questions about your stay? Call or WhatsApp ${contactDetails.phoneDisplay}`,
+    MARGIN + 76,
+    boxTop - 46,
+    9,
+    "F1",
+    TEXT,
+  );
+  addText(
+    closing,
+    `${contactDetails.email}  |  amazingfly.ng  |  ${contactDetails.businessHours}`,
+    MARGIN + 76,
+    boxTop - 60,
+    9,
+    "F1",
+    MUTED,
+  );
+  closing.cursorY = boxTop - 90;
 
+  const reference = amazingflyReference.replace(/[^a-zA-Z0-9_-]+/g, "-");
   return {
     bytes: buildPdfBytes(pages),
     filename: `Amazingfly-Hotel-Confirmation-${reference}.pdf`,
