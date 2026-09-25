@@ -269,6 +269,8 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [detailHotel, setDetailHotel] = useState<HotelResult | null>(null);
   const [selected, setSelected] = useState<HotelResult | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
+  // Hotelpage hash of the chosen rate (before prebook), re-prebooked at payment.
+  const [searchBookHash, setSearchBookHash] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<HotelPaymentOption | null>(null);
   const [priceAccepted, setPriceAccepted] = useState(false);
   const [pendingHotelId, setPendingHotelId] = useState<string | null>(null);
@@ -303,6 +305,7 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           price: payment.showAmount || room.price,
           currency: payment.showCurrency || room.currency,
           bookHash: room.bookHash ?? null,
+          searchBookHash,
           paymentType: "deposit",
           paymentRequiresCard: payment.requiresCard,
           paymentRequiresCvc: payment.requiresCvc,
@@ -336,8 +339,9 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
       });
       return { result, hotel, room };
     },
-    onSuccess: ({ result }) => {
+    onSuccess: ({ result, room }) => {
       if (!result.ok) return;
+      setSearchBookHash(room.bookHash ?? null);
       setSelectedRoom(result.room);
       setSelectedPayment(null);
       setPriceAccepted(result.status === "available");
