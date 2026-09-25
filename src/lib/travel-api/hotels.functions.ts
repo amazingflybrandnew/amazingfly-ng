@@ -14,8 +14,11 @@ import type {
 const HOTEL_SEARCH_TIMEOUT_MS = 25_000;
 const HOTEL_INFO_TIMEOUT_MS = 5_000;
 const HOTEL_ROOMS_TIMEOUT_MS = HOTEL_SEARCH_TIMEOUT_MS;
-/** Rate re-check on "Select Room"; the proxy itself allows longer for bookings. */
-const PREBOOK_TIMEOUT_MS = 30_000;
+/**
+ * Rate re-check on "Select Room". RateHawk prebook was measured at 5-33s in
+ * sandbox, so allow up to a minute (the proxy itself allows 120s).
+ */
+const PREBOOK_TIMEOUT_MS = 60_000;
 const CUSTOMER_HOTEL_CURRENCY = "NGN";
 
 async function convertHotelAmount(amount: number, currency: string) {
