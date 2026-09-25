@@ -632,7 +632,12 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               {prebook.isPending ? (
                 <p className="flex items-center gap-2 rounded-2xl bg-sky-tint px-4 py-3 text-sm font-semibold text-navy">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Confirming this rate with the hotel…
+                  <span>
+                    Confirming this rate with the hotel…
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      This can take up to a minute. Please keep this page open.
+                    </span>
+                  </span>
                 </p>
               ) : null}
               {prebook.data && !prebook.data.result.ok ? (
