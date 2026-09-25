@@ -21,14 +21,17 @@ export const Route = createFileRoute("/admin/ratehawk")({
 
 function AdminRateHawkPage() {
   const run = useServerFn(runRateHawkDiagnostics);
-  const [hotelId, setHotelId] = useState("test_hotel_do_not_book");
-  const diagnostics = useMutation({ mutationFn: () => run({ data: { hotelId } }) });
+  const [hotelId, setHotelId] = useState("10004834");
+  const [includeBookingForm, setIncludeBookingForm] = useState(false);
+  const diagnostics = useMutation({
+    mutationFn: () => run({ data: { hotelId, includeBookingForm } }),
+  });
   const result = diagnostics.data;
 
   return (
     <AdminShell
       title="RateHawk diagnostics"
-      subtitle="Runs hotel page → rate check → start booking against RateHawk with the site's own credentials and proxy. Nothing is booked or charged."
+      subtitle="Runs hotel page → rate check (and optionally start booking) against RateHawk with the site's own credentials and proxy. Nothing is booked or charged."
     >
       <div className="glass-card space-y-4 rounded-3xl p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -47,9 +50,18 @@ function AdminRateHawkPage() {
             Run test
           </Button>
         </div>
+        <label className="flex items-center gap-2 text-sm text-navy">
+          <input
+            type="checkbox"
+            checked={includeBookingForm}
+            onChange={(event) => setIncludeBookingForm(event.target.checked)}
+          />
+          Also test step 3 (start booking) — opens a booking process at RateHawk; avoid right
+          before a real test booking on the same hotel.
+        </label>
         <p className="text-xs text-muted-foreground">
-          test_hotel_do_not_book is RateHawk&apos;s official sandbox test hotel. You can also enter
-          a numeric hotel ID (e.g. 10573012).
+          10004834 is RateHawk&apos;s standard sandbox test hotel; 8819557 tests a 10% prebook
+          price increase.
         </p>
 
         {diagnostics.error ? (
