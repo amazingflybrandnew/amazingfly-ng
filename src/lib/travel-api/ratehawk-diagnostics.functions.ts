@@ -17,7 +17,11 @@ export type RateHawkDiagnostics = {
 };
 
 const input = z
-  .object({ hotelId: z.string().trim().min(3).max(80).default("test_hotel_do_not_book") })
+  .object({
+    hotelId: z.string().trim().min(3).max(80).default("10004834"),
+    /** Opening a booking process can interfere with real sandbox bookings. */
+    includeBookingForm: z.boolean().default(false),
+  })
   .strict();
 
 type Rate = { book_hash?: string; room_name?: string };
@@ -85,7 +89,7 @@ export const runRateHawkDiagnostics = createServerFn({ method: "POST" })
       : null;
 
     const prebookHash = prebook?.data?.hotels?.[0]?.rates?.[0]?.book_hash;
-    if (prebookHash) {
+    if (prebookHash && data.includeBookingForm) {
       const ip =
         getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ||
         getRequestHeader("x-real-ip")?.trim() ||
