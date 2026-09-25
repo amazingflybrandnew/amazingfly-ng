@@ -639,6 +639,7 @@ async function finishCreatedBooking(
 
 type StoredHotelBooking = {
   bookHash: string;
+  searchBookHash: string | null;
   guests: BookingGuest[];
   email: string;
   phone: string;
@@ -705,8 +706,10 @@ async function loadStoredHotelBooking(
 
   const providerAmount = Number(row["hotel_provider_payment_amount"]);
   const providerCurrency = String(row["hotel_provider_payment_currency"] ?? "").trim().toUpperCase();
+  const searchBookHash = String(row["hotel_search_book_hash"] ?? "").trim();
   return {
     bookHash,
+    searchBookHash: searchBookHash || null,
     guests,
     email,
     phone,
@@ -761,6 +764,21 @@ export async function refundIfPaidBookingDidNotStart(requestId: string, reason: 
   await refundFailedPaidHotelBooking(requestId, reason);
 }
 
+/** Re-runs prebook for a hotelpage hash; null when unavailable or not stored. */
+async function freshPrebookHash(searchBookHash: string | null): Promise<string | null> {
+  if (!searchBookHash) return null;
+  try {
+    const envelope = await bookingRequest<{ hotels?: { rates?: { book_hash?: string }[] }[] }>(
+      "/hotel/prebook/",
+      { hash: searchBookHash, price_increase_percent: 10 },
+    );
+    return envelope.data?.hotels?.[0]?.rates?.[0]?.book_hash ?? null;
+  } catch (error) {
+    console.error("[hotel-booking] pre-payment re-prebook failed", errorCode(error));
+    return null;
+  }
+}
+
 export type HotelReservationCheck =
   | { ok: true; partnerOrderId: string }
   | { ok: false; message: string };
@@ -794,10 +812,19 @@ export async function reserveHotelBeforePayment(
 
   const unavailable =
     "Sorry, this room is no longer available at this price. You have not been charged. Please go back and choose another room.";
+  // Prebook hashes go stale within minutes (the customer fills in traveller
+  // details in between), so re-prebook the selected rate right now and reserve
+  // with the fresh hash immediately.
+  const freshHash = (await freshPrebookHash(stored.searchBookHash)) ?? stored.bookHash;
+  if (freshHash !== stored.bookHash) {
+    const db = await admin();
+    await db.from("service_requests").update({ hotel_book_hash: freshHash }).eq("id", requestId);
+  }
+
   let created: CreateBookingResult;
   try {
     created = await createBookingProcess({
-      bookHash: stored.bookHash,
+      bookHash: freshHash,
       requestId,
       userIp: userIp ?? "",
       certificationScenario: stored.certificationScenario,

@@ -26,6 +26,8 @@ const hotelInput = z
     price: z.number().nonnegative(),
     currency: z.string().trim().min(3).max(6),
     bookHash: z.string().trim().max(600).nullable().optional(),
+    /** Hotelpage hash of the selected rate, re-prebooked right before booking. */
+    searchBookHash: z.string().trim().max(600).nullable().optional(),
     // ETG B2B contract: hotel bookings use the Deposit payment type only.
     paymentType: z.literal("deposit"),
     paymentRequiresCard: z.boolean(),
@@ -137,6 +139,7 @@ export const createHotelRequest = createServerFn({ method: "POST" })
       hotel_price: data.price,
       hotel_currency: data.currency,
       hotel_book_hash: data.bookHash ?? null,
+      hotel_search_book_hash: data.searchBookHash ?? null,
       hotel_payment_type: data.paymentType,
       hotel_payment_requires_card: data.paymentRequiresCard,
       hotel_payment_requires_cvc: data.paymentRequiresCvc,

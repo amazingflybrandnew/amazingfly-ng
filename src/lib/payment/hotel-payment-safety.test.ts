@@ -188,3 +188,39 @@ describe("post-payment finish", () => {
     expect(calls.some((c) => c.url.includes("api.paystack.co"))).toBe(false);
   });
 });
+
+describe("fresh prebook before reservation", () => {
+  test("re-prebooks the hotelpage hash and reserves with the fresh prebook hash", async () => {
+    const calls = fakeBackend(({ url }) => {
+      if (url.includes("/rest/v1/service_requests")) {
+        return Response.json([{ ...REQUEST_ROW, hotel_search_book_hash: "h-search" }]);
+      }
+      if (url.includes("/rest/v1/booking_passengers")) {
+        return Response.json([{ first_name: "Ada", last_name: "Obi" }]);
+      }
+      if (url.endsWith("/hotel/prebook/")) {
+        return Response.json({
+          status: "ok",
+          data: { hotels: [{ rates: [{ book_hash: "p-fresh" }] }] },
+        });
+      }
+      if (url.endsWith("/hotel/order/booking/form/")) {
+        return Response.json({
+          status: "ok",
+          data: {
+            order_id: 777,
+            payment_types: [{ type: "deposit", amount: "104.00", currency_code: "USD" }],
+          },
+        });
+      }
+      return undefined;
+    });
+    const { reserveHotelBeforePayment } = await import("../travel-api/hotel-booking.server");
+    const result = await reserveHotelBeforePayment("req-1", "203.0.113.5");
+    expect(result.ok).toBe(true);
+    const prebook = calls.find((c) => c.url.endsWith("/hotel/prebook/"))!;
+    expect(JSON.parse(prebook.body).hash).toBe("h-search");
+    const form = calls.find((c) => c.url.endsWith("/hotel/order/booking/form/"))!;
+    expect(JSON.parse(form.body).book_hash).toBe("p-fresh");
+  });
+});
