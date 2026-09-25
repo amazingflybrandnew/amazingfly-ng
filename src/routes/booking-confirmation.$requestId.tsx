@@ -103,6 +103,7 @@ function ConfirmationPage() {
     review?.kind === "flight" && Boolean(paid) && review.bookingStatus === "failed";
   const visaFlightReservation = isVisaFlightReservation(review?.catalogueId);
   const bookingFailed = paidHotelBookingFailed || paidFlightBookingFailed;
+  const refundStarted = bookingFailed && String(review?.paymentStatus ?? "").startsWith("refund");
   const canManageConfirmedHotel = review?.kind === "hotel" && review.bookingStatus === "confirmed";
 
   const downloadConfirmation = () => {
@@ -153,14 +154,18 @@ function ConfirmationPage() {
                 <CheckCircle2 className="h-6 w-6 text-navy" aria-hidden="true" />
               </span>
               <h2 className="mt-4 text-2xl font-extrabold text-navy">
-                {bookingFailed
+                {refundStarted
+                  ? `${review.kind === "hotel" ? "Hotel" : "Booking"} not confirmed — full refund initiated`
+                  : bookingFailed
                   ? `Payment received — ${review.kind} booking not confirmed`
                   : paid
                     ? "Payment successful"
                     : "Booking summary"}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                {bookingFailed
+                {refundStarted
+                  ? "The hotel could not confirm this reservation, so we have started a FULL refund of your payment to your original payment method. Depending on your bank it can take a few working days to appear. Please do not make another payment for this request."
+                  : bookingFailed
                   ? "Your payment was received successfully, but the supplier could not confirm the reservation. Please do not make another payment for this request while we review the booking."
                   : visaFlightReservation
                     ? "Payment was received for Amazingfly's processing and documentation service. The reservation below is temporary and is not a paid airline ticket."
@@ -367,7 +372,9 @@ function ConfirmationPage() {
                 What happens next
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                {bookingFailed
+                {refundStarted
+                  ? "Your full refund is on its way; you do not need to do anything. If you would still like to stay, choose another room or contact us and our team will help."
+                  : bookingFailed
                   ? "Your payment is recorded. Our team will review the failed supplier booking and contact you about rebooking or any applicable refund. Please do not make another payment for this request."
                   : visaFlightReservation
                     ? "Download or submit this itinerary only where a temporary reservation is accepted. Requirements vary by embassy or consulate, and visa approval is never guaranteed."
