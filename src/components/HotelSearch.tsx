@@ -35,7 +35,13 @@ import type { HotelPaymentOption, HotelResult, RoomResult } from "@/lib/travel-a
 import { createHotelRequest } from "@/lib/hotel-request.functions";
 import { HotelSearchSkeleton } from "@/components/HotelSearchSkeleton";
 import { HotelConfirmation } from "@/components/HotelConfirmation";
-import { formatHotelPrice, nightsBetween, perNightPrice } from "@/lib/travel-api/hotel-format";
+import { RESIDENCY_COUNTRIES } from "@/lib/geo/residency-countries";
+import {
+  cancellationSummary,
+  formatHotelPrice,
+  nightsBetween,
+  perNightPrice,
+} from "@/lib/travel-api/hotel-format";
 import { scrollElementIntoView } from "@/lib/travel-api/selection-scroll";
 
 type SortKey = "recommended" | "price" | "rating";
@@ -46,15 +52,13 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "rating", label: "Highest rating" },
 ];
 
-const RESIDENCIES = [
-  { code: "NG", label: "Nigeria" },
-  { code: "UZ", label: "Uzbekistan" },
-  { code: "GB", label: "United Kingdom" },
-  { code: "US", label: "United States" },
-  { code: "AE", label: "United Arab Emirates" },
-  { code: "DE", label: "Germany" },
-  { code: "FR", label: "France" },
-];
+const RESIDENCIES = RESIDENCY_COUNTRIES;
+
+/** `?rh_test=price_change` — honoured by the server only in RateHawk sandbox. */
+function simulatePriceChangeRequested(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("rh_test") === "price_change";
+}
 
 function todayISO() {
   const now = new Date();
@@ -265,6 +269,8 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
   const [detailHotel, setDetailHotel] = useState<HotelResult | null>(null);
   const [selected, setSelected] = useState<HotelResult | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<RoomResult | null>(null);
+  // Hotelpage hash of the chosen rate (before prebook), re-prebooked at payment.
+  const [searchBookHash, setSearchBookHash] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<HotelPaymentOption | null>(null);
   const [priceAccepted, setPriceAccepted] = useState(false);
   const [pendingHotelId, setPendingHotelId] = useState<string | null>(null);
@@ -295,13 +301,12 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           rooms: submittedStay?.rooms ?? 1,
           roomType: room.roomName,
           boardType: room.boardType ?? null,
-          cancellationPolicy: room.cancellationPolicy.refundable
-            ? `Free cancellation${room.cancellationPolicy.freeCancellationUntil ? ` until ${room.cancellationPolicy.freeCancellationUntil}` : ""}`
-            : "Non-refundable",
+          cancellationPolicy: cancellationSummary(room.cancellationPolicy),
           price: payment.showAmount || room.price,
           currency: payment.showCurrency || room.currency,
           bookHash: room.bookHash ?? null,
-          paymentType: payment.type,
+          searchBookHash,
+          paymentType: "deposit",
           paymentRequiresCard: payment.requiresCard,
           paymentRequiresCvc: payment.requiresCvc,
           providerPaymentAmount: payment.amount,
@@ -329,12 +334,14 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
           bookHash: room.bookHash as string,
           expectedPrice: room.providerPrice ?? room.price,
           expectedCurrency: room.providerCurrency ?? room.currency,
+          ...(simulatePriceChangeRequested() ? { simulatePriceChange: true } : {}),
         },
       });
       return { result, hotel, room };
     },
-    onSuccess: ({ result }) => {
+    onSuccess: ({ result, room }) => {
       if (!result.ok) return;
+      setSearchBookHash(room.bookHash ?? null);
       setSelectedRoom(result.room);
       setSelectedPayment(null);
       setPriceAccepted(result.status === "available");
@@ -483,13 +490,15 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
 
   const choosePayment = (payment: HotelPaymentOption) => {
     if (!selected || !selectedRoom || !selectedRoom.bookHash) return;
-    if (payment.type === "now") return;
-    if (payment.type === "hotel" && payment.requiresCard) return;
+    if (payment.type !== "deposit") return;
     setSelectedPayment(payment);
     createRequest.mutate({ hotel: selected, room: selectedRoom, payment });
   };
 
-  const livePaymentOptions = selectedRoom?.paymentOptions ?? [];
+  // ETG B2B contract: regular hotel bookings use the Deposit payment type only.
+  const livePaymentOptions = (selectedRoom?.paymentOptions ?? []).filter(
+    (option) => option.type === "deposit",
+  );
 
   return (
     <div className="space-y-8">
@@ -623,7 +632,12 @@ export function HotelSearch({ compact = false }: { compact?: boolean }) {
               {prebook.isPending ? (
                 <p className="flex items-center gap-2 rounded-2xl bg-sky-tint px-4 py-3 text-sm font-semibold text-navy">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  Confirming this rate with the hotel…
+                  <span>
+                    Confirming this rate with the hotel…
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      This can take up to a minute. Please keep this page open.
+                    </span>
+                  </span>
                 </p>
               ) : null}
               {prebook.data && !prebook.data.result.ok ? (

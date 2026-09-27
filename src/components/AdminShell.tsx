@@ -3,6 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Activity,
   BarChart3,
   BellRing,
   ClipboardList,
@@ -43,6 +44,7 @@ const NAV = [
   { to: "/admin/destinations", label: "Destinations", icon: Globe2, action: "manage_content" },
   { to: "/admin/testimonials", label: "Testimonials", icon: Quote, action: "manage_content" },
   { to: "/admin/activity", label: "Activity", icon: History, action: "view" },
+  { to: "/admin/ratehawk", label: "RateHawk test", icon: Activity, action: "manage_payments" },
 ] as const;
 
 export const ROLE_LABELS: Record<string, string> = {

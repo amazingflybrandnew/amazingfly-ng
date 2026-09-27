@@ -32,6 +32,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminActivityRouteImport } from './routes/admin.activity'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminContentRouteImport } from './routes/admin.content'
+import { Route as AdminCustomerSuccessesRouteImport } from './routes/admin.customer-successes'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
 import { Route as AdminFeaturedServicesRouteImport } from './routes/admin.featured-services'
@@ -39,6 +40,7 @@ import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
+import { Route as AdminRatehawkRouteImport } from './routes/admin.ratehawk'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
 import { Route as AdminTestimonialsRouteImport } from './routes/admin.testimonials'
@@ -53,9 +55,9 @@ import { Route as PaymentRequestIdRouteImport } from './routes/payment.$requestI
 import { Route as RequestsIdRouteImport } from './routes/requests.$id'
 import { Route as ServicesIndexRouteImport } from './routes/services.index'
 import { Route as ServicesSlugRouteImport } from './routes/services.$slug'
+import { Route as VisaHotelGuaranteeRequestIdRouteImport } from './routes/visa-hotel-guarantee.$requestId'
 import { Route as VisaIndexRouteImport } from './routes/visa.index'
 import { Route as VisaSlugRouteImport } from './routes/visa.$slug'
-import { Route as VisaHotelGuaranteeRequestIdRouteImport } from './routes/visa-hotel-guarantee.$requestId'
 import { Route as AdminRequestsIndexRouteImport } from './routes/admin.requests.index'
 import { Route as AdminRequestsIdRouteImport } from './routes/admin.requests.$id'
 import { Route as VisaHotelReservationTravellersRequestIdRouteImport } from './routes/visa-hotel-reservation.travellers.$requestId'
@@ -177,6 +179,11 @@ const AdminContentRoute = AdminContentRouteImport.update({
   path: '/admin/content',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCustomerSuccessesRoute = AdminCustomerSuccessesRouteImport.update({
+  id: '/admin/customer-successes',
+  path: '/admin/customer-successes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminCustomersRoute = AdminCustomersRouteImport.update({
   id: '/admin/customers',
   path: '/admin/customers',
@@ -210,6 +217,11 @@ const AdminPackagesRoute = AdminPackagesRouteImport.update({
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
   id: '/admin/payments',
   path: '/admin/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRatehawkRoute = AdminRatehawkRouteImport.update({
+  id: '/admin/ratehawk',
+  path: '/admin/ratehawk',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminServicesRoute = AdminServicesRouteImport.update({
@@ -283,6 +295,12 @@ const ServicesSlugRoute = ServicesSlugRouteImport.update({
   path: '/services/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VisaHotelGuaranteeRequestIdRoute =
+  VisaHotelGuaranteeRequestIdRouteImport.update({
+    id: '/visa-hotel-guarantee/$requestId',
+    path: '/visa-hotel-guarantee/$requestId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const VisaIndexRoute = VisaIndexRouteImport.update({
   id: '/visa/',
   path: '/visa/',
@@ -293,12 +311,6 @@ const VisaSlugRoute = VisaSlugRouteImport.update({
   path: '/visa/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VisaHotelGuaranteeRequestIdRoute =
-  VisaHotelGuaranteeRequestIdRouteImport.update({
-    id: '/visa-hotel-guarantee/$requestId',
-    path: '/visa-hotel-guarantee/$requestId',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const AdminRequestsIndexRoute = AdminRequestsIndexRouteImport.update({
   id: '/admin/requests/',
   path: '/admin/requests/',
@@ -351,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/customer-successes': typeof AdminCustomerSuccessesRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/featured-services': typeof AdminFeaturedServicesRoute
@@ -358,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
@@ -370,8 +384,8 @@ export interface FileRoutesByFullPath {
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
-  '/visa/$slug': typeof VisaSlugRoute
   '/visa-hotel-guarantee/$requestId': typeof VisaHotelGuaranteeRequestIdRoute
+  '/visa/$slug': typeof VisaSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/services/': typeof ServicesIndexRoute
@@ -405,6 +419,7 @@ export interface FileRoutesByTo {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/customer-successes': typeof AdminCustomerSuccessesRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/featured-services': typeof AdminFeaturedServicesRoute
@@ -412,6 +427,7 @@ export interface FileRoutesByTo {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
@@ -424,8 +440,8 @@ export interface FileRoutesByTo {
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
-  '/visa/$slug': typeof VisaSlugRoute
   '/visa-hotel-guarantee/$requestId': typeof VisaHotelGuaranteeRequestIdRoute
+  '/visa/$slug': typeof VisaSlugRoute
   '/admin': typeof AdminIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/services': typeof ServicesIndexRoute
@@ -460,6 +476,7 @@ export interface FileRoutesById {
   '/admin/activity': typeof AdminActivityRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/customer-successes': typeof AdminCustomerSuccessesRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/featured-services': typeof AdminFeaturedServicesRoute
@@ -467,6 +484,7 @@ export interface FileRoutesById {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
   '/admin/testimonials': typeof AdminTestimonialsRoute
@@ -479,8 +497,8 @@ export interface FileRoutesById {
   '/payment/$requestId': typeof PaymentRequestIdRoute
   '/requests/$id': typeof RequestsIdRoute
   '/services/$slug': typeof ServicesSlugRoute
-  '/visa/$slug': typeof VisaSlugRoute
   '/visa-hotel-guarantee/$requestId': typeof VisaHotelGuaranteeRequestIdRoute
+  '/visa/$slug': typeof VisaSlugRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/services/': typeof ServicesIndexRoute
@@ -516,6 +534,7 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/analytics'
     | '/admin/content'
+    | '/admin/customer-successes'
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/featured-services'
@@ -523,6 +542,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
+    | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
@@ -535,8 +555,8 @@ export interface FileRouteTypes {
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
-    | '/visa/$slug'
     | '/visa-hotel-guarantee/$requestId'
+    | '/visa/$slug'
     | '/admin/'
     | '/dashboard/'
     | '/services/'
@@ -570,6 +590,7 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/analytics'
     | '/admin/content'
+    | '/admin/customer-successes'
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/featured-services'
@@ -577,6 +598,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
+    | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
@@ -589,8 +611,8 @@ export interface FileRouteTypes {
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
-    | '/visa/$slug'
     | '/visa-hotel-guarantee/$requestId'
+    | '/visa/$slug'
     | '/admin'
     | '/dashboard'
     | '/services'
@@ -624,6 +646,7 @@ export interface FileRouteTypes {
     | '/admin/activity'
     | '/admin/analytics'
     | '/admin/content'
+    | '/admin/customer-successes'
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/featured-services'
@@ -631,6 +654,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
+    | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
     | '/admin/testimonials'
@@ -643,8 +667,8 @@ export interface FileRouteTypes {
     | '/payment/$requestId'
     | '/requests/$id'
     | '/services/$slug'
-    | '/visa/$slug'
     | '/visa-hotel-guarantee/$requestId'
+    | '/visa/$slug'
     | '/admin/'
     | '/dashboard/'
     | '/services/'
@@ -679,6 +703,7 @@ export interface RootRouteChildren {
   AdminActivityRoute: typeof AdminActivityRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminContentRoute: typeof AdminContentRoute
+  AdminCustomerSuccessesRoute: typeof AdminCustomerSuccessesRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminDestinationsRoute: typeof AdminDestinationsRoute
   AdminFeaturedServicesRoute: typeof AdminFeaturedServicesRoute
@@ -686,6 +711,7 @@ export interface RootRouteChildren {
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPackagesRoute: typeof AdminPackagesRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminRatehawkRoute: typeof AdminRatehawkRoute
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
   AdminTestimonialsRoute: typeof AdminTestimonialsRoute
@@ -698,8 +724,8 @@ export interface RootRouteChildren {
   PaymentRequestIdRoute: typeof PaymentRequestIdRoute
   RequestsIdRoute: typeof RequestsIdRoute
   ServicesSlugRoute: typeof ServicesSlugRoute
-  VisaSlugRoute: typeof VisaSlugRoute
   VisaHotelGuaranteeRequestIdRoute: typeof VisaHotelGuaranteeRequestIdRoute
+  VisaSlugRoute: typeof VisaSlugRoute
   AdminIndexRoute: typeof AdminIndexRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   ServicesIndexRoute: typeof ServicesIndexRoute
@@ -873,6 +899,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/customer-successes': {
+      id: '/admin/customer-successes'
+      path: '/admin/customer-successes'
+      fullPath: '/admin/customer-successes'
+      preLoaderRoute: typeof AdminCustomerSuccessesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/customers': {
       id: '/admin/customers'
       path: '/admin/customers'
@@ -920,6 +953,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/payments'
       fullPath: '/admin/payments'
       preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/ratehawk': {
+      id: '/admin/ratehawk'
+      path: '/admin/ratehawk'
+      fullPath: '/admin/ratehawk'
+      preLoaderRoute: typeof AdminRatehawkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/services': {
@@ -1020,6 +1060,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServicesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/visa-hotel-guarantee/$requestId': {
+      id: '/visa-hotel-guarantee/$requestId'
+      path: '/visa-hotel-guarantee/$requestId'
+      fullPath: '/visa-hotel-guarantee/$requestId'
+      preLoaderRoute: typeof VisaHotelGuaranteeRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/visa/': {
       id: '/visa/'
       path: '/visa'
@@ -1032,13 +1079,6 @@ declare module '@tanstack/react-router' {
       path: '/visa/$slug'
       fullPath: '/visa/$slug'
       preLoaderRoute: typeof VisaSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/visa-hotel-guarantee/$requestId': {
-      id: '/visa-hotel-guarantee/$requestId'
-      path: '/visa-hotel-guarantee/$requestId'
-      fullPath: '/visa-hotel-guarantee/$requestId'
-      preLoaderRoute: typeof VisaHotelGuaranteeRequestIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/requests/': {
@@ -1114,6 +1154,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminActivityRoute: AdminActivityRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminContentRoute: AdminContentRoute,
+  AdminCustomerSuccessesRoute: AdminCustomerSuccessesRoute,
   AdminCustomersRoute: AdminCustomersRoute,
   AdminDestinationsRoute: AdminDestinationsRoute,
   AdminFeaturedServicesRoute: AdminFeaturedServicesRoute,
@@ -1121,6 +1162,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPackagesRoute: AdminPackagesRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminRatehawkRoute: AdminRatehawkRoute,
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
   AdminTestimonialsRoute: AdminTestimonialsRoute,
@@ -1133,8 +1175,8 @@ const rootRouteChildren: RootRouteChildren = {
   PaymentRequestIdRoute: PaymentRequestIdRoute,
   RequestsIdRoute: RequestsIdRoute,
   ServicesSlugRoute: ServicesSlugRoute,
-  VisaSlugRoute: VisaSlugRoute,
   VisaHotelGuaranteeRequestIdRoute: VisaHotelGuaranteeRequestIdRoute,
+  VisaSlugRoute: VisaSlugRoute,
   AdminIndexRoute: AdminIndexRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   ServicesIndexRoute: ServicesIndexRoute,

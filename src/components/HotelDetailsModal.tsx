@@ -25,8 +25,10 @@ import { getHotelStayDetails } from "@/lib/travel-api/hotels.functions";
 import type { HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
 import {
+  cancellationPeriods,
   describeCancellation,
   formatHotelPrice,
+  formatTaxAmount,
   formatStayDate,
   nightsBetween,
   perNightPrice,
@@ -50,17 +52,31 @@ function RoomCard({
         isPending ? "border-orange ring-4 ring-orange/30" : "border-white/70 hover:border-orange/40"
       }`}
     >
+      {room.images?.[0] ? (
+        <img
+          src={room.images[0]}
+          alt={room.roomName}
+          loading="lazy"
+          className="aspect-[16/10] w-full rounded-xl object-cover"
+        />
+      ) : null}
       <div className="min-w-0">
-        <p className="truncate text-sm font-bold text-navy">{room.roomName}</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {[room.roomType, room.bedType].filter(Boolean).join(" · ") || "Room details on request"}
-        </p>
+        <p className="text-sm font-bold text-navy">{room.roomName}</p>
+        {[room.roomType !== room.roomName ? room.roomType : null, room.bedType, room.bathroom].some(
+          Boolean,
+        ) ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {[room.roomType !== room.roomName ? room.roomType : null, room.bedType, room.bathroom]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
       </div>
 
       <ul className="space-y-1.5 text-xs">
         <li className="flex items-center gap-1.5 text-muted-foreground">
           <Users className="h-3.5 w-3.5 shrink-0 text-orange" aria-hidden="true" />
-          Sleeps {room.capacity}
+          For {room.capacity} guest{room.capacity === 1 ? "" : "s"}
         </li>
         <li className="flex items-center gap-1.5 text-muted-foreground">
           <UtensilsCrossed className="h-3.5 w-3.5 shrink-0 text-orange" aria-hidden="true" />
@@ -72,18 +88,53 @@ function RoomCard({
           ) : (
             <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange" aria-hidden="true" />
           )}
-          <span
+          <div
             className={
               room.cancellationPolicy.refundable ? "text-navy" : "text-muted-foreground"
             }
           >
-            {describeCancellation(
-              room.cancellationPolicy.refundable,
-              room.cancellationPolicy.freeCancellationUntil,
-            )}
-          </span>
+            <p className="font-semibold">
+              {describeCancellation(
+                room.cancellationPolicy.refundable,
+                room.cancellationPolicy.freeCancellationUntil,
+              )}
+            </p>
+            {room.cancellationPolicy.penalties?.length ? (
+              <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                {cancellationPeriods(room.cancellationPolicy).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </li>
       </ul>
+
+      {room.amenities?.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Room amenities">
+          {room.amenities.slice(0, 8).map((amenity) => (
+            <li
+              key={amenity}
+              className="rounded-full bg-sky-tint px-2 py-0.5 text-[11px] font-medium text-navy"
+            >
+              {amenity}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {room.taxesPayableAtHotel?.length ? (
+        <div className="rounded-xl bg-sky-tint px-3 py-2 text-[11px] text-navy">
+          <p className="font-semibold">Payable at the hotel (not included in price):</p>
+          <ul className="mt-0.5 space-y-0.5">
+            {room.taxesPayableAtHotel.map((tax) => (
+              <li key={`${tax.name}-${tax.currency}`}>
+                {tax.name}: {formatTaxAmount(tax.amount, tax.currency)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
         <div className="min-w-0">
@@ -154,7 +205,11 @@ export function HotelDetailsModal({
   const full = payload?.hotel ?? null;
   // Only live hotelpage (/search/hp/) rates may be selected — never fall back
   // to the SERP rates carried on the search result.
-  const rooms = (payload?.rooms ?? []).filter((room) => Boolean(room.bookHash));
+  // ETG B2B contract: regular hotel bookings use the Deposit payment type only.
+  const rooms = (payload?.rooms ?? []).filter(
+    (room) =>
+      Boolean(room.bookHash) && room.paymentOptions.some((option) => option.type === "deposit"),
+  );
   const images = (full?.images?.length ? full.images : (hotel.images ?? [])).filter(Boolean);
   const gallery = images.length ? images : hotel.hotelImage ? [hotel.hotelImage] : [];
   const amenities = full?.amenities?.length ? full.amenities : hotel.amenities;
@@ -240,6 +295,9 @@ export function HotelDetailsModal({
             <p className="font-bold text-navy">
               {formatStayDate(hotel.checkInDate ?? stay?.checkInDate)}
             </p>
+            {full?.checkInTime ? (
+              <p className="text-xs text-muted-foreground">from {full.checkInTime} (local time)</p>
+            ) : null}
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -248,6 +306,9 @@ export function HotelDetailsModal({
             <p className="font-bold text-navy">
               {formatStayDate(hotel.checkOutDate ?? stay?.checkOutDate)}
             </p>
+            {full?.checkOutTime ? (
+              <p className="text-xs text-muted-foreground">until {full.checkOutTime} (local time)</p>
+            ) : null}
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -291,6 +352,34 @@ export function HotelDetailsModal({
                 </li>
               ))}
             </ul>
+          </section>
+        ) : null}
+
+        {full?.importantInfo?.length ? (
+          <section className="rounded-2xl border border-orange/30 bg-orange/5 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy">
+              <Info className="h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+              Important information before you book
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The hotel requires these conditions at check-in. Extra charges listed here are paid
+              directly to the hotel.
+            </p>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              {full.importantInfo.map((section) => (
+                <div key={section.title} className="min-w-0">
+                  <dt className="text-xs font-bold text-navy">{section.title}</dt>
+                  {section.items.map((item) => (
+                    <dd
+                      key={item}
+                      className="mt-0.5 whitespace-pre-line text-xs leading-relaxed text-muted-foreground"
+                    >
+                      {item}
+                    </dd>
+                  ))}
+                </div>
+              ))}
+            </dl>
           </section>
         ) : null}
 

@@ -20,6 +20,10 @@ export type AutomationEvent =
   | "document_request"
   | "document_review"
   | "payment_confirmed"
+  | "hotel_booking_confirmed"
+  | "hotel_booking_cancelled"
+  | "hotel_booking_failed_refund"
+  | "admin_hotel_booking_issue"
   | "admin_payment_received"
   | "quotation_ready"
   | "request_completed";
@@ -43,7 +47,10 @@ export type RequestNotificationContext = {
   documentCount: number;
 };
 
-const ADMIN_RECIPIENT = process.env["ADMIN_NOTIFICATION_EMAIL"] ?? "info@amazingfly.ng";
+// Operations alerts (new/paid requests, failed bookings, refunds) must reach an
+// inbox that is actually read. ADMIN_NOTIFICATION_EMAIL overrides it.
+const ADMIN_RECIPIENT =
+  process.env["ADMIN_NOTIFICATION_EMAIL"]?.trim() || "amazingflyinternational@gmail.com";
 const SIGN_OFF = ["", "Amazingfly Travels - Amazingfly.ng", ""].join("\n");
 
 const lines = (...parts: (string | false | null | undefined)[]) =>
@@ -263,6 +270,54 @@ export function composePaymentConfirmation(ctx: {
       ctx.transactionReference ? `Transaction: ${ctx.transactionReference}` : "",
       "",
       "Your application continues with our travel specialists and you will be notified at every step.",
+      SIGN_OFF,
+    ),
+  };
+}
+
+export function composeHotelBookingConfirmed(ctx: {
+  reference: string;
+  fullName: string;
+  email: string;
+  supplierOrderId?: string | null;
+}): ComposedEmail {
+  return {
+    to: ctx.email,
+    kind: "hotel_booking_confirmed",
+    subject: `Your hotel booking is confirmed (${ctx.reference})`,
+    body: lines(
+      greeting(ctx.fullName),
+      "",
+      "Great news: the hotel has confirmed your booking.",
+      "",
+      `Reference: ${ctx.reference}`,
+      ctx.supplierOrderId ? `Booking confirmation number: ${ctx.supplierOrderId}` : "",
+      "",
+      "Your hotel confirmation is attached as a PDF. Please present it (printed or on your phone) at check-in, together with your passport.",
+      "You can also download it any time from your Amazingfly account.",
+      SIGN_OFF,
+    ),
+  };
+}
+
+export function composeHotelBookingCancelled(ctx: {
+  reference: string;
+  fullName: string;
+  email: string;
+}): ComposedEmail {
+  return {
+    to: ctx.email,
+    kind: "hotel_booking_cancelled",
+    subject: `Your hotel booking has been cancelled (${ctx.reference})`,
+    body: lines(
+      greeting(ctx.fullName),
+      "",
+      "Your hotel booking has been cancelled with the hotel, as you requested.",
+      "",
+      `Reference: ${ctx.reference}`,
+      "",
+      "The hotel's cancellation terms shown at booking apply. If a refund is due, our team will process it separately and contact you.",
+      "If you did not request this cancellation, please contact us immediately.",
       SIGN_OFF,
     ),
   };
@@ -643,6 +698,117 @@ export async function notifyPaymentReceived(input: {
       inApp: {
         title: "Payment received successfully",
         message: `We received ${input.amountLabel} for request ${who.reference}. Thank you.`,
+      },
+    },
+  );
+}
+
+/** Sends the customer their hotel confirmation PDF once the supplier confirms. */
+export async function notifyHotelBookingConfirmed(input: {
+  requestId: string;
+  supplierOrderId?: string | null;
+}) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  const attachment = await bookingOutcomeAttachment(input.requestId, who);
+  await sendAutomated(
+    {
+      ...composeHotelBookingConfirmed({
+        reference: who.reference,
+        fullName: who.fullName,
+        email: who.email,
+        supplierOrderId: input.supplierOrderId ?? null,
+      }),
+      ...(attachment ? { attachments: [attachment] } : {}),
+    },
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: {
+        title: "Your hotel booking is confirmed",
+        message: `Booking ${who.reference} is confirmed. Your hotel confirmation PDF is in your email and account.`,
+      },
+    },
+  );
+}
+
+/** Paid hotel booking the supplier rejected: tell the customer a refund is on its way. */
+export async function notifyHotelBookingFailedRefund(input: { requestId: string; amountLabel: string }) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  await sendAutomated(
+    {
+      to: who.email,
+      kind: "hotel_booking_failed_refund",
+      subject: `Your hotel booking could not be confirmed - full refund initiated (${who.reference})`,
+      body: lines(
+        greeting(who.fullName),
+        "",
+        "We are sorry: the hotel could not confirm your reservation because the room was no longer available.",
+        "",
+        `Reference: ${who.reference}`,
+        input.amountLabel ? `Amount: ${input.amountLabel}` : "",
+        "",
+        "We have started a FULL refund of your payment to your original payment method. Depending on your bank, it can take a few working days to appear.",
+        "You do not need to do anything. Please do not make another payment for this request.",
+        "If you would still like to stay, our team can help you choose another room or hotel.",
+        SIGN_OFF,
+      ),
+    },
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: {
+        title: "Hotel booking not confirmed - refund initiated",
+        message: `The hotel could not confirm booking ${who.reference}. A full refund has been initiated.`,
+      },
+    },
+  );
+}
+
+/** Operations alert for paid hotel bookings that need attention. */
+export async function notifyAdminHotelBookingIssue(input: {
+  requestId: string;
+  headline: string;
+  details: string[];
+}) {
+  const who = await requestRecipient(input.requestId);
+  await sendAutomated(
+    {
+      to: ADMIN_RECIPIENT,
+      kind: "admin_hotel_booking_issue",
+      subject: `${input.headline} (${who?.reference ?? input.requestId})`,
+      body: lines(
+        input.headline,
+        "",
+        `Reference: ${who?.reference ?? "-"}`,
+        `Customer: ${who?.fullName ?? "-"} <${who?.email ?? "-"}>`,
+        ...input.details,
+      ),
+    },
+    { requestId: input.requestId, reference: who?.reference ?? null, inApp: false },
+  );
+}
+
+/** Confirms a customer-initiated hotel cancellation. */
+export async function notifyHotelBookingCancelled(input: { requestId: string }) {
+  const who = await requestRecipient(input.requestId);
+  if (!who?.email) return;
+  await sendAutomated(
+    composeHotelBookingCancelled({
+      reference: who.reference,
+      fullName: who.fullName,
+      email: who.email,
+    }),
+    {
+      requestId: input.requestId,
+      userId: who.userId,
+      reference: who.reference,
+      inApp: {
+        title: "Your hotel booking has been cancelled",
+        message: `Hotel booking ${who.reference} has been cancelled.`,
       },
     },
   );

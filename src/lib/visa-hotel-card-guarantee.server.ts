@@ -13,6 +13,7 @@ import {
 } from "./ratehawk.server";
 import {
   applyBookingStatus,
+  b2bContactEmail,
   checkBookingProcess,
   createBookingProcess,
   type BookingStatus,
@@ -148,7 +149,7 @@ async function finishBookingWithGuarantee(input: {
       "/api/b2b/v3/hotel/order/booking/finish/",
       {
         user: {
-          email: input.email,
+          email: b2bContactEmail(),
           phone: input.phone,
           comment: "Visa Hotel Reservation — supplier-backed pay-at-property reservation.",
         },

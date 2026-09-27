@@ -31,7 +31,7 @@ const startInput = z
     guests: z.array(guestSchema).min(1).max(10),
     amount: z.number().nonnegative(),
     currency: z.string().trim().min(3).max(3),
-    paymentType: z.enum(["deposit", "hotel"]),
+    paymentType: z.literal("deposit"),
     comment: z.string().trim().max(500).optional(),
   })
   .strict();
@@ -168,10 +168,22 @@ async function ownedHotelRequest(requestId: string) {
   return { ok: true as const, db, user };
 }
 
-/** Customer action for a RateHawk `hotel` payment type (reserve now / pay at property). */
+/**
+ * Customer action for a RateHawk `hotel` payment type (reserve now / pay at property).
+ * Disabled: under the ETG B2B contract regular hotel bookings use Deposit only.
+ * Visa Hotel Reservation uses its own card-guarantee flow and is unaffected.
+ */
+const PAY_AT_PROPERTY_ENABLED = false;
+
 export const reserveHotelAtProperty = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => reserveInput.parse(data))
   .handler(async ({ data }): Promise<StoredHotelBookingPayload> => {
+    if (!PAY_AT_PROPERTY_ENABLED) {
+      return {
+        ok: false,
+        error: "Pay at property is not available. Please choose another room and pay now.",
+      };
+    }
     const owned = await ownedHotelRequest(data.request_id);
     if (!owned.ok) {
       return { ok: false, error: "We could not find that hotel booking on your account." };

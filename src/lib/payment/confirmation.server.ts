@@ -2,6 +2,7 @@ import type { SessionUser } from "../auth.server";
 import type {
   BookingConfirmation,
   HotelSupplierReferences,
+  HotelVoucherDetails,
   RateHawkSandboxDiagnostics,
 } from "./verify.functions";
 
@@ -18,10 +19,26 @@ export async function loadBookingConfirmationForUser(
   const bundle = await loadPassengerSummaries(user, requestId);
   let hotelSupplierReferences: HotelSupplierReferences | null = null;
   let rateHawkDiagnostics: RateHawkSandboxDiagnostics | null = null;
+  let hotelVoucher: HotelVoucherDetails | null = null;
 
   if (review.kind === "hotel") {
     const { createExternalSupabaseAdmin } = await import("../external-supabase.server");
     const database = createExternalSupabaseAdmin();
+    try {
+      const { data: request } = await database
+        .from("service_requests")
+        .select("hotel_provider_id")
+        .eq("id", requestId)
+        .maybeSingle();
+      const providerId = (request as { hotel_provider_id?: string | null } | null)
+        ?.hotel_provider_id;
+      if (providerId) {
+        const { getHotelVoucherDetails } = await import("../travel-api/hotels.server");
+        hotelVoucher = await getHotelVoucherDetails(providerId);
+      }
+    } catch (error) {
+      console.error("[hotel-booking] voucher details load failed", error);
+    }
     const { data: booking, error } = await database
       .from("hotel_bookings")
       .select(
@@ -64,5 +81,6 @@ export async function loadBookingConfirmationForUser(
     contactEmail: bundle?.contact?.email ?? user.email,
     hotelSupplierReferences,
     rateHawkDiagnostics,
+    hotelVoucher,
   };
 }

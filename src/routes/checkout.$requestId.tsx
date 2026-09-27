@@ -163,6 +163,33 @@ function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callbackReference, session?.user?.id]);
 
+  // Returning from Paystack without a callback reference (e.g. a bank transfer
+  // that did not redirect, or the browser back button): if the payment is
+  // already recorded, show the booking outcome instead of a stale "Pay" state.
+  const alreadyPaid = review.data?.transaction?.status === "successful";
+  useEffect(() => {
+    if (callbackReference || !alreadyPaid) return;
+    void navigate({
+      to: "/booking-confirmation/$requestId",
+      params: { requestId },
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alreadyPaid, callbackReference, requestId]);
+
+  // A page restored from the back/forward cache keeps its "redirecting" state;
+  // reset it and refresh the payment status.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      pay.reset();
+      void review.refetch();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const confirmingCallback =
     Boolean(callbackReference) && !verify.isError && (verify.isPending || !verify.data);
 

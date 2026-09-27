@@ -35,19 +35,15 @@ import {
 } from "@/lib/travel-api/hotels.functions";
 import type { StayInputShape } from "@/lib/travel-api/hotel-stay";
 import type { HotelPaymentOption, HotelResult, RoomResult } from "@/lib/travel-api/hotel.types";
-import { formatHotelPrice, nightsBetween } from "@/lib/travel-api/hotel-format";
+import { RESIDENCY_COUNTRIES } from "@/lib/geo/residency-countries";
+import {
+  cancellationSummary,
+  formatHotelPrice,
+  nightsBetween,
+} from "@/lib/travel-api/hotel-format";
 import { VISA_HOTEL_RESERVATION_FEE_NGN } from "@/lib/visa-hotel-reservation";
 
-const RESIDENCIES = [
-  { code: "NG", label: "Nigeria" },
-  { code: "GB", label: "United Kingdom" },
-  { code: "US", label: "United States" },
-  { code: "CA", label: "Canada" },
-  { code: "AE", label: "United Arab Emirates" },
-  { code: "DE", label: "Germany" },
-  { code: "FR", label: "France" },
-  { code: "UZ", label: "Uzbekistan" },
-];
+const RESIDENCIES = RESIDENCY_COUNTRIES;
 
 function todayISO() {
   const now = new Date();
@@ -65,10 +61,7 @@ function eligibleVisaRoom(room: RoomResult): boolean {
 
 function cancellationLabel(room: RoomResult): string {
   if (!room.cancellationPolicy.refundable) return "Non-refundable";
-  if (room.cancellationPolicy.freeCancellationUntil) {
-    return `Free cancellation until ${new Date(room.cancellationPolicy.freeCancellationUntil).toLocaleString("en-GB")}`;
-  }
-  return room.cancellationPolicy.description || "Refundable rate";
+  return cancellationSummary(room.cancellationPolicy);
 }
 
 export function VisaHotelReservationSearch({
