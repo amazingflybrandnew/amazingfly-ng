@@ -5,6 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { ShieldCheck, Plane, HeartPulse, Luggage, Loader2, ArrowRight, Lock } from "lucide-react";
 
 import { PageHero } from "@/components/PageParts";
+import { ComingSoon } from "@/components/ComingSoon";
+import { isServiceLive } from "@/lib/launch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,8 +32,23 @@ export const Route = createFileRoute("/travel-insurance")({
       },
     ],
   }),
-  component: TravelInsurance,
+  component: InsuranceRoute,
 });
+
+// Launch mode: insurance is enquiry-only until the Allianz live-pricing pass is
+// complete. Gating at the route wrapper keeps the full flow (and its hooks)
+// intact for when it goes live — flip it back on in src/lib/launch.ts.
+function InsuranceRoute() {
+  if (!isServiceLive("travel-insurance")) {
+    return (
+      <ComingSoon
+        title="Travel insurance is launching soon"
+        description="We’re connecting live, embassy-accepted travel medical insurance pricing. Tell us your destination, trip dates and traveller details and we’ll send you a quote and arrange cover."
+      />
+    );
+  }
+  return <TravelInsurance />;
+}
 
 const selectClass =
   "h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-sky disabled:opacity-60";

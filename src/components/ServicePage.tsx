@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Disclaimer, PageHero } from "@/components/PageParts";
 import type { Service } from "@/data/services";
 import { ITINERARY_NOTE, PROCESSING_FAQ } from "@/lib/catalogue/visa-catalogue";
+import { isServiceLive } from "@/lib/launch";
 
 function Bullets({ items }: { items: string[] }) {
   return (
@@ -43,6 +44,15 @@ function PrimaryServiceLink({
   service: Service;
   className?: string;
 }) {
+  // Launch mode: services that aren't live route to the contact page for an
+  // enquiry instead of into a booking flow that can't complete yet.
+  if (!isServiceLive(service.slug)) {
+    return (
+      <Link to="/contact" className={className}>
+        Request a quote
+      </Link>
+    );
+  }
   if (service.slug === "flights") {
     return (
       <Link to="/flights" className={className}>

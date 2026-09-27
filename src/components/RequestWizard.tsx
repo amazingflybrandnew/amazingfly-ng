@@ -81,7 +81,8 @@ const CONTACT_VALUE: Record<string, "whatsapp" | "phone" | "email"> = {
   Email: "email",
 };
 
-const HIDDEN_REQUEST_CATEGORY_IDS = new Set(["flight", "hotel", "airport_transfer", "other"]);
+// "insurance" is hidden while launch mode has it enquiry-only (see src/lib/launch.ts).
+const HIDDEN_REQUEST_CATEGORY_IDS = new Set(["flight", "hotel", "insurance", "airport_transfer", "other"]);
 const REQUEST_SERVICE_CATEGORIES = SERVICE_CATEGORIES.filter(
   (item) => !HIDDEN_REQUEST_CATEGORY_IDS.has(item.id),
 );

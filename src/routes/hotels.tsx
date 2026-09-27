@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageHero, Disclaimer } from "@/components/PageParts";
 import { HotelSearch } from "@/components/HotelSearch";
+import { ComingSoon } from "@/components/ComingSoon";
+import { isServiceLive } from "@/lib/launch";
 
 export const Route = createFileRoute("/hotels")({
   head: () => ({
@@ -27,6 +29,15 @@ export const Route = createFileRoute("/hotels")({
 });
 
 function HotelsPage() {
+  if (!isServiceLive("hotels")) {
+    return (
+      <ComingSoon
+        title="Hotel bookings are launching soon"
+        description="We’re finalising our hotel booking system. Tell us your destination and dates and our team will source and confirm your stay — including embassy-ready reservations — right away."
+      />
+    );
+  }
+
   return (
     <>
       <PageHero

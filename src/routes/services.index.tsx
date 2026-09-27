@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { publicServices } from "@/data/services";
 import { SERVICE_CATEGORY_GROUPS } from "@/lib/catalogue/service-categories";
 import { packageDestinations, packagesFor } from "@/lib/catalogue/visa-catalogue";
+import { isServiceLive } from "@/lib/launch";
 
 export const Route = createFileRoute("/services/")({
   head: () => ({
@@ -72,32 +73,51 @@ function ServicesIndex() {
             {SERVICE_CATEGORY_GROUPS.map((group) => {
               const destinations = packageDestinations(group.key);
               const count = packagesFor(group.key).length;
+              const live = isServiceLive(group.key);
               return (
                 <article
                   key={group.key}
                   className="rounded-2xl border border-border bg-card p-6 shadow-card"
                 >
-                  <h3 className="text-base font-bold text-navy">{group.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-navy">{group.title}</h3>
+                    {!live ? (
+                      <span className="rounded-full bg-orange-tint px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange">
+                        Coming soon
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     {group.description}
                   </p>
                   <p className="mt-3 text-sm text-navy-soft">{group.explanation}</p>
                   <p className="mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    {count > 0
-                      ? `${count} package${count === 1 ? "" : "s"}${
-                          group.hasDestination && destinations.length
-                            ? ` · ${destinations.length} destination${destinations.length === 1 ? "" : "s"}`
-                            : ""
-                        }`
-                      : "Priced with your specialist"}
+                    {!live
+                      ? "Enquire for a quote"
+                      : count > 0
+                        ? `${count} package${count === 1 ? "" : "s"}${
+                            group.hasDestination && destinations.length
+                              ? ` · ${destinations.length} destination${destinations.length === 1 ? "" : "s"}`
+                              : ""
+                          }`
+                        : "Priced with your specialist"}
                   </p>
-                  <Link
-                    to="/request"
-                    search={{ service: group.serviceSlug }}
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-orange hover:underline"
-                  >
-                    Choose a package <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
+                  {live ? (
+                    <Link
+                      to="/request"
+                      search={{ service: group.serviceSlug }}
+                      className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-orange hover:underline"
+                    >
+                      Choose a package <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/contact"
+                      className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-orange hover:underline"
+                    >
+                      Request a quote <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  )}
                 </article>
               );
             })}
