@@ -388,37 +388,6 @@ const SUBMISSION: VisaDestination[] = [
     ],
   },
   {
-    slug: "india",
-    name: "India",
-    alpha: "IN",
-    flag: alphaToFlagEmoji("IN"),
-    region: "Asia",
-    route: "submission",
-    centre: "Embassy",
-    centreNote:
-      "India does not offer an e-Visa to Nigerian passport holders. Applications are lodged in person at the Indian High Commission (Abuja) or Consulate (Lagos) — no VFS centre.",
-    visaTypes: ["Tourist", "Business", "Medical"],
-    processingTime: "Approx. 3–7 working days",
-    popular: true,
-    // Indian reciprocity fee for Nigerian nationals: US$585 + US$3 ICWF
-    // (≈ ₦970,000 at ₦1,650/$). No e-Visa and no VFS — in person at the
-    // High Commission (Abuja) / Consulate (Lagos).
-    visaFee: 970000,
-    processingFee: 0,
-    serviceCharge: 150000,
-    documents: [
-      "Passport valid at least 6 months with 2 blank pages",
-      "Completed India visa application form (printed)",
-      "Two passport photographs (51mm x 51mm, white background)",
-      "Confirmed return flight itinerary",
-      "Proof of accommodation or invitation",
-      "Bank statements and proof of funds",
-      "Cover letter stating the purpose of travel",
-      "Yellow fever vaccination certificate",
-      "Visa fee payment",
-    ],
-  },
-  {
     slug: "south-africa",
     name: "South Africa",
     alpha: "ZA",
@@ -633,11 +602,11 @@ function applyPricingRules(d: VisaDestination): VisaDestination {
   }
   // China's fee is a fixed Naira reduced fee (not USD), so no FX markup.
   const NO_FX_MARKUP = new Set(["china"]);
-  // India is lodged in person (no centre), so no courier fee.
-  const NO_COURIER = new Set(["india"]);
+  // Destinations lodged in person (no centre) that carry no courier fee.
+  const NO_COURIER = new Set<string>([]);
   // Countries on the standard ₦150,000 service charge: all of Europe
-  // (submission + e-Visa), the USA, Canada, Australia, India, Japan, S. Korea.
-  const STANDARD_150K = new Set(["canada", "australia", "india", "japan", "south-korea"]);
+  // (submission + e-Visa), Canada, Australia, Japan, S. Korea.
+  const STANDARD_150K = new Set(["canada", "australia", "japan", "south-korea"]);
   const visaFee = d.visaFee + (NO_FX_MARKUP.has(d.slug) ? 0 : VISA_FEE_FX_MARKUP);
   const processingFee =
     d.route === "submission" && !NO_COURIER.has(d.slug)
