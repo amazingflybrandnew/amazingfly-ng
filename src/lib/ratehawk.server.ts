@@ -291,11 +291,11 @@ async function postViaProxy(
   });
 }
 
-/** Return the full ETG response envelope so booking status is not discarded. */
-export async function ratehawkRequest<T>(
+/** Shared low-level sender: builds the request and returns the raw response. */
+async function sendRateHawk(
   path: string,
   body: unknown,
-): Promise<RateHawkResponse<T>> {
+): Promise<{ url: string; requestBody: unknown; response: SimpleResponse }> {
   const { username, password } = readCredentials();
   const url = `${baseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
   const requestBody = await enrichBookingFinishGuests(path, body);
@@ -317,6 +317,16 @@ export async function ratehawkRequest<T>(
         text: await r.text(),
       }));
 
+  return { url, requestBody, response };
+}
+
+/** Return the full ETG response envelope so booking status is not discarded. */
+export async function ratehawkRequest<T>(
+  path: string,
+  body: unknown,
+): Promise<RateHawkResponse<T>> {
+  const { response } = await sendRateHawk(path, body);
+
   let payload: RateHawkResponse<T> | null = null;
   try {
     payload = JSON.parse(response.text) as RateHawkResponse<T>;
@@ -330,6 +340,40 @@ export async function ratehawkRequest<T>(
     );
   }
   return payload ?? { status: response.ok ? "ok" : "error", data: null };
+}
+
+export type RateHawkExchange = {
+  url: string;
+  requestBody: unknown;
+  httpStatus: number;
+  ok: boolean;
+  responseText: string;
+  responseJson: unknown;
+};
+
+/**
+ * Diagnostics-only: performs the same request as `ratehawkRequest` but returns
+ * the full raw exchange (request body sent + HTTP status + response body)
+ * WITHOUT throwing on an API error, so responses such as `rate_not_found` can be
+ * captured in full for RateHawk support / certification. The Authorization
+ * header is never part of the returned data.
+ */
+export async function ratehawkExchange(path: string, body: unknown): Promise<RateHawkExchange> {
+  const { url, requestBody, response } = await sendRateHawk(path, body);
+  let responseJson: unknown = null;
+  try {
+    responseJson = JSON.parse(response.text);
+  } catch {
+    responseJson = null;
+  }
+  return {
+    url,
+    requestBody,
+    httpStatus: response.status,
+    ok: response.ok,
+    responseText: response.text,
+    responseJson,
+  };
 }
 
 /** Convenience helper for endpoints where only the `data` object is needed. */

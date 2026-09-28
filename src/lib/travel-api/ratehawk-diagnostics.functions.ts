@@ -4,9 +4,15 @@ import { z } from "zod";
 
 export type DiagnosticStep = {
   step: string;
+  endpoint: string;
   ms: number;
   ok: boolean;
+  httpStatus: number;
   detail: string;
+  /** Full request body we sent (pretty JSON) — safe to share with RateHawk. */
+  request: string;
+  /** Full raw response body from RateHawk (pretty JSON where possible). */
+  response: string;
 };
 
 export type RateHawkDiagnostics = {
@@ -24,38 +30,86 @@ const input = z
   })
   .strict();
 
-type Rate = { book_hash?: string; room_name?: string };
-type HotelsData = { hotels?: { rates?: Rate[] }[] };
+function prettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/** Pull the first rate's book_hash out of a hotelpage/prebook response. */
+function firstBookHash(responseJson: unknown): string | undefined {
+  const data = asRecord(asRecord(responseJson)?.["data"]);
+  const hotels = Array.isArray(data?.["hotels"]) ? (data!["hotels"] as unknown[]) : [];
+  const rates = Array.isArray(asRecord(hotels[0])?.["rates"])
+    ? (asRecord(hotels[0])!["rates"] as unknown[])
+    : [];
+  const hash = asRecord(rates[0])?.["book_hash"];
+  return typeof hash === "string" ? hash : undefined;
+}
+
+function rateCount(responseJson: unknown): number {
+  const data = asRecord(asRecord(responseJson)?.["data"]);
+  const hotels = Array.isArray(data?.["hotels"]) ? (data!["hotels"] as unknown[]) : [];
+  const rates = Array.isArray(asRecord(hotels[0])?.["rates"])
+    ? (asRecord(hotels[0])!["rates"] as unknown[])
+    : [];
+  return rates.length;
+}
 
 /**
- * Admin-only: runs hotelpage -> prebook -> booking/form against RateHawk with
- * the site's own credentials and proxy, and reports timings and errors. The
- * booking process is only started (never finished), so nothing is booked.
+ * Admin-only: runs hotelpage -> prebook -> booking/form against RateHawk with the
+ * site's own credentials and proxy, and captures the full request/response for
+ * each step (including errors like rate_not_found) so they can be sent to
+ * RateHawk support. The booking process is only started (never finished).
  */
 export const runRateHawkDiagnostics = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => input.parse(data ?? {}))
   .handler(async ({ data }): Promise<RateHawkDiagnostics> => {
     const { requireAdmin } = await import("../admin.server");
     await requireAdmin("manage_payments");
-    const { ratehawkRequest, ratehawkEnvironment, RateHawkApiError } = await import(
-      "../ratehawk.server"
-    );
+    const { ratehawkExchange, ratehawkEnvironment } = await import("../ratehawk.server");
 
     const steps: DiagnosticStep[] = [];
-    async function timed<T>(step: string, run: () => Promise<T>): Promise<T | null> {
+
+    async function runStep(step: string, endpoint: string, body: unknown) {
       const started = Date.now();
       try {
-        const result = await run();
-        steps.push({ step, ms: Date.now() - started, ok: true, detail: "ok" });
-        return result;
+        const ex = await ratehawkExchange(endpoint, body);
+        const apiError = asRecord(ex.responseJson)?.["status"] === "error";
+        const errText = asRecord(ex.responseJson)?.["error"];
+        const ok = ex.ok && !apiError;
+        steps.push({
+          step,
+          endpoint,
+          ms: Date.now() - started,
+          ok,
+          httpStatus: ex.httpStatus,
+          detail: ok
+            ? "ok"
+            : `HTTP ${ex.httpStatus}${typeof errText === "string" ? ` - ${errText}` : ""}`,
+          request: JSON.stringify(ex.requestBody ?? {}, null, 2),
+          response: ex.responseText ? prettyJson(ex.responseText) : "(empty response body)",
+        });
+        return ex;
       } catch (error) {
-        const detail =
-          error instanceof RateHawkApiError
-            ? `HTTP ${error.status} - ${error.code}`
-            : error instanceof Error
-              ? error.message
-              : String(error);
-        steps.push({ step, ms: Date.now() - started, ok: false, detail });
+        steps.push({
+          step,
+          endpoint,
+          ms: Date.now() - started,
+          ok: false,
+          httpStatus: 0,
+          detail: error instanceof Error ? error.message : String(error),
+          request: JSON.stringify(body ?? {}, null, 2),
+          response: "(no response — transport/connection error)",
+        });
         return null;
       }
     }
@@ -64,43 +118,55 @@ export const runRateHawkDiagnostics = createServerFn({ method: "POST" })
       new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
     const hid = /^\d{6,10}$/.test(data.hotelId) ? Number(data.hotelId) : null;
 
-    const hp = await timed("1. Hotel page rates (/search/hp/)", () =>
-      ratehawkRequest<HotelsData>("/api/b2b/v3/search/hp/", {
-        ...(hid ? { hid } : { id: data.hotelId }),
-        checkin: day(14),
-        checkout: day(16),
-        guests: [{ adults: 2, children: [] }],
-        residency: "ng",
-        currency: "USD",
-        language: "en",
-      }),
-    );
-    const rates = hp?.data?.hotels?.[0]?.rates ?? [];
-    if (hp) steps[steps.length - 1]!.detail = `ok - ${rates.length} rate(s)`;
+    // 1. Hotel page rates
+    const hp = await runStep("1. Hotel page rates (/search/hp/)", "/api/b2b/v3/search/hp/", {
+      ...(hid ? { hid } : { id: data.hotelId }),
+      checkin: day(14),
+      checkout: day(16),
+      guests: [{ adults: 2, children: [] }],
+      residency: "ng",
+      currency: "USD",
+      language: "en",
+    });
+    if (hp && steps[0]?.ok) steps[0].detail = `ok — ${rateCount(hp.responseJson)} rate(s)`;
 
-    const hash = rates[0]?.book_hash;
+    // 2. Rate check (prebook) using the freshest hotelpage hash
+    const hash = firstBookHash(hp?.responseJson);
     const prebook = hash
-      ? await timed("2. Rate check (/hotel/prebook/)", () =>
-          ratehawkRequest<HotelsData>("/api/b2b/v3/hotel/prebook/", {
-            hash,
-            price_increase_percent: 10,
-          }),
-        )
+      ? await runStep("2. Rate check (/hotel/prebook/)", "/api/b2b/v3/hotel/prebook/", {
+          hash,
+          price_increase_percent: 10,
+        })
       : null;
+    if (!hash) {
+      steps.push({
+        step: "2. Rate check (/hotel/prebook/)",
+        endpoint: "/api/b2b/v3/hotel/prebook/",
+        ms: 0,
+        ok: false,
+        httpStatus: 0,
+        detail: "Skipped — no book_hash returned by the hotel page.",
+        request: "(skipped)",
+        response: "(skipped)",
+      });
+    }
 
-    const prebookHash = prebook?.data?.hotels?.[0]?.rates?.[0]?.book_hash;
+    // 3. Start booking (optional) using the freshest prebook hash
+    const prebookHash = firstBookHash(prebook?.responseJson) ?? hash;
     if (prebookHash && data.includeBookingForm) {
       const ip =
         getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ||
         getRequestHeader("x-real-ip")?.trim() ||
         "127.0.0.1";
-      await timed("3. Start booking (/hotel/order/booking/form/)", () =>
-        ratehawkRequest("/api/b2b/v3/hotel/order/booking/form/", {
+      await runStep(
+        "3. Start booking (/hotel/order/booking/form/)",
+        "/api/b2b/v3/hotel/order/booking/form/",
+        {
           partner_order_id: `diag-${crypto.randomUUID()}`,
           book_hash: prebookHash,
           language: "en",
           user_ip: ip,
-        }),
+        },
       );
     }
 

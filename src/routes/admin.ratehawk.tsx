@@ -2,12 +2,15 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, XCircle } from "lucide-react";
 
 import { AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { runRateHawkDiagnostics } from "@/lib/travel-api/ratehawk-diagnostics.functions";
+import {
+  runRateHawkDiagnostics,
+  type RateHawkDiagnostics,
+} from "@/lib/travel-api/ratehawk-diagnostics.functions";
 
 export const Route = createFileRoute("/admin/ratehawk")({
   head: () => ({
@@ -19,19 +22,56 @@ export const Route = createFileRoute("/admin/ratehawk")({
   component: AdminRateHawkPage,
 });
 
+/** Assemble a single plain-text report of every step for pasting into email. */
+function buildLogText(result: RateHawkDiagnostics): string {
+  const lines: string[] = [];
+  lines.push("RateHawk diagnostics log");
+  lines.push(`Environment: ${result.environment}`);
+  lines.push(`Through static-IP proxy: ${result.viaProxy ? "yes" : "NO"}`);
+  lines.push(`Hotel ID: ${result.hotelId}`);
+  lines.push(`Generated: ${new Date().toISOString()}`);
+  lines.push("");
+  for (const step of result.steps) {
+    lines.push("========================================");
+    lines.push(`${step.step}`);
+    lines.push(`Endpoint: ${step.endpoint}`);
+    lines.push(`Result: ${step.ok ? "OK" : "FAILED"} · HTTP ${step.httpStatus} · ${(step.ms / 1000).toFixed(1)}s · ${step.detail}`);
+    lines.push("");
+    lines.push("--- REQUEST ---");
+    lines.push(step.request);
+    lines.push("");
+    lines.push("--- RESPONSE ---");
+    lines.push(step.response);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
 function AdminRateHawkPage() {
   const run = useServerFn(runRateHawkDiagnostics);
   const [hotelId, setHotelId] = useState("10004834");
   const [includeBookingForm, setIncludeBookingForm] = useState(false);
+  const [copied, setCopied] = useState(false);
   const diagnostics = useMutation({
     mutationFn: () => run({ data: { hotelId, includeBookingForm } }),
   });
   const result = diagnostics.data;
 
+  async function copyAll() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(buildLogText(result));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
     <AdminShell
       title="RateHawk diagnostics"
-      subtitle="Runs hotel page → rate check (and optionally start booking) against RateHawk with the site's own credentials and proxy. Nothing is booked or charged."
+      subtitle="Runs hotel page → rate check (and optionally start booking) against RateHawk with the site's own credentials and proxy, and captures the full request/response of each step. Nothing is booked or charged."
     >
       <div className="glass-card space-y-4 rounded-3xl p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -61,7 +101,8 @@ function AdminRateHawkPage() {
         </label>
         <p className="text-xs text-muted-foreground">
           10004834 is RateHawk&apos;s standard sandbox test hotel; 8819557 tests a 10% prebook
-          price increase.
+          price increase. Tick step 3 to reach the booking/form step where <code>rate_not_found</code>{" "}
+          can appear.
         </p>
 
         {diagnostics.error ? (
@@ -71,28 +112,47 @@ function AdminRateHawkPage() {
         ) : null}
 
         {result ? (
-          <div className="space-y-2">
-            <p className="text-sm text-navy">
-              Environment: <strong>{result.environment}</strong> · Through static-IP proxy:{" "}
-              <strong>{result.viaProxy ? "yes" : "NO"}</strong>
-            </p>
-            <ul className="space-y-2">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-navy">
+                Environment: <strong>{result.environment}</strong> · Through static-IP proxy:{" "}
+                <strong>{result.viaProxy ? "yes" : "NO"}</strong>
+              </p>
+              <Button variant="secondary" size="sm" onClick={copyAll}>
+                <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                {copied ? "Copied!" : "Copy all logs"}
+              </Button>
+            </div>
+            <ul className="space-y-3">
               {result.steps.map((step) => (
-                <li
-                  key={step.step}
-                  className="flex items-start gap-3 rounded-2xl bg-white/70 px-4 py-3 text-sm"
-                >
-                  {step.ok ? (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-mint" aria-hidden="true" />
-                  ) : (
-                    <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-bold text-navy">{step.step}</p>
-                    <p className="text-muted-foreground">
-                      {(step.ms / 1000).toFixed(1)}s · {step.detail}
-                    </p>
+                <li key={step.step} className="rounded-2xl bg-white/70 px-4 py-3 text-sm">
+                  <div className="flex items-start gap-3">
+                    {step.ok ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-mint" aria-hidden="true" />
+                    ) : (
+                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-bold text-navy">{step.step}</p>
+                      <p className="text-muted-foreground">
+                        {step.endpoint} · HTTP {step.httpStatus} · {(step.ms / 1000).toFixed(1)}s ·{" "}
+                        {step.detail}
+                      </p>
+                    </div>
                   </div>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs font-semibold text-navy">
+                      Request &amp; response
+                    </summary>
+                    <p className="mt-2 text-xs font-semibold text-muted-foreground">Request</p>
+                    <pre className="mt-1 max-h-64 overflow-auto rounded-lg bg-navy/90 p-3 text-xs text-white">
+                      {step.request}
+                    </pre>
+                    <p className="mt-2 text-xs font-semibold text-muted-foreground">Response</p>
+                    <pre className="mt-1 max-h-96 overflow-auto rounded-lg bg-navy/90 p-3 text-xs text-white">
+                      {step.response}
+                    </pre>
+                  </details>
                 </li>
               ))}
             </ul>
