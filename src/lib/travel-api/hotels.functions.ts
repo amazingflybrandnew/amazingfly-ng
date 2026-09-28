@@ -15,10 +15,13 @@ const HOTEL_SEARCH_TIMEOUT_MS = 25_000;
 const HOTEL_INFO_TIMEOUT_MS = 5_000;
 const HOTEL_ROOMS_TIMEOUT_MS = HOTEL_SEARCH_TIMEOUT_MS;
 /**
- * Rate re-check on "Select Room". RateHawk prebook was measured at 5-33s in
- * sandbox, so allow up to a minute (the proxy itself allows 120s).
+ * Rate re-check on "Select Room". RateHawk prebook does a live supplier
+ * availability/price check that can take close to their recommended 60s ceiling
+ * (a diagnostics run measured 60.0s). Allow headroom above 60s so a valid but
+ * slow prebook response is not killed by our own timeout right as it arrives.
+ * Still sits below the proxy's 120s idle limit.
  */
-const PREBOOK_TIMEOUT_MS = 60_000;
+const PREBOOK_TIMEOUT_MS = 75_000;
 const CUSTOMER_HOTEL_CURRENCY = "NGN";
 
 async function convertHotelAmount(amount: number, currency: string) {
