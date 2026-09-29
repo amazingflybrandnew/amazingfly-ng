@@ -40,6 +40,7 @@ import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
+import { Route as AdminInsuranceRouteImport } from './routes/admin.insurance'
 import { Route as AdminRatehawkRouteImport } from './routes/admin.ratehawk'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
@@ -219,6 +220,11 @@ const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
   path: '/admin/payments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminInsuranceRoute = AdminInsuranceRouteImport.update({
+  id: '/admin/insurance',
+  path: '/admin/insurance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRatehawkRoute = AdminRatehawkRouteImport.update({
   id: '/admin/ratehawk',
   path: '/admin/ratehawk',
@@ -371,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -427,6 +434,7 @@ export interface FileRoutesByTo {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -484,6 +492,7 @@ export interface FileRoutesById {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -542,6 +551,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
+    | '/admin/insurance'
     | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
@@ -598,6 +608,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
+    | '/admin/insurance'
     | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
@@ -654,6 +665,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
+    | '/admin/insurance'
     | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
@@ -711,6 +723,7 @@ export interface RootRouteChildren {
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPackagesRoute: typeof AdminPackagesRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminInsuranceRoute: typeof AdminInsuranceRoute
   AdminRatehawkRoute: typeof AdminRatehawkRoute
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
@@ -955,6 +968,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPaymentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/insurance': {
+      id: '/admin/insurance'
+      path: '/admin/insurance'
+      fullPath: '/admin/insurance'
+      preLoaderRoute: typeof AdminInsuranceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/ratehawk': {
       id: '/admin/ratehawk'
       path: '/admin/ratehawk'
@@ -1162,6 +1182,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPackagesRoute: AdminPackagesRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminInsuranceRoute: AdminInsuranceRoute,
   AdminRatehawkRoute: AdminRatehawkRoute,
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,

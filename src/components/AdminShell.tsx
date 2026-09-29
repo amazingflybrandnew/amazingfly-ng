@@ -45,6 +45,7 @@ const NAV = [
   { to: "/admin/testimonials", label: "Testimonials", icon: Quote, action: "manage_content" },
   { to: "/admin/activity", label: "Activity", icon: History, action: "view" },
   { to: "/admin/ratehawk", label: "RateHawk test", icon: Activity, action: "manage_payments" },
+  { to: "/admin/insurance", label: "Insurance test", icon: ShieldCheck, action: "manage_payments" },
 ] as const;
 
 export const ROLE_LABELS: Record<string, string> = {
