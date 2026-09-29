@@ -67,6 +67,13 @@ function PrimaryServiceLink({
       </Link>
     );
   }
+  if (service.slug === "travel-insurance") {
+    return (
+      <Link to="/travel-insurance" className={className}>
+        {service.ctaLabel}
+      </Link>
+    );
+  }
   return (
     <Link to="/request" search={{ service: service.slug }} className={className}>
       {service.ctaLabel}

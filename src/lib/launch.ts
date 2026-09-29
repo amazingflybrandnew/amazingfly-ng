@@ -13,8 +13,8 @@
 const NOT_LIVE = new Set<string>([
   "hotels", // RateHawk certification + static-IP whitelisting pending
   "hotel",
-  "travel-insurance", // Allianz live pricing final pass pending
-  "insurance",
+  // Travel insurance is live: Sanlam Allianz production is verified (login,
+  // lookups, plans and a live quote all confirmed via /admin/insurance).
 ]);
 
 /** True when a service is fully live and can take bookings/payments now. */

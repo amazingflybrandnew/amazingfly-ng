@@ -102,7 +102,14 @@ function ServicesIndex() {
                           }`
                         : "Priced with your specialist"}
                   </p>
-                  {live ? (
+                  {live && group.key === "travel-insurance" ? (
+                    <Link
+                      to="/travel-insurance"
+                      className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-orange hover:underline"
+                    >
+                      Get an instant quote <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  ) : live ? (
                     <Link
                       to="/request"
                       search={{ service: group.serviceSlug }}
