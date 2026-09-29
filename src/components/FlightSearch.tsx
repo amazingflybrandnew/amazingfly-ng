@@ -625,7 +625,7 @@ export function FlightSearch({ compact = false }: { compact?: boolean }) {
         )}
       </form>
 
-      {selected ? (
+      {selected && !compact ? (
         <div
           ref={selectionPanelRef}
           aria-live="polite"
