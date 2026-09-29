@@ -53,6 +53,17 @@ function assertBookingEnabled(): void {
   }
 }
 
+/**
+ * True only when flights can actually be fulfilled with real airline orders:
+ * live mode AND live booking explicitly enabled. Used to gate taking real
+ * customer money for a flight — never charge for a flight we can't reserve/issue.
+ * In test (sandbox) mode this is false, which is correct: we don't take real
+ * money for a flight while Duffel is in test.
+ */
+export function isFlightFulfilmentReady(): boolean {
+  return readMode() === "live" && process.env["DUFFEL_LIVE_BOOKING_ENABLED"] === "true";
+}
+
 async function duffelFetch<T>(
   path: string,
   init: { method: "GET" | "POST"; body?: unknown },

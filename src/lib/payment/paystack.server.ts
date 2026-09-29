@@ -119,16 +119,20 @@ export async function startPaystackCheckout(
     return { ok: false, message: "This payment has already been processed." };
   }
 
-  // Never take a real customer payment for a flight while Duffel is in test
-  // mode: test orders are not genuine airline reservations or tickets.
+  // Never take a real customer payment for a flight unless flights can actually
+  // be reserved/issued: Duffel must be live AND live booking enabled. This
+  // closes the gap where a live Duffel mode with booking still disabled would
+  // charge a customer but fail to place the airline hold.
   const paystackIsLive = process.env["PAYSTACK_SECRET_KEY"]?.startsWith("sk_live_") ?? false;
-  const duffelIsLive = process.env["DUFFEL_MODE"]?.trim().toLowerCase() === "live";
-  if (review.kind === "flight" && paystackIsLive && !duffelIsLive) {
-    return {
-      ok: false,
-      message:
-        "Flight payments are temporarily paused while the airline connection is in test mode. No charge was made.",
-    };
+  if (review.kind === "flight" && paystackIsLive) {
+    const { isFlightFulfilmentReady } = await import("../travel-api/flights.server");
+    if (!isFlightFulfilmentReady()) {
+      return {
+        ok: false,
+        message:
+          "Flight payments are temporarily paused while the airline connection is being finalised. No charge was made.",
+      };
+    }
   }
 
   // Same rule for hotels: never take real money for a RateHawk SANDBOX booking,
