@@ -89,7 +89,9 @@ export const runInsuranceDiagnostics = createServerFn({ method: "POST" })
         getAllianzQuote({
           DateOfBirth: toAllianzDate("1990-01-01"),
           Email: "info@amazingfly.ng",
-          Telephone: "+2348000000000",
+          // A validly-formatted Nigerian mobile number for the sample quote only
+          // (the insurer rejects placeholder numbers). Real customers enter their own.
+          Telephone: "08031234567",
           CoverBegins: toAllianzDate(day(14)),
           CoverEnds: toAllianzDate(day(24)),
           CountryId: data.countryId,
