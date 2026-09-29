@@ -95,6 +95,13 @@ export async function ensurePaidFlightBooking(requestId: string): Promise<void> 
   // do here. Issuance happens explicitly via issuePaidFlightTicket().
   if (String(row["duffel_order_id"] ?? "")) return;
 
+  // Already past the payment hand-off (e.g. a non-holdable fare already marked
+  // awaiting_ticketing, or an in-flight/confirmed booking): never reprocess, so
+  // a duplicate callback + webhook can't flip a good booking to "failed".
+  if (["awaiting_ticketing", "ticketing", "confirmed"].includes(String(row["booking_status"] ?? ""))) {
+    return;
+  }
+
   const offerId = String(row["flight_offer_id"] ?? "");
   if (!offerId) throw new Error("This paid flight request has no Duffel offer ID.");
 
