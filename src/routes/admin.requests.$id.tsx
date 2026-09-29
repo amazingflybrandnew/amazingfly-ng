@@ -54,6 +54,7 @@ import {
   type DocumentReviewStatus,
 } from "@/lib/document-status";
 import { bookingStatusLabel, bookingStatusTone } from "@/lib/booking/booking-status";
+import { issueFlightTicket } from "@/lib/booking/flight-booking.functions";
 
 
 
@@ -233,6 +234,11 @@ function AdminRequestDetailPage() {
   const noteMutation = useMutation({
     mutationFn: () => run(() => noteFn({ data: { request_id: id, note } })),
     onSuccess: () => setNote(""),
+  });
+
+  const issueFn = useServerFn(issueFlightTicket);
+  const issueMutation = useMutation({
+    mutationFn: () => run(() => issueFn({ data: { requestId: id } })),
   });
 
   const docRequestMutation = useMutation({
@@ -447,6 +453,27 @@ function AdminRequestDetailPage() {
                 Booking: {bookingStatusLabel(request.booking_status)}
               </span>
             </div>
+
+            {String(request.service_category ?? "").toLowerCase() === "flights" &&
+            paid &&
+            ["awaiting_ticketing", "failed"].includes(String(request.booking_status ?? "")) &&
+            allow("manage_payments") ? (
+              <div className="mb-5 rounded-2xl border border-sky/40 bg-sky-tint/40 p-4">
+                <p className="text-sm font-semibold text-navy">Issue this flight ticket</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The customer has paid and the fare is held with the airline. Make sure your
+                  Duffel balance is funded, then issue the e-ticket. This spends your Duffel
+                  balance and cannot be undone.
+                </p>
+                <Button
+                  className="mt-3"
+                  disabled={issueMutation.isPending}
+                  onClick={() => issueMutation.mutate()}
+                >
+                  {issueMutation.isPending ? "Issuing…" : "Issue ticket now"}
+                </Button>
+              </div>
+            ) : null}
 
             <div className="mb-5 grid gap-5 sm:grid-cols-2">
               <Field
