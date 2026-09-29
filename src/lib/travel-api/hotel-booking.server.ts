@@ -60,7 +60,10 @@ export class HotelBookingError extends Error {
   }
 }
 
-const DEFAULT_B2B_CONTACT_EMAIL = "amazingflyinternational@gmail.com";
+// Corporate email on our own domain. ETG/RateHawk sends net-priced booking
+// documents here, so it must be a controlled corporate mailbox — not a personal
+// Gmail. Overridable via RATEHAWK_B2B_EMAIL without a redeploy.
+const DEFAULT_B2B_CONTACT_EMAIL = "info@amazingfly.ng";
 
 export function b2bContactEmail(): string {
   return process.env["RATEHAWK_B2B_EMAIL"]?.trim() || DEFAULT_B2B_CONTACT_EMAIL;
