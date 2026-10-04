@@ -14,6 +14,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DisclaimerRouteImport } from './routes/disclaimer'
+import { Route as FlightCharterRouteImport } from './routes/flight-charter'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as FlightsRouteImport } from './routes/flights'
 import { Route as HotelsRouteImport } from './routes/hotels'
@@ -88,6 +89,11 @@ const ContactRoute = ContactRouteImport.update({
 const DisclaimerRoute = DisclaimerRouteImport.update({
   id: '/disclaimer',
   path: '/disclaimer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FlightCharterRoute = FlightCharterRouteImport.update({
+  id: '/flight-charter',
+  path: '/flight-charter',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsRoute = DocumentsRouteImport.update({
@@ -352,6 +358,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/flight-charter': typeof FlightCharterRoute
   '/documents': typeof DocumentsRoute
   '/flights': typeof FlightsRoute
   '/hotels': typeof HotelsRoute
@@ -409,6 +416,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/flight-charter': typeof FlightCharterRoute
   '/documents': typeof DocumentsRoute
   '/flights': typeof FlightsRoute
   '/hotels': typeof HotelsRoute
@@ -467,6 +475,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
+  '/flight-charter': typeof FlightCharterRoute
   '/documents': typeof DocumentsRoute
   '/flights': typeof FlightsRoute
   '/hotels': typeof HotelsRoute
@@ -526,6 +535,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/disclaimer'
+    | '/flight-charter'
     | '/documents'
     | '/flights'
     | '/hotels'
@@ -583,6 +593,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/disclaimer'
+    | '/flight-charter'
     | '/documents'
     | '/flights'
     | '/hotels'
@@ -640,6 +651,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/disclaimer'
+    | '/flight-charter'
     | '/documents'
     | '/flights'
     | '/hotels'
@@ -698,6 +710,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
   DisclaimerRoute: typeof DisclaimerRoute
+  FlightCharterRoute: typeof FlightCharterRoute
   DocumentsRoute: typeof DocumentsRoute
   FlightsRoute: typeof FlightsRoute
   HotelsRoute: typeof HotelsRoute
@@ -784,6 +797,13 @@ declare module '@tanstack/react-router' {
       path: '/disclaimer'
       fullPath: '/disclaimer'
       preLoaderRoute: typeof DisclaimerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flight-charter': {
+      id: '/flight-charter'
+      path: '/flight-charter'
+      fullPath: '/flight-charter'
+      preLoaderRoute: typeof FlightCharterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents': {
@@ -1157,6 +1177,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
   DisclaimerRoute: DisclaimerRoute,
+  FlightCharterRoute: FlightCharterRoute,
   DocumentsRoute: DocumentsRoute,
   FlightsRoute: FlightsRoute,
   HotelsRoute: HotelsRoute,

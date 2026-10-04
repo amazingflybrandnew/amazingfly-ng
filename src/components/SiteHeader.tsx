@@ -102,6 +102,9 @@ export function SiteHeader() {
               { to: "/contact", label: "Contact Support" },
             ]}
           />
+          <Link to="/flight-charter" className={linkClass}>
+            Charter
+          </Link>
           <Link to="/about" className={linkClass}>
             About Us
           </Link>
@@ -185,6 +188,13 @@ export function SiteHeader() {
               </ul>
             ) : null}
 
+            <Link
+              to="/flight-charter"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm font-semibold text-navy hover:bg-navy-tint"
+            >
+              Flight Charter
+            </Link>
             <Link
               to="/about"
               onClick={() => setMobileOpen(false)}
