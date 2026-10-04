@@ -162,11 +162,44 @@ export const submitCharterRequest = createServerFn({ method: "POST" })
         { onConflict: "email" },
       );
 
-    const { data: service } = await supabase
+    // service_requests.service_id is NOT NULL, so we must link a services row.
+    // Find the flight-charter service; create it on first use if it's missing,
+    // and fall back to any active service as a last resort so a lead is never lost.
+    let { data: service } = await supabase
       .from("services")
       .select("id")
       .eq("slug", "flight-charter")
       .maybeSingle();
+
+    if (!service?.id) {
+      const { data: created } = await supabase
+        .from("services")
+        .insert({
+          name: "Flight Charter",
+          slug: "flight-charter",
+          short_description:
+            "Charter a private jet, turboprop or helicopter - locally or internationally. Tell us your trip and get a personalised quote.",
+          cta_label: "Request a Quote",
+          price_label: "Request a quote",
+          active: true,
+          display_order: 8,
+          fulfillment_mode: "manual",
+        })
+        .select("id")
+        .maybeSingle();
+      service = created ?? null;
+    }
+
+    if (!service?.id) {
+      const { data: anyService } = await supabase
+        .from("services")
+        .select("id")
+        .eq("active", true)
+        .order("display_order", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      service = anyService ?? null;
+    }
 
     const baseRow: Record<string, unknown> = {
       request_reference: reference,
