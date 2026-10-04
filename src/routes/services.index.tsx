@@ -131,6 +131,23 @@ function ServicesIndex() {
           </div>
         </div>
 
+        <div className="mt-10">
+          <div className="flex flex-col items-start justify-between gap-5 rounded-3xl border border-orange/30 bg-orange-tint/40 p-6 md:flex-row md:items-center md:p-8">
+            <div>
+              <h3 className="text-lg font-bold text-navy">Private Flight Charter</h3>
+              <p className="mt-1 max-w-xl text-sm text-navy-soft">
+                Charter a private jet, turboprop or helicopter - locally within Nigeria or
+                internationally. Tell us your trip and we send you a personalised quote.
+              </p>
+            </div>
+            <Button asChild size="lg" className="btn-gradient border-0 text-white">
+              <Link to="/flight-charter">
+                Request a charter quote <ArrowRight className="ml-1 h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+
         <div className="mt-12">
           <Button asChild size="lg">
             <Link to="/request">Start a Request</Link>
