@@ -33,6 +33,8 @@ function open3ds(challenge: ThreeDsChallenge) {
       `<form id="f" method="${challenge.method}" action="${challenge.actionUrl}">${inputs}</form>` +
       `<script>document.getElementById("f").submit();</script></body></html>`,
   );
+  // Close the stream so the new window finishes parsing and runs the submit script.
+  win.document.close();
 }
 
 export const Route = createFileRoute("/admin/ratehawk")({
