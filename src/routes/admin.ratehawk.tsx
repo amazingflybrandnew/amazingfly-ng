@@ -12,7 +12,28 @@ import {
   runCreditCardTestBooking,
   runRateHawkDiagnostics,
   type RateHawkDiagnostics,
+  type ThreeDsChallenge,
 } from "@/lib/travel-api/ratehawk-diagnostics.functions";
+
+/** Opens the bank's 3-D Secure page by auto-submitting the challenge form. */
+function open3ds(challenge: ThreeDsChallenge) {
+  const win = window.open("", "_blank");
+  if (!win) {
+    alert("Please allow pop-ups for this site, then click the button again.");
+    return;
+  }
+  const inputs = Object.entries(challenge.fields)
+    .map(
+      ([name, value]) =>
+        `<input type="hidden" name="${name}" value="${String(value).replace(/"/g, "&quot;")}">`,
+    )
+    .join("");
+  win.document.write(
+    `<!doctype html><html><body><p style="font-family:sans-serif">Redirecting to your bank for card verification…</p>` +
+      `<form id="f" method="${challenge.method}" action="${challenge.actionUrl}">${inputs}</form>` +
+      `<script>document.getElementById("f").submit();</script></body></html>`,
+  );
+}
 
 export const Route = createFileRoute("/admin/ratehawk")({
   head: () => ({
@@ -261,7 +282,25 @@ function AdminRateHawkPage() {
                 <strong>{statusCheck.data.status ?? "—"}</strong>
                 {statusCheck.data.percent !== null ? ` · ${statusCheck.data.percent}%` : ""}
               </p>
-              <pre className="mt-1 max-h-72 overflow-auto rounded-lg bg-navy/90 p-3 text-xs text-white">
+              {statusCheck.data.data3ds ? (
+                <div className="mt-2 rounded-xl bg-peach-tint px-3 py-3">
+                  <p className="text-sm font-semibold text-navy">
+                    Card verification needed (3-D Secure)
+                  </p>
+                  <p className="mt-1 text-xs text-navy">
+                    Click below to open your bank&apos;s verification page and approve with the OTP
+                    sent to the corporate card&apos;s phone. After approval it returns here and the
+                    booking finalizes — then click &quot;Check status&quot; again.
+                  </p>
+                  <Button
+                    className="mt-2 btn-gradient border-0 text-white"
+                    onClick={() => open3ds(statusCheck.data!.data3ds!)}
+                  >
+                    Complete 3-D Secure verification
+                  </Button>
+                </div>
+              ) : null}
+              <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-navy/90 p-3 text-xs text-white">
                 {statusCheck.data.response}
               </pre>
             </div>
