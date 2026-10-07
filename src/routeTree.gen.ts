@@ -14,8 +14,8 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DisclaimerRouteImport } from './routes/disclaimer'
-import { Route as FlightCharterRouteImport } from './routes/flight-charter'
 import { Route as DocumentsRouteImport } from './routes/documents'
+import { Route as FlightCharterRouteImport } from './routes/flight-charter'
 import { Route as FlightsRouteImport } from './routes/flights'
 import { Route as HotelsRouteImport } from './routes/hotels'
 import { Route as MyRequestsRouteImport } from './routes/my-requests'
@@ -37,11 +37,11 @@ import { Route as AdminCustomerSuccessesRouteImport } from './routes/admin.custo
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminDestinationsRouteImport } from './routes/admin.destinations'
 import { Route as AdminFeaturedServicesRouteImport } from './routes/admin.featured-services'
+import { Route as AdminInsuranceRouteImport } from './routes/admin.insurance'
 import { Route as AdminMessagesRouteImport } from './routes/admin.messages'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminPackagesRouteImport } from './routes/admin.packages'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
-import { Route as AdminInsuranceRouteImport } from './routes/admin.insurance'
 import { Route as AdminRatehawkRouteImport } from './routes/admin.ratehawk'
 import { Route as AdminServicesRouteImport } from './routes/admin.services'
 import { Route as AdminServicesContentRouteImport } from './routes/admin.services-content'
@@ -62,6 +62,7 @@ import { Route as VisaIndexRouteImport } from './routes/visa.index'
 import { Route as VisaSlugRouteImport } from './routes/visa.$slug'
 import { Route as AdminRequestsIndexRouteImport } from './routes/admin.requests.index'
 import { Route as AdminRequestsIdRouteImport } from './routes/admin.requests.$id'
+import { Route as HotelsRatehawkReturnRouteImport } from './routes/hotels.ratehawk.return'
 import { Route as VisaHotelReservationTravellersRequestIdRouteImport } from './routes/visa-hotel-reservation.travellers.$requestId'
 import { Route as ApiPublicHotelsRatehawkWebhookRouteImport } from './routes/api/public/hotels/ratehawk/webhook'
 import { Route as ApiPublicPaymentsPaystackWebhookRouteImport } from './routes/api/public/payments/paystack/webhook'
@@ -91,14 +92,14 @@ const DisclaimerRoute = DisclaimerRouteImport.update({
   path: '/disclaimer',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FlightCharterRoute = FlightCharterRouteImport.update({
-  id: '/flight-charter',
-  path: '/flight-charter',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DocumentsRoute = DocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FlightCharterRoute = FlightCharterRouteImport.update({
+  id: '/flight-charter',
+  path: '/flight-charter',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlightsRoute = FlightsRouteImport.update({
@@ -206,6 +207,11 @@ const AdminFeaturedServicesRoute = AdminFeaturedServicesRouteImport.update({
   path: '/admin/featured-services',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminInsuranceRoute = AdminInsuranceRouteImport.update({
+  id: '/admin/insurance',
+  path: '/admin/insurance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminMessagesRoute = AdminMessagesRouteImport.update({
   id: '/admin/messages',
   path: '/admin/messages',
@@ -224,11 +230,6 @@ const AdminPackagesRoute = AdminPackagesRouteImport.update({
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
   id: '/admin/payments',
   path: '/admin/payments',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminInsuranceRoute = AdminInsuranceRouteImport.update({
-  id: '/admin/insurance',
-  path: '/admin/insurance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRatehawkRoute = AdminRatehawkRouteImport.update({
@@ -333,6 +334,11 @@ const AdminRequestsIdRoute = AdminRequestsIdRouteImport.update({
   path: '/admin/requests/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HotelsRatehawkReturnRoute = HotelsRatehawkReturnRouteImport.update({
+  id: '/ratehawk/return',
+  path: '/ratehawk/return',
+  getParentRoute: () => HotelsRoute,
+} as any)
 const VisaHotelReservationTravellersRequestIdRoute =
   VisaHotelReservationTravellersRequestIdRouteImport.update({
     id: '/travellers/$requestId',
@@ -358,10 +364,10 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
-  '/flight-charter': typeof FlightCharterRoute
   '/documents': typeof DocumentsRoute
+  '/flight-charter': typeof FlightCharterRoute
   '/flights': typeof FlightsRoute
-  '/hotels': typeof HotelsRoute
+  '/hotels': typeof HotelsRouteWithChildren
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
@@ -380,11 +386,11 @@ export interface FileRoutesByFullPath {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/featured-services': typeof AdminFeaturedServicesRoute
+  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -405,6 +411,7 @@ export interface FileRoutesByFullPath {
   '/services/': typeof ServicesIndexRoute
   '/visa/': typeof VisaIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
+  '/hotels/ratehawk/return': typeof HotelsRatehawkReturnRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
   '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
@@ -416,10 +423,10 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
-  '/flight-charter': typeof FlightCharterRoute
   '/documents': typeof DocumentsRoute
+  '/flight-charter': typeof FlightCharterRoute
   '/flights': typeof FlightsRoute
-  '/hotels': typeof HotelsRoute
+  '/hotels': typeof HotelsRouteWithChildren
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
@@ -438,11 +445,11 @@ export interface FileRoutesByTo {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/featured-services': typeof AdminFeaturedServicesRoute
+  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -463,6 +470,7 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesIndexRoute
   '/visa': typeof VisaIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
+  '/hotels/ratehawk/return': typeof HotelsRatehawkReturnRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests': typeof AdminRequestsIndexRoute
   '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
@@ -475,10 +483,10 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
   '/disclaimer': typeof DisclaimerRoute
-  '/flight-charter': typeof FlightCharterRoute
   '/documents': typeof DocumentsRoute
+  '/flight-charter': typeof FlightCharterRoute
   '/flights': typeof FlightsRoute
-  '/hotels': typeof HotelsRoute
+  '/hotels': typeof HotelsRouteWithChildren
   '/my-requests': typeof MyRequestsRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/profile': typeof ProfileRoute
@@ -497,11 +505,11 @@ export interface FileRoutesById {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/destinations': typeof AdminDestinationsRoute
   '/admin/featured-services': typeof AdminFeaturedServicesRoute
+  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/messages': typeof AdminMessagesRoute
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/packages': typeof AdminPackagesRoute
   '/admin/payments': typeof AdminPaymentsRoute
-  '/admin/insurance': typeof AdminInsuranceRoute
   '/admin/ratehawk': typeof AdminRatehawkRoute
   '/admin/services': typeof AdminServicesRoute
   '/admin/services-content': typeof AdminServicesContentRoute
@@ -522,6 +530,7 @@ export interface FileRoutesById {
   '/services/': typeof ServicesIndexRoute
   '/visa/': typeof VisaIndexRoute
   '/admin/requests/$id': typeof AdminRequestsIdRoute
+  '/hotels/ratehawk/return': typeof HotelsRatehawkReturnRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
   '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
@@ -535,8 +544,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/disclaimer'
-    | '/flight-charter'
     | '/documents'
+    | '/flight-charter'
     | '/flights'
     | '/hotels'
     | '/my-requests'
@@ -557,11 +566,11 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/featured-services'
+    | '/admin/insurance'
     | '/admin/messages'
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
-    | '/admin/insurance'
     | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
@@ -582,6 +591,7 @@ export interface FileRouteTypes {
     | '/services/'
     | '/visa/'
     | '/admin/requests/$id'
+    | '/hotels/ratehawk/return'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests/'
     | '/api/public/hotels/ratehawk/webhook'
@@ -593,8 +603,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/disclaimer'
-    | '/flight-charter'
     | '/documents'
+    | '/flight-charter'
     | '/flights'
     | '/hotels'
     | '/my-requests'
@@ -615,11 +625,11 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/featured-services'
+    | '/admin/insurance'
     | '/admin/messages'
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
-    | '/admin/insurance'
     | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
@@ -640,6 +650,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/visa'
     | '/admin/requests/$id'
+    | '/hotels/ratehawk/return'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests'
     | '/api/public/hotels/ratehawk/webhook'
@@ -651,8 +662,8 @@ export interface FileRouteTypes {
     | '/auth'
     | '/contact'
     | '/disclaimer'
-    | '/flight-charter'
     | '/documents'
+    | '/flight-charter'
     | '/flights'
     | '/hotels'
     | '/my-requests'
@@ -673,11 +684,11 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/destinations'
     | '/admin/featured-services'
+    | '/admin/insurance'
     | '/admin/messages'
     | '/admin/notifications'
     | '/admin/packages'
     | '/admin/payments'
-    | '/admin/insurance'
     | '/admin/ratehawk'
     | '/admin/services'
     | '/admin/services-content'
@@ -698,6 +709,7 @@ export interface FileRouteTypes {
     | '/services/'
     | '/visa/'
     | '/admin/requests/$id'
+    | '/hotels/ratehawk/return'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests/'
     | '/api/public/hotels/ratehawk/webhook'
@@ -710,10 +722,10 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
   DisclaimerRoute: typeof DisclaimerRoute
-  FlightCharterRoute: typeof FlightCharterRoute
   DocumentsRoute: typeof DocumentsRoute
+  FlightCharterRoute: typeof FlightCharterRoute
   FlightsRoute: typeof FlightsRoute
-  HotelsRoute: typeof HotelsRoute
+  HotelsRoute: typeof HotelsRouteWithChildren
   MyRequestsRoute: typeof MyRequestsRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   ProfileRoute: typeof ProfileRoute
@@ -732,11 +744,11 @@ export interface RootRouteChildren {
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminDestinationsRoute: typeof AdminDestinationsRoute
   AdminFeaturedServicesRoute: typeof AdminFeaturedServicesRoute
+  AdminInsuranceRoute: typeof AdminInsuranceRoute
   AdminMessagesRoute: typeof AdminMessagesRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminPackagesRoute: typeof AdminPackagesRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
-  AdminInsuranceRoute: typeof AdminInsuranceRoute
   AdminRatehawkRoute: typeof AdminRatehawkRoute
   AdminServicesRoute: typeof AdminServicesRoute
   AdminServicesContentRoute: typeof AdminServicesContentRoute
@@ -799,18 +811,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DisclaimerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/flight-charter': {
-      id: '/flight-charter'
-      path: '/flight-charter'
-      fullPath: '/flight-charter'
-      preLoaderRoute: typeof FlightCharterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/documents': {
       id: '/documents'
       path: '/documents'
       fullPath: '/documents'
       preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flight-charter': {
+      id: '/flight-charter'
+      path: '/flight-charter'
+      fullPath: '/flight-charter'
+      preLoaderRoute: typeof FlightCharterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flights': {
@@ -960,6 +972,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFeaturedServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/insurance': {
+      id: '/admin/insurance'
+      path: '/admin/insurance'
+      fullPath: '/admin/insurance'
+      preLoaderRoute: typeof AdminInsuranceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/messages': {
       id: '/admin/messages'
       path: '/admin/messages'
@@ -986,13 +1005,6 @@ declare module '@tanstack/react-router' {
       path: '/admin/payments'
       fullPath: '/admin/payments'
       preLoaderRoute: typeof AdminPaymentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/insurance': {
-      id: '/admin/insurance'
-      path: '/admin/insurance'
-      fullPath: '/admin/insurance'
-      preLoaderRoute: typeof AdminInsuranceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/ratehawk': {
@@ -1135,6 +1147,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRequestsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/hotels/ratehawk/return': {
+      id: '/hotels/ratehawk/return'
+      path: '/ratehawk/return'
+      fullPath: '/hotels/ratehawk/return'
+      preLoaderRoute: typeof HotelsRatehawkReturnRouteImport
+      parentRoute: typeof HotelsRoute
+    }
     '/visa-hotel-reservation/travellers/$requestId': {
       id: '/visa-hotel-reservation/travellers/$requestId'
       path: '/travellers/$requestId'
@@ -1159,6 +1178,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface HotelsRouteChildren {
+  HotelsRatehawkReturnRoute: typeof HotelsRatehawkReturnRoute
+}
+
+const HotelsRouteChildren: HotelsRouteChildren = {
+  HotelsRatehawkReturnRoute: HotelsRatehawkReturnRoute,
+}
+
+const HotelsRouteWithChildren =
+  HotelsRoute._addFileChildren(HotelsRouteChildren)
+
 interface VisaHotelReservationRouteChildren {
   VisaHotelReservationTravellersRequestIdRoute: typeof VisaHotelReservationTravellersRequestIdRoute
 }
@@ -1177,10 +1207,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
   DisclaimerRoute: DisclaimerRoute,
-  FlightCharterRoute: FlightCharterRoute,
   DocumentsRoute: DocumentsRoute,
+  FlightCharterRoute: FlightCharterRoute,
   FlightsRoute: FlightsRoute,
-  HotelsRoute: HotelsRoute,
+  HotelsRoute: HotelsRouteWithChildren,
   MyRequestsRoute: MyRequestsRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   ProfileRoute: ProfileRoute,
@@ -1199,11 +1229,11 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCustomersRoute: AdminCustomersRoute,
   AdminDestinationsRoute: AdminDestinationsRoute,
   AdminFeaturedServicesRoute: AdminFeaturedServicesRoute,
+  AdminInsuranceRoute: AdminInsuranceRoute,
   AdminMessagesRoute: AdminMessagesRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminPackagesRoute: AdminPackagesRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
-  AdminInsuranceRoute: AdminInsuranceRoute,
   AdminRatehawkRoute: AdminRatehawkRoute,
   AdminServicesRoute: AdminServicesRoute,
   AdminServicesContentRoute: AdminServicesContentRoute,
