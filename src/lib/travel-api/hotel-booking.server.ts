@@ -8,6 +8,7 @@ import {
   RateHawkAuthError,
   ratehawkRequest,
 } from "@/lib/ratehawk.server";
+import { payotaInitPartners, readCorporateCard } from "@/lib/travel-api/payota.server";
 
 export const MAX_CREATE_ATTEMPTS = 10;
 const CREATE_RETRY_DELAY_MS = 1000;
@@ -16,7 +17,21 @@ const DEFAULT_BOOKING_TIMEOUT_MS = 120_000;
 const SANDBOX_BOOK_LIMIT_TIMEOUT_MS = 240_000;
 
 export type BookingStatus = "created" | "started" | "processing" | "ok" | "failed";
-export type HotelBookingPaymentType = "deposit" | "hotel";
+// "now" = ETG credit-card model: our corporate card is charged the NET tariff
+// via Payota, we keep the markup, and a return_path + card token are required.
+export type HotelBookingPaymentType = "deposit" | "hotel" | "now";
+
+/** Amazingfly markup on the NET hotel tariff, reported to ETG as amount_sell_b2b2c. */
+export function hotelMarkupPercent(): number {
+  const configured = Number(process.env["HOTEL_MARKUP_PERCENT"]);
+  return Number.isFinite(configured) && configured >= 0 ? configured : 15;
+}
+
+/** The 3D-Secure return URL whitelisted with ETG (RateHawk). */
+export function hotelReturnPath(): string {
+  const base = (process.env["APP_URL"] || "https://amazingfly.ng").replace(/\/+$/, "");
+  return `${base}/hotels/ratehawk/return`;
+}
 export type CertificationScenario =
   | "unknown_success"
   | "unknown_soldout"
@@ -39,6 +54,12 @@ export type StartBookingInput = {
   currency: string;
   paymentType: HotelBookingPaymentType;
   comment?: string;
+  /** Credit-card ("now") model only: ETG payment token refs + 3DS return path. */
+  payUuid?: string;
+  initUuid?: string;
+  returnPath?: string;
+  /** The B2B2C sell price (net + markup) reported to ETG. */
+  amountSellB2b2c?: string;
 };
 
 export type BookingFormPaymentOption = {
@@ -432,6 +453,18 @@ export async function startBookingProcess(input: StartBookingInput): Promise<voi
   const [lead] = input.guests;
   if (!lead) throw new HotelBookingError("At least one guest is required to book.");
 
+  const isNow = input.paymentType === "now";
+  const paymentType: Record<string, unknown> = {
+    type: input.paymentType,
+    amount: String(input.amount),
+    currency_code: input.currency.toUpperCase(),
+  };
+  if (isNow) {
+    // ETG credit-card model: the card token refs created via Payota init_partners.
+    paymentType["pay_uuid"] = input.payUuid;
+    paymentType["init_uuid"] = input.initUuid;
+  }
+
   try {
     const envelope = await bookingRequest("/hotel/order/booking/finish/", {
       // B2B: ETG sends net-priced documents to user.email, so this must be our
@@ -443,7 +476,11 @@ export async function startBookingProcess(input: StartBookingInput): Promise<voi
         phone: input.phone,
         email: input.email,
       },
-      partner: { partner_order_id: input.partnerOrderId },
+      partner: {
+        partner_order_id: input.partnerOrderId,
+        // The full amount we sold to the customer (net + markup).
+        ...(input.amountSellB2b2c ? { amount_sell_b2b2c: input.amountSellB2b2c } : {}),
+      },
       language: "en",
       rooms: [
         {
@@ -453,11 +490,9 @@ export async function startBookingProcess(input: StartBookingInput): Promise<voi
           })),
         },
       ],
-      payment_type: {
-        type: input.paymentType,
-        amount: String(input.amount),
-        currency_code: input.currency.toUpperCase(),
-      },
+      payment_type: paymentType,
+      // Required by ETG whenever the chosen rate's payment type is "now".
+      ...(isNow && input.returnPath ? { return_path: input.returnPath } : {}),
     });
     await applyBookingStatus({
       partnerOrderId: input.partnerOrderId,
@@ -601,7 +636,10 @@ async function finishCreatedBooking(
     await applyBookingStatus({ partnerOrderId: created.partnerOrderId, status: "failed", errorMessage: message });
     throw new HotelBookingError(message);
   }
-  if (payment.requiresCard || payment.requiresCvc) {
+  const isNow = input.paymentType === "now";
+  // Card tokenization is only supported for the "now" (credit-card) model. Any
+  // other payment type that unexpectedly needs a card is still refused.
+  if (!isNow && (payment.requiresCard || payment.requiresCvc)) {
     const message = "This hotel payment method now requires a card guarantee. Secure card tokenization is not enabled yet.";
     await applyBookingStatus({ partnerOrderId: created.partnerOrderId, status: "failed", errorMessage: message });
     throw new HotelBookingError(message);
@@ -614,6 +652,43 @@ async function finishCreatedBooking(
     throw new HotelBookingError(message);
   }
 
+  // Credit-card model: register our corporate card with Payota (init_partners)
+  // using fresh pay_uuid/init_uuid, then pass the same refs + return_path into finish.
+  let payUuid: string | undefined;
+  let initUuid: string | undefined;
+  let amountSellB2b2c: string | undefined;
+  if (isNow) {
+    const [lead] = input.guests;
+    if (!lead) {
+      const message = "At least one guest is required to book.";
+      await applyBookingStatus({ partnerOrderId: created.partnerOrderId, status: "failed", errorMessage: message });
+      throw new HotelBookingError(message);
+    }
+    payUuid = crypto.randomUUID();
+    initUuid = crypto.randomUUID();
+    amountSellB2b2c = (amount * (1 + hotelMarkupPercent() / 100)).toFixed(2);
+    try {
+      await payotaInitPartners({
+        objectId: created.orderId,
+        payUuid,
+        initUuid,
+        firstName: lead.firstName,
+        lastName: lead.lastName,
+        isCvcRequired: payment.requiresCvc,
+        card: readCorporateCard(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not register the payment card with the hotel provider.";
+      await applyBookingStatus({
+        partnerOrderId: created.partnerOrderId,
+        status: "failed",
+        providerStatus: "card_token_failed",
+        errorMessage: message,
+      });
+      throw new HotelBookingError(message);
+    }
+  }
+
   try {
     await startBookingProcess({
       partnerOrderId: created.partnerOrderId,
@@ -624,6 +699,9 @@ async function finishCreatedBooking(
       currency: payment.currencyCode,
       paymentType: input.paymentType,
       comment: input.comment ?? "",
+      ...(isNow
+        ? { payUuid, initUuid, returnPath: hotelReturnPath(), amountSellB2b2c }
+        : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "The hotel provider could not start this booking.";

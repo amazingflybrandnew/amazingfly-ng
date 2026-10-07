@@ -381,3 +381,39 @@ export async function ratehawkFetch<T>(path: string, body: unknown): Promise<T |
   const payload = await ratehawkRequest<T>(path, body);
   return payload.data ?? null;
 }
+
+/**
+ * POST to an ABSOLUTE ETG-family URL (e.g. the Payota payment host
+ * api.payota.net) using the same ETG Basic credentials and the same static-IP
+ * proxy as the RateHawk API. Returns the raw exchange without throwing, so the
+ * caller can inspect ETG/Payota error codes. Used for Create credit card token
+ * (init_partners), which lives on a different host from the booking API.
+ */
+export async function etgAuthedPost(
+  absoluteUrl: string,
+  body: unknown,
+): Promise<{ status: number; ok: boolean; text: string; json: unknown }> {
+  const { username, password } = readCredentials();
+  const headers = {
+    Authorization: basicAuthHeader(username, password),
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "Amazingfly/1.0 (RateHawk B2B v3)",
+  };
+  const bodyText = JSON.stringify(body ?? {});
+  const proxyUrl = process.env["RATEHAWK_PROXY_URL"]?.trim();
+  const response = proxyUrl
+    ? await postViaProxy(proxyUrl, absoluteUrl, headers, bodyText)
+    : await fetch(absoluteUrl, { method: "POST", headers, body: bodyText }).then(async (r) => ({
+        status: r.status,
+        ok: r.ok,
+        text: await r.text(),
+      }));
+  let json: unknown = null;
+  try {
+    json = JSON.parse(response.text);
+  } catch {
+    json = null;
+  }
+  return { status: response.status, ok: response.ok, text: response.text, json };
+}
