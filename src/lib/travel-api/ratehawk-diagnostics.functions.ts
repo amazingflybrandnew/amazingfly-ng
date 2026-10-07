@@ -88,13 +88,37 @@ function firstRefundableBookHash(responseJson: unknown): string | undefined {
   return undefined;
 }
 
+export type ThreeDsChallenge = {
+  actionUrl: string;
+  method: string;
+  fields: Record<string, string>;
+};
+
 export type BookingStatusCheck = {
   ok: boolean;
   httpStatus: number;
   status: string | null;
   percent: number | null;
   response: string;
+  /** Present when status is "3ds": the bank challenge to POST the cardholder to. */
+  data3ds: ThreeDsChallenge | null;
 };
+
+function parse3ds(responseJson: unknown): ThreeDsChallenge | null {
+  const data3ds = asRecord(asRecord(asRecord(responseJson)?.["data"])?.["data_3ds"]);
+  const actionUrl = data3ds?.["action_url"];
+  const fieldsRecord = asRecord(data3ds?.["data"]);
+  if (typeof actionUrl !== "string" || !fieldsRecord) return null;
+  const fields: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fieldsRecord)) {
+    if (typeof value === "string") fields[key] = value;
+  }
+  return {
+    actionUrl,
+    method: typeof data3ds?.["method"] === "string" ? (data3ds["method"] as string) : "post",
+    fields,
+  };
+}
 
 /**
  * Admin-only: re-checks the final status of a booking by partner_order_id
@@ -121,6 +145,7 @@ export const checkBookingStatusByOrderId = createServerFn({ method: "POST" })
       status,
       percent: typeof percentValue === "number" ? percentValue : null,
       response: ex.responseText ? prettyJson(ex.responseText) : "(empty)",
+      data3ds: parse3ds(ex.responseJson),
     };
   });
 
