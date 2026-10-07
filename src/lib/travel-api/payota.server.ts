@@ -94,7 +94,13 @@ export async function payotaInitPartners(input: InitPartnersInput): Promise<void
   };
   if (input.isCvcRequired) body["cvc"] = input.card.cvc;
 
-  const res = await etgAuthedPost(`${payotaBaseUrl()}/api/public/v1/manage/init_partners`, body);
+  // Payota (the PCI card host) is not the IP-whitelisted RateHawk API, so by
+  // default we call it directly. Set PAYOTA_USE_PROXY=true to route it through
+  // the static-IP proxy (requires api.payota.net allowlisted on the proxy).
+  const useProxy = process.env["PAYOTA_USE_PROXY"]?.trim().toLowerCase() === "true";
+  const res = await etgAuthedPost(`${payotaBaseUrl()}/api/public/v1/manage/init_partners`, body, {
+    useProxy,
+  });
   const json = res.json as { status?: string; error?: string } | null;
   if (!res.ok || json?.status !== "ok") {
     throw new Error(`Payota init_partners failed: ${json?.error || `HTTP ${res.status}`}`);
