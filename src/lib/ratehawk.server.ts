@@ -392,6 +392,7 @@ export async function ratehawkFetch<T>(path: string, body: unknown): Promise<T |
 export async function etgAuthedPost(
   absoluteUrl: string,
   body: unknown,
+  options?: { useProxy?: boolean },
 ): Promise<{ status: number; ok: boolean; text: string; json: unknown }> {
   const { username, password } = readCredentials();
   const headers = {
@@ -401,7 +402,10 @@ export async function etgAuthedPost(
     "User-Agent": "Amazingfly/1.0 (RateHawk B2B v3)",
   };
   const bodyText = JSON.stringify(body ?? {});
-  const proxyUrl = process.env["RATEHAWK_PROXY_URL"]?.trim();
+  // The static-IP proxy whitelists the RateHawk API host only; callers to other
+  // ETG hosts (e.g. the Payota payment host) can opt out of the proxy.
+  const useProxy = options?.useProxy ?? true;
+  const proxyUrl = useProxy ? process.env["RATEHAWK_PROXY_URL"]?.trim() : undefined;
   const response = proxyUrl
     ? await postViaProxy(proxyUrl, absoluteUrl, headers, bodyText)
     : await fetch(absoluteUrl, { method: "POST", headers, body: bodyText }).then(async (r) => ({
