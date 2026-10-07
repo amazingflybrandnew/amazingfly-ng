@@ -8,6 +8,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  runCreditCardTestBooking,
   runRateHawkDiagnostics,
   type RateHawkDiagnostics,
 } from "@/lib/travel-api/ratehawk-diagnostics.functions";
@@ -49,13 +50,16 @@ function buildLogText(result: RateHawkDiagnostics): string {
 
 function AdminRateHawkPage() {
   const run = useServerFn(runRateHawkDiagnostics);
+  const runCardTest = useServerFn(runCreditCardTestBooking);
   const [hotelId, setHotelId] = useState("10004834");
   const [includeBookingForm, setIncludeBookingForm] = useState(false);
   const [copied, setCopied] = useState(false);
   const diagnostics = useMutation({
     mutationFn: () => run({ data: { hotelId, includeBookingForm } }),
   });
+  const cardTest = useMutation({ mutationFn: () => runCardTest({ data: {} }) });
   const result = diagnostics.data;
+  const card = cardTest.data;
 
   async function copyAll() {
     if (!result) return;
@@ -153,6 +157,68 @@ function AdminRateHawkPage() {
                       {step.response}
                     </pre>
                   </details>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="glass-card mt-6 space-y-4 rounded-3xl p-6">
+        <div>
+          <p className="font-bold text-navy">Credit-card test booking (demo hotel 8473727)</p>
+          <p className="text-xs text-muted-foreground">
+            Runs the real credit-card flow end-to-end: search → refundable rate → prebook → Payota
+            card token → finish (&quot;now&quot;) → status. This books the demo hotel and charges the
+            corporate card a few USD (refundable) — cancel it afterwards. Requires the
+            RATEHAWK_CARD_* secrets and a whitelisted return_path.
+          </p>
+        </div>
+        <Button
+          className="btn-gradient border-0 text-white"
+          disabled={cardTest.isPending}
+          onClick={() => cardTest.mutate()}
+        >
+          {cardTest.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : null}
+          Run credit-card test booking
+        </Button>
+
+        {cardTest.error ? (
+          <p className="rounded-xl bg-peach-tint px-3 py-2 text-sm text-navy">
+            {cardTest.error instanceof Error ? cardTest.error.message : "Test failed."}
+          </p>
+        ) : null}
+
+        {card ? (
+          <div className="space-y-3">
+            <p className="text-sm text-navy">
+              Environment: <strong>{card.environment}</strong> · Proxy:{" "}
+              <strong>{card.viaProxy ? "yes" : "NO"}</strong> · IP RateHawk saw:{" "}
+              <strong>{card.egressIpSeenByRateHawk ?? "—"}</strong>
+            </p>
+            {card.partnerOrderId ? (
+              <p className="text-sm text-navy">
+                Order: <strong>{card.orderId ?? "—"}</strong> · partner_order_id:{" "}
+                <code className="text-xs">{card.partnerOrderId}</code> · final status:{" "}
+                <strong>{card.finalStatus ?? "—"}</strong>
+              </p>
+            ) : null}
+            <ul className="space-y-2">
+              {card.steps.map((step) => (
+                <li key={step.step} className="rounded-2xl bg-white/70 px-4 py-3 text-sm">
+                  <div className="flex items-start gap-3">
+                    {step.ok ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-mint" aria-hidden="true" />
+                    ) : (
+                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-orange" aria-hidden="true" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-bold text-navy">{step.step}</p>
+                      <p className="break-words text-muted-foreground">{step.detail}</p>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>

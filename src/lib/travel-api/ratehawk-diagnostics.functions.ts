@@ -64,6 +64,152 @@ function rateCount(responseJson: unknown): number {
   return rates.length;
 }
 
+/** First rate whose payment option is refundable (has a free cancellation date). */
+function firstRefundableBookHash(responseJson: unknown): string | undefined {
+  const data = asRecord(asRecord(responseJson)?.["data"]);
+  const hotels = Array.isArray(data?.["hotels"]) ? (data!["hotels"] as unknown[]) : [];
+  const rates = Array.isArray(asRecord(hotels[0])?.["rates"])
+    ? (asRecord(hotels[0])!["rates"] as unknown[])
+    : [];
+  for (const rateValue of rates) {
+    const rate = asRecord(rateValue);
+    const options = asRecord(rate?.["payment_options"]);
+    const types = Array.isArray(options?.["payment_types"])
+      ? (options!["payment_types"] as unknown[])
+      : [];
+    const refundable = types.some((t) => {
+      const penalties = asRecord(asRecord(t)?.["cancellation_penalties"]);
+      const free = penalties?.["free_cancellation_before"];
+      return typeof free === "string" && free.length > 0;
+    });
+    const hash = rate?.["book_hash"];
+    if (refundable && typeof hash === "string") return hash;
+  }
+  return undefined;
+}
+
+export type CreditCardTestStep = { step: string; ok: boolean; detail: string };
+export type CreditCardTestResult = {
+  environment: string;
+  viaProxy: boolean;
+  egressIpSeenByRateHawk: string | null;
+  steps: CreditCardTestStep[];
+  partnerOrderId: string | null;
+  orderId: string | null;
+  finalStatus: string | null;
+};
+
+/**
+ * Admin-only: runs the REAL credit-card ("now") booking path end-to-end against
+ * the ETG demo hotel (8473727) with a refundable rate — search → prebook →
+ * Create booking process → Payota card token → Start booking (now) → Check
+ * status. This books the demo hotel and charges the corporate card the net
+ * amount (a few USD, refundable); cancel it afterwards from the request/booking.
+ */
+export const runCreditCardTestBooking = createServerFn({ method: "POST" })
+  .handler(async (): Promise<CreditCardTestResult> => {
+    const { requireAdmin } = await import("../admin.server");
+    await requireAdmin("manage_payments");
+    const { ratehawkExchange, ratehawkEnvironment } = await import("../ratehawk.server");
+    const { runBookingSequence } = await import("./hotel-booking.server");
+
+    const steps: CreditCardTestStep[] = [];
+    const day = (offset: number) =>
+      new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+    let egressIp: string | null = null;
+
+    // 1. Search the demo hotel.
+    const hp = await ratehawkExchange("/api/b2b/v3/search/hp/", {
+      hid: 8473727,
+      checkin: day(14),
+      checkout: day(16),
+      guests: [{ adults: 2, children: [] }],
+      residency: "ng",
+      currency: "USD",
+      language: "en",
+    });
+    egressIp =
+      (asRecord(asRecord(hp.responseJson)?.["debug"])?.["real_ip"] as string | undefined) ?? null;
+    const refundableHash = firstRefundableBookHash(hp.responseJson);
+    steps.push({
+      step: "1. Search demo hotel (/search/hp/)",
+      ok: hp.ok && Boolean(refundableHash),
+      detail: hp.ok
+        ? refundableHash
+          ? `ok — refundable rate found`
+          : "No refundable rate returned."
+        : `HTTP ${hp.httpStatus}`,
+    });
+    if (!refundableHash) {
+      return finish();
+    }
+
+    // 2. Prebook the refundable rate for a fresh book_hash.
+    const prebook = await ratehawkExchange("/api/b2b/v3/hotel/prebook/", {
+      hash: refundableHash,
+      price_increase_percent: 10,
+    });
+    const freshHash = firstBookHash(prebook.responseJson) ?? refundableHash;
+    steps.push({
+      step: "2. Prebook (/hotel/prebook/)",
+      ok: prebook.ok,
+      detail: prebook.ok ? "ok" : `HTTP ${prebook.httpStatus}`,
+    });
+    if (!prebook.ok) return finish();
+
+    // 3. Full credit-card booking: create → Payota token → finish (now) → status.
+    const ip =
+      getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ||
+      getRequestHeader("x-real-ip")?.trim() ||
+      "127.0.0.1";
+    try {
+      const outcome = await runBookingSequence({
+        bookHash: freshHash,
+        requestId: null,
+        userIp: ip,
+        email: "test@amazingfly.ng",
+        phone: "08031234567",
+        guests: [
+          { firstName: "Test", lastName: "Guest" },
+          { firstName: "Second", lastName: "Guest" },
+        ],
+        paymentType: "now",
+        comment: "Amazingfly credit-card test booking (demo hotel).",
+      });
+      steps.push({
+        step: "3. Credit-card booking (Payota token → finish 'now' → status)",
+        ok: outcome.result.status === "ok" || outcome.result.status === "processing",
+        detail: `status=${outcome.result.status}${
+          outcome.result.providerStatus ? ` (${outcome.result.providerStatus})` : ""
+        }${outcome.result.message ? ` — ${outcome.result.message}` : ""}`,
+      });
+      return finish(outcome.partnerOrderId, outcome.orderId, outcome.result.status);
+    } catch (error) {
+      steps.push({
+        step: "3. Credit-card booking (Payota token → finish 'now' → status)",
+        ok: false,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      return finish();
+    }
+
+    function finish(
+      partnerOrderId: string | null = null,
+      orderId: string | null = null,
+      finalStatus: string | null = null,
+    ): CreditCardTestResult {
+      return {
+        environment: ratehawkEnvironment(),
+        viaProxy: Boolean(process.env["RATEHAWK_PROXY_URL"]?.trim()),
+        egressIpSeenByRateHawk: egressIp,
+        steps,
+        partnerOrderId,
+        orderId,
+        finalStatus,
+      };
+    }
+  });
+
 /**
  * Admin-only: runs hotelpage -> prebook -> booking/form against RateHawk with the
  * site's own credentials and proxy, and captures the full request/response for
