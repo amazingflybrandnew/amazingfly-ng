@@ -8,6 +8,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  checkBookingStatusByOrderId,
   runCreditCardTestBooking,
   runRateHawkDiagnostics,
   type RateHawkDiagnostics,
@@ -58,6 +59,11 @@ function AdminRateHawkPage() {
     mutationFn: () => run({ data: { hotelId, includeBookingForm } }),
   });
   const cardTest = useMutation({ mutationFn: () => runCardTest({ data: {} }) });
+  const checkStatus = useServerFn(checkBookingStatusByOrderId);
+  const [statusOrderId, setStatusOrderId] = useState("");
+  const statusCheck = useMutation({
+    mutationFn: (partnerOrderId: string) => checkStatus({ data: { partnerOrderId } }),
+  });
   const result = diagnostics.data;
   const card = cardTest.data;
 
@@ -224,6 +230,48 @@ function AdminRateHawkPage() {
             </ul>
           </div>
         ) : null}
+
+        <div className="mt-2 space-y-2 border-t border-navy/10 pt-4">
+          <p className="text-sm font-semibold text-navy">Re-check a booking status</p>
+          <p className="text-xs text-muted-foreground">
+            After a <code>booking_timeout</code>, paste the partner_order_id (or use the last test&apos;s)
+            to ask RateHawk for the final status.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              value={statusOrderId || card?.partnerOrderId || ""}
+              onChange={(event) => setStatusOrderId(event.target.value)}
+              placeholder="partner_order_id"
+            />
+            <Button
+              variant="secondary"
+              disabled={statusCheck.isPending}
+              onClick={() => statusCheck.mutate(statusOrderId || card?.partnerOrderId || "")}
+            >
+              {statusCheck.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : null}
+              Check status
+            </Button>
+          </div>
+          {statusCheck.data ? (
+            <div className="text-sm text-navy">
+              <p>
+                HTTP {statusCheck.data.httpStatus} · status:{" "}
+                <strong>{statusCheck.data.status ?? "—"}</strong>
+                {statusCheck.data.percent !== null ? ` · ${statusCheck.data.percent}%` : ""}
+              </p>
+              <pre className="mt-1 max-h-72 overflow-auto rounded-lg bg-navy/90 p-3 text-xs text-white">
+                {statusCheck.data.response}
+              </pre>
+            </div>
+          ) : null}
+          {statusCheck.error ? (
+            <p className="rounded-xl bg-peach-tint px-3 py-2 text-sm text-navy">
+              {statusCheck.error instanceof Error ? statusCheck.error.message : "Status check failed."}
+            </p>
+          ) : null}
+        </div>
       </div>
     </AdminShell>
   );

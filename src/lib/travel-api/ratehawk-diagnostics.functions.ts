@@ -88,6 +88,42 @@ function firstRefundableBookHash(responseJson: unknown): string | undefined {
   return undefined;
 }
 
+export type BookingStatusCheck = {
+  ok: boolean;
+  httpStatus: number;
+  status: string | null;
+  percent: number | null;
+  response: string;
+};
+
+/**
+ * Admin-only: re-checks the final status of a booking by partner_order_id
+ * (Check booking process). Use after a credit-card test returns booking_timeout
+ * to confirm whether ETG actually confirmed the booking.
+ */
+export const checkBookingStatusByOrderId = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ partnerOrderId: z.string().trim().min(6).max(80) }).strict().parse(data),
+  )
+  .handler(async ({ data }): Promise<BookingStatusCheck> => {
+    const { requireAdmin } = await import("../admin.server");
+    await requireAdmin("manage_payments");
+    const { ratehawkExchange } = await import("../ratehawk.server");
+    const ex = await ratehawkExchange("/api/b2b/v3/hotel/order/booking/finish/status/", {
+      partner_order_id: data.partnerOrderId,
+    });
+    const json = asRecord(ex.responseJson);
+    const status = typeof json?.["status"] === "string" ? (json["status"] as string) : null;
+    const percentValue = asRecord(json?.["data"])?.["percent"];
+    return {
+      ok: ex.ok,
+      httpStatus: ex.httpStatus,
+      status,
+      percent: typeof percentValue === "number" ? percentValue : null,
+      response: ex.responseText ? prettyJson(ex.responseText) : "(empty)",
+    };
+  });
+
 export type CreditCardTestStep = { step: string; ok: boolean; detail: string };
 export type CreditCardTestResult = {
   environment: string;
