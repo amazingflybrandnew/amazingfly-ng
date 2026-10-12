@@ -15,26 +15,26 @@ import {
   type ThreeDsChallenge,
 } from "@/lib/travel-api/ratehawk-diagnostics.functions";
 
-/** Opens the bank's 3-D Secure page by auto-submitting the challenge form. */
+/**
+ * Opens the bank's 3-D Secure page by submitting a real, same-origin form to the
+ * challenge URL in a new tab. A genuine form (not an about:blank document.write)
+ * gives the bank the correct origin/referrer it needs to render the OTP page.
+ */
 function open3ds(challenge: ThreeDsChallenge) {
-  const win = window.open("", "_blank");
-  if (!win) {
-    alert("Please allow pop-ups for this site, then click the button again.");
-    return;
+  const form = document.createElement("form");
+  form.method = challenge.method || "post";
+  form.action = challenge.actionUrl;
+  form.target = "_blank";
+  for (const [name, value] of Object.entries(challenge.fields)) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = String(value);
+    form.appendChild(input);
   }
-  const inputs = Object.entries(challenge.fields)
-    .map(
-      ([name, value]) =>
-        `<input type="hidden" name="${name}" value="${String(value).replace(/"/g, "&quot;")}">`,
-    )
-    .join("");
-  win.document.write(
-    `<!doctype html><html><body><p style="font-family:sans-serif">Redirecting to your bank for card verification…</p>` +
-      `<form id="f" method="${challenge.method}" action="${challenge.actionUrl}">${inputs}</form>` +
-      `<script>document.getElementById("f").submit();</script></body></html>`,
-  );
-  // Close the stream so the new window finishes parsing and runs the submit script.
-  win.document.close();
+  document.body.appendChild(form);
+  form.submit();
+  window.setTimeout(() => form.remove(), 2000);
 }
 
 export const Route = createFileRoute("/admin/ratehawk")({
