@@ -12,30 +12,7 @@ import {
   runCreditCardTestBooking,
   runRateHawkDiagnostics,
   type RateHawkDiagnostics,
-  type ThreeDsChallenge,
 } from "@/lib/travel-api/ratehawk-diagnostics.functions";
-
-/**
- * Opens the bank's 3-D Secure page by submitting a real, same-origin form to the
- * challenge URL in a new tab. A genuine form (not an about:blank document.write)
- * gives the bank the correct origin/referrer it needs to render the OTP page.
- */
-function open3ds(challenge: ThreeDsChallenge) {
-  const form = document.createElement("form");
-  form.method = challenge.method || "post";
-  form.action = challenge.actionUrl;
-  form.target = "_blank";
-  for (const [name, value] of Object.entries(challenge.fields)) {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = String(value);
-    form.appendChild(input);
-  }
-  document.body.appendChild(form);
-  form.submit();
-  window.setTimeout(() => form.remove(), 2000);
-}
 
 export const Route = createFileRoute("/admin/ratehawk")({
   head: () => ({
@@ -296,7 +273,14 @@ function AdminRateHawkPage() {
                   </p>
                   <Button
                     className="mt-2 btn-gradient border-0 text-white"
-                    onClick={() => open3ds(statusCheck.data!.data3ds!)}
+                    onClick={() =>
+                      window.open(
+                        `/api/public/hotels/ratehawk/start-3ds?order=${encodeURIComponent(
+                          statusOrderId || card?.partnerOrderId || "",
+                        )}`,
+                        "_blank",
+                      )
+                    }
                   >
                     Complete 3-D Secure verification
                   </Button>
