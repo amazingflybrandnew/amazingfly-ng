@@ -69,11 +69,13 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/start-3ds")({
           .map(([name, value]) => `<input type="hidden" name="${esc(name)}" value="${esc(value)}" />`)
           .join("");
 
+        const method = typeof data3ds["method"] === "string" ? (data3ds["method"] as string) : "post";
         return htmlPage(
-          `<p>Opening your bank's secure verification page…</p>` +
-            `<form id="tds" method="${esc(typeof data3ds["method"] === "string" ? data3ds["method"] : "post")}" action="${esc(actionUrl)}">${inputs}</form>` +
-            `<script>document.getElementById("tds").submit();</script>` +
-            `<noscript><p>Please enable JavaScript, or <button form="tds">continue</button>.</p></noscript>`,
+          `<p>Click the button below to open your bank's secure verification (3-D Secure) page and approve with the OTP sent to your card's phone.</p>` +
+            `<form id="tds" method="${esc(method)}" action="${esc(actionUrl)}">${inputs}` +
+            `<button type="submit" style="margin-top:12px;padding:12px 20px;background:#13233f;color:#fff;border:0;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer">Continue to bank verification →</button>` +
+            `</form>` +
+            `<script>try{setTimeout(function(){document.getElementById("tds").submit();},400);}catch(e){}</script>`,
         );
       },
     },
