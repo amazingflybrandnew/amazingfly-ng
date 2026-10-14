@@ -64,6 +64,7 @@ import { Route as AdminRequestsIndexRouteImport } from './routes/admin.requests.
 import { Route as AdminRequestsIdRouteImport } from './routes/admin.requests.$id'
 import { Route as HotelsRatehawkReturnRouteImport } from './routes/hotels.ratehawk.return'
 import { Route as VisaHotelReservationTravellersRequestIdRouteImport } from './routes/visa-hotel-reservation.travellers.$requestId'
+import { Route as ApiPublicHotelsRatehawkStart3dsRouteImport } from './routes/api/public/hotels/ratehawk/start-3ds'
 import { Route as ApiPublicHotelsRatehawkWebhookRouteImport } from './routes/api/public/hotels/ratehawk/webhook'
 import { Route as ApiPublicPaymentsPaystackWebhookRouteImport } from './routes/api/public/payments/paystack/webhook'
 
@@ -345,6 +346,12 @@ const VisaHotelReservationTravellersRequestIdRoute =
     path: '/travellers/$requestId',
     getParentRoute: () => VisaHotelReservationRoute,
   } as any)
+const ApiPublicHotelsRatehawkStart3dsRoute =
+  ApiPublicHotelsRatehawkStart3dsRouteImport.update({
+    id: '/api/public/hotels/ratehawk/start-3ds',
+    path: '/api/public/hotels/ratehawk/start-3ds',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHotelsRatehawkWebhookRoute =
   ApiPublicHotelsRatehawkWebhookRouteImport.update({
     id: '/api/public/hotels/ratehawk/webhook',
@@ -414,6 +421,7 @@ export interface FileRoutesByFullPath {
   '/hotels/ratehawk/return': typeof HotelsRatehawkReturnRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
+  '/api/public/hotels/ratehawk/start-3ds': typeof ApiPublicHotelsRatehawkStart3dsRoute
   '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
   '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -473,6 +481,7 @@ export interface FileRoutesByTo {
   '/hotels/ratehawk/return': typeof HotelsRatehawkReturnRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests': typeof AdminRequestsIndexRoute
+  '/api/public/hotels/ratehawk/start-3ds': typeof ApiPublicHotelsRatehawkStart3dsRoute
   '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
   '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -533,6 +542,7 @@ export interface FileRoutesById {
   '/hotels/ratehawk/return': typeof HotelsRatehawkReturnRoute
   '/visa-hotel-reservation/travellers/$requestId': typeof VisaHotelReservationTravellersRequestIdRoute
   '/admin/requests/': typeof AdminRequestsIndexRoute
+  '/api/public/hotels/ratehawk/start-3ds': typeof ApiPublicHotelsRatehawkStart3dsRoute
   '/api/public/hotels/ratehawk/webhook': typeof ApiPublicHotelsRatehawkWebhookRoute
   '/api/public/payments/paystack/webhook': typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -594,6 +604,7 @@ export interface FileRouteTypes {
     | '/hotels/ratehawk/return'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests/'
+    | '/api/public/hotels/ratehawk/start-3ds'
     | '/api/public/hotels/ratehawk/webhook'
     | '/api/public/payments/paystack/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -653,6 +664,7 @@ export interface FileRouteTypes {
     | '/hotels/ratehawk/return'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests'
+    | '/api/public/hotels/ratehawk/start-3ds'
     | '/api/public/hotels/ratehawk/webhook'
     | '/api/public/payments/paystack/webhook'
   id:
@@ -712,6 +724,7 @@ export interface FileRouteTypes {
     | '/hotels/ratehawk/return'
     | '/visa-hotel-reservation/travellers/$requestId'
     | '/admin/requests/'
+    | '/api/public/hotels/ratehawk/start-3ds'
     | '/api/public/hotels/ratehawk/webhook'
     | '/api/public/payments/paystack/webhook'
   fileRoutesById: FileRoutesById
@@ -770,6 +783,7 @@ export interface RootRouteChildren {
   VisaIndexRoute: typeof VisaIndexRoute
   AdminRequestsIdRoute: typeof AdminRequestsIdRoute
   AdminRequestsIndexRoute: typeof AdminRequestsIndexRoute
+  ApiPublicHotelsRatehawkStart3dsRoute: typeof ApiPublicHotelsRatehawkStart3dsRoute
   ApiPublicHotelsRatehawkWebhookRoute: typeof ApiPublicHotelsRatehawkWebhookRoute
   ApiPublicPaymentsPaystackWebhookRoute: typeof ApiPublicPaymentsPaystackWebhookRoute
 }
@@ -1161,6 +1175,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VisaHotelReservationTravellersRequestIdRouteImport
       parentRoute: typeof VisaHotelReservationRoute
     }
+    '/api/public/hotels/ratehawk/start-3ds': {
+      id: '/api/public/hotels/ratehawk/start-3ds'
+      path: '/api/public/hotels/ratehawk/start-3ds'
+      fullPath: '/api/public/hotels/ratehawk/start-3ds'
+      preLoaderRoute: typeof ApiPublicHotelsRatehawkStart3dsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hotels/ratehawk/webhook': {
       id: '/api/public/hotels/ratehawk/webhook'
       path: '/api/public/hotels/ratehawk/webhook'
@@ -1255,6 +1276,7 @@ const rootRouteChildren: RootRouteChildren = {
   VisaIndexRoute: VisaIndexRoute,
   AdminRequestsIdRoute: AdminRequestsIdRoute,
   AdminRequestsIndexRoute: AdminRequestsIndexRoute,
+  ApiPublicHotelsRatehawkStart3dsRoute: ApiPublicHotelsRatehawkStart3dsRoute,
   ApiPublicHotelsRatehawkWebhookRoute: ApiPublicHotelsRatehawkWebhookRoute,
   ApiPublicPaymentsPaystackWebhookRoute: ApiPublicPaymentsPaystackWebhookRoute,
 }
