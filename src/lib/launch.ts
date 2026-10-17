@@ -11,8 +11,7 @@
  * slugs / wizard ids used around the app, so a single check works everywhere.
  */
 const NOT_LIVE = new Set<string>([
-  "hotels", // RateHawk certification + static-IP whitelisting pending
-  "hotel",
+  // Hotels are live: RateHawk card ("now") payment verified end to end.
   // Travel insurance is live: Sanlam Allianz production is verified (login,
   // lookups, plans and a live quote all confirmed via /admin/insurance).
 ]);
