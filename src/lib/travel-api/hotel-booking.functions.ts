@@ -152,6 +152,37 @@ export const checkHotelBooking = createServerFn({ method: "POST" })
     }
   });
 
+/**
+ * Called by the 3-D Secure return page: keeps polling booking/finish/status
+ * (through the "3ds" state) until ETG returns a final status, as ETG requires.
+ * Each call polls for up to 45 s; the page calls again while it is processing.
+ * The partner_order_id is an unguessable UUID and only a status is returned.
+ */
+export const confirmHotelPaymentAfterThreeDs = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => checkInput.parse(data))
+  .handler(async ({ data }): Promise<CheckBookingPayload> => {
+    const { checkBookingProcess } = await import("./hotel-booking.server");
+    try {
+      const result = await checkBookingProcess(data.partnerOrderId, {
+        waitThroughThreeDs: true,
+        timeoutMs: 45_000,
+      });
+      return {
+        ok: true,
+        status:
+          result.status === "created" || result.status === "started"
+            ? "processing"
+            : result.status,
+        providerStatus: result.providerStatus,
+        percent: result.percent,
+        message: result.message,
+      };
+    } catch (error) {
+      console.error("[Hotels] post-3DS status check failed", error);
+      return { ok: false, error: toMessage(error, "We could not read the booking status.") };
+    }
+  });
+
 async function ownedHotelRequest(requestId: string) {
   const { requireUser } = await import("../auth.server");
   const { createExternalSupabaseAdmin } = await import("../external-supabase.server");

@@ -8,6 +8,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  cancelBookingByOrderId,
   checkBookingStatusByOrderId,
   runCreditCardTestBooking,
   runRateHawkDiagnostics,
@@ -73,6 +74,11 @@ function AdminRateHawkPage() {
   const [statusOrderId, setStatusOrderId] = useState("");
   const statusCheck = useMutation({
     mutationFn: (partnerOrderId: string) => checkStatus({ data: { partnerOrderId } }),
+  });
+  const cancelOrder = useServerFn(cancelBookingByOrderId);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const cancelMutation = useMutation({
+    mutationFn: (partnerOrderId: string) => cancelOrder({ data: { partnerOrderId } }),
   });
   const result = diagnostics.data;
   const card = cardTest.data;
@@ -304,7 +310,38 @@ function AdminRateHawkPage() {
               ) : null}
               Check status
             </Button>
+            <Button
+              variant="outline"
+              className="border-orange text-orange"
+              disabled={cancelMutation.isPending || !(statusOrderId || card?.partnerOrderId)}
+              onClick={() => {
+                if (!confirmCancel) {
+                  setConfirmCancel(true);
+                  return;
+                }
+                setConfirmCancel(false);
+                cancelMutation.mutate(statusOrderId || card?.partnerOrderId || "");
+              }}
+            >
+              {cancelMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : null}
+              {confirmCancel ? "Click again to cancel" : "Cancel booking (refund)"}
+            </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Cancel a confirmed test booking to get the card refunded (refundable rates). The refund
+            can take a few business days to show on the card.
+          </p>
+          {cancelMutation.data ? (
+            <p className="rounded-xl bg-peach-tint px-3 py-2 text-sm text-navy">
+              {cancelMutation.data.ok
+                ? cancelMutation.data.alreadyCancelled
+                  ? "This booking was already cancelled with RateHawk."
+                  : "Cancelled with RateHawk. The refund goes back to the card; it can take a few business days."
+                : `Could not cancel: ${cancelMutation.data.error}`}
+            </p>
+          ) : null}
           {statusCheck.data ? (
             <div className="text-sm text-navy">
               <p>

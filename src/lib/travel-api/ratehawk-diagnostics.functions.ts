@@ -429,3 +429,23 @@ function realTestGuests(
   }
   return [lead, configured[1] ?? lead];
 }
+
+/**
+ * Admin-only: cancels a RateHawk order by partner_order_id so the corporate
+ * card is refunded (e.g. admin card test bookings on the demo hotel).
+ */
+export const cancelBookingByOrderId = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ partnerOrderId: z.string().trim().min(6).max(80) }).strict().parse(data),
+  )
+  .handler(async ({ data }): Promise<{ ok: true; alreadyCancelled: boolean } | { ok: false; error: string }> => {
+    const { requireAdmin } = await import("../admin.server");
+    await requireAdmin("manage_payments");
+    const { cancelProviderOrder } = await import("./hotel-booking.server");
+    try {
+      const result = await cancelProviderOrder(data.partnerOrderId);
+      return { ok: true, alreadyCancelled: result.alreadyCancelled };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
