@@ -224,16 +224,17 @@ export const runCreditCardTestBooking = createServerFn({ method: "POST" })
       getRequestHeader("x-real-ip")?.trim() ||
       "127.0.0.1";
     try {
+      // ETG asked for real guest names on card tests (placeholder names can
+      // fail fraud checks). Use the corporate cardholder's name, overridable
+      // with RATEHAWK_TEST_GUESTS="First Last;First Last".
+      const testGuests = realTestGuests();
       const outcome = await runBookingSequence({
         bookHash: freshHash,
         requestId: null,
         userIp: ip,
         email: "test@amazingfly.ng",
         phone: "08031234567",
-        guests: [
-          { firstName: "Test", lastName: "Guest" },
-          { firstName: "Second", lastName: "Guest" },
-        ],
+        guests: testGuests,
         paymentType: "now",
         comment: "Amazingfly credit-card test booking (demo hotel).",
       });
@@ -384,3 +385,27 @@ export const runRateHawkDiagnostics = createServerFn({ method: "POST" })
       steps,
     };
   });
+
+function splitName(full: string): { firstName: string; lastName: string } | null {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return null;
+  return { firstName: parts[0]!, lastName: parts.slice(1).join(" ") };
+}
+
+/** Two real guest names for the admin card test (see runCreditCardTestBooking). */
+function realTestGuests(): { firstName: string; lastName: string }[] {
+  const configured = (process.env["RATEHAWK_TEST_GUESTS"] ?? "")
+    .split(";")
+    .map((name) => splitName(name))
+    .filter((guest): guest is { firstName: string; lastName: string } => guest !== null);
+  if (configured.length >= 2) return configured.slice(0, 2);
+
+  const holder = splitName(process.env["RATEHAWK_CARD_HOLDER"] ?? "");
+  const lead = configured[0] ?? holder;
+  if (!lead) {
+    throw new Error(
+      "Set RATEHAWK_CARD_HOLDER (the cardholder's full name) or RATEHAWK_TEST_GUESTS so the test booking uses real guest names.",
+    );
+  }
+  return [lead, configured[1] ?? lead];
+}

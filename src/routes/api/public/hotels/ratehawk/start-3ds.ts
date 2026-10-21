@@ -65,7 +65,7 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/start-3ds")({
         }
 
         const inputs = Object.entries(fields)
-          .filter(([, value]) => typeof value === "string")
+          .filter(([, value]) => ["string", "number", "boolean"].includes(typeof value))
           .map(([name, value]) => `<input type="hidden" name="${esc(name)}" value="${esc(value)}" />`)
           .join("");
 
@@ -73,9 +73,14 @@ export const Route = createFileRoute("/api/public/hotels/ratehawk/start-3ds")({
         return htmlPage(
           `<p>Click the button below to open your bank's secure verification (3-D Secure) page and approve with the OTP sent to your card's phone.</p>` +
             `<form id="tds" method="${esc(method)}" action="${esc(actionUrl)}">${inputs}` +
-            `<button type="submit" style="margin-top:12px;padding:12px 20px;background:#13233f;color:#fff;border:0;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer">Continue to bank verification →</button>` +
+            `<button id="tdsbtn" type="submit" style="margin-top:12px;padding:12px 20px;background:#13233f;color:#fff;border:0;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer">Continue to bank verification →</button>` +
             `</form>` +
-            `<script>try{setTimeout(function(){document.getElementById("tds").submit();},400);}catch(e){}</script>`,
+            // Submit the bank challenge exactly once. A second POST of the same
+            // challenge starts a new authentication at the bank, so the OTP the
+            // cardholder enters no longer matches the one ETG is waiting for.
+            `<script>(function(){var f=document.getElementById("tds"),b=document.getElementById("tdsbtn"),sent=false;` +
+            `function go(e){if(e)e.preventDefault();if(sent)return;sent=true;b.disabled=true;b.textContent="Opening your bank…";HTMLFormElement.prototype.submit.call(f);}` +
+            `f.addEventListener("submit",go);try{setTimeout(go,400);}catch(e){}})();</script>`,
         );
       },
     },

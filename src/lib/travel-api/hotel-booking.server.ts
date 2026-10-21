@@ -531,6 +531,9 @@ async function checkOnce(partnerOrderId: string): Promise<CheckBookingResult> {
     if (providerStatus === "ok") {
       return { status: "ok", providerStatus, percent, message: null };
     }
+    // "3ds": ETG is waiting for the corporate cardholder to pass the bank's
+    // 3-D Secure check. Nothing changes until that happens, and the challenge
+    // expires after a few minutes, so callers must surface it immediately.
     return { status: "processing", providerStatus, percent, message: null };
   } catch (error) {
     if (isTransientBookingError(error)) {
@@ -562,6 +565,19 @@ export async function checkBookingProcess(partnerOrderId: string): Promise<Check
 
   while (Date.now() + CHECK_POLL_DELAY_MS < deadline) {
     last = await checkOnce(partnerOrderId);
+    if (last.providerStatus === "3ds") {
+      // Return straight away so the 3-D Secure challenge can be completed
+      // while it is still valid. Waiting out the booking timeout here made the
+      // challenge expire (ETG then auto-cancels: Internal_CronAutocancelThreeDs)
+      // and wrongly marked the order failed on our side.
+      await applyBookingStatus({
+        partnerOrderId,
+        status: "processing",
+        providerStatus: "3ds",
+        errorMessage: null,
+      });
+      return last;
+    }
     if (last.status === "ok" || last.status === "failed") {
       await applyBookingStatus({
         partnerOrderId,

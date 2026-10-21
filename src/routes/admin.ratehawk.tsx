@@ -211,6 +211,27 @@ function AdminRateHawkPage() {
                 <strong>{card.finalStatus ?? "—"}</strong>
               </p>
             ) : null}
+            {card.partnerOrderId && card.steps.some((step) => step.detail.includes("(3ds)")) ? (
+              <div className="rounded-xl bg-peach-tint px-3 py-3">
+                <p className="text-sm font-semibold text-navy">Bank verification needed now</p>
+                <p className="mt-1 text-xs text-navy">
+                  RateHawk is waiting for the corporate card&apos;s 3-D Secure check. Do it straight away:
+                  the challenge expires after a few minutes. Enter the OTP once, then use &quot;Check
+                  status&quot; below.
+                </p>
+                <Button
+                  className="mt-2 btn-gradient border-0 text-white"
+                  onClick={() =>
+                    window.open(
+                      `/api/public/hotels/ratehawk/start-3ds?order=${encodeURIComponent(card.partnerOrderId ?? "")}`,
+                      "_blank",
+                    )
+                  }
+                >
+                  Complete 3-D Secure now
+                </Button>
+              </div>
+            ) : null}
             <ul className="space-y-2">
               {card.steps.map((step) => (
                 <li key={step.step} className="rounded-2xl bg-white/70 px-4 py-3 text-sm">
