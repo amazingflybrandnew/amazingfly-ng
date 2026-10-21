@@ -168,7 +168,16 @@ export type CreditCardTestResult = {
  * amount (a few USD, refundable); cancel it afterwards from the request/booking.
  */
 export const runCreditCardTestBooking = createServerFn({ method: "POST" })
-  .handler(async (): Promise<CreditCardTestResult> => {
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        guestFirstName: z.string().trim().max(60).optional(),
+        guestLastName: z.string().trim().max(60).optional(),
+      })
+      .strict()
+      .parse(data ?? {}),
+  )
+  .handler(async ({ data }): Promise<CreditCardTestResult> => {
     const { requireAdmin } = await import("../admin.server");
     await requireAdmin("manage_payments");
     const { ratehawkExchange, ratehawkEnvironment } = await import("../ratehawk.server");
@@ -227,7 +236,7 @@ export const runCreditCardTestBooking = createServerFn({ method: "POST" })
       // ETG asked for real guest names on card tests (placeholder names can
       // fail fraud checks). Use the corporate cardholder's name, overridable
       // with RATEHAWK_TEST_GUESTS="First Last;First Last".
-      const testGuests = realTestGuests();
+      const testGuests = realTestGuests(data.guestFirstName, data.guestLastName);
       const outcome = await runBookingSequence({
         bookHash: freshHash,
         requestId: null,
@@ -392,8 +401,19 @@ function splitName(full: string): { firstName: string; lastName: string } | null
   return { firstName: parts[0]!, lastName: parts.slice(1).join(" ") };
 }
 
-/** Two real guest names for the admin card test (see runCreditCardTestBooking). */
-function realTestGuests(): { firstName: string; lastName: string }[] {
+/**
+ * Two real guest names for the admin card test (see runCreditCardTestBooking):
+ * the name typed on the admin page, else RATEHAWK_TEST_GUESTS, else the
+ * corporate cardholder's name.
+ */
+function realTestGuests(
+  firstName?: string,
+  lastName?: string,
+): { firstName: string; lastName: string }[] {
+  if (firstName && lastName) {
+    const typed = { firstName, lastName };
+    return [typed, typed];
+  }
   const configured = (process.env["RATEHAWK_TEST_GUESTS"] ?? "")
     .split(";")
     .map((name) => splitName(name))
@@ -404,7 +424,7 @@ function realTestGuests(): { firstName: string; lastName: string }[] {
   const lead = configured[0] ?? holder;
   if (!lead) {
     throw new Error(
-      "Set RATEHAWK_CARD_HOLDER (the cardholder's full name) or RATEHAWK_TEST_GUESTS so the test booking uses real guest names.",
+      "Enter the guest's real first and last name above (RateHawk asked for real names on card tests), then run the test again.",
     );
   }
   return [lead, configured[1] ?? lead];
