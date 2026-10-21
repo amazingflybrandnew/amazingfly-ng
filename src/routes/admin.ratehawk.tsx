@@ -58,7 +58,17 @@ function AdminRateHawkPage() {
   const diagnostics = useMutation({
     mutationFn: () => run({ data: { hotelId, includeBookingForm } }),
   });
-  const cardTest = useMutation({ mutationFn: () => runCardTest({ data: {} }) });
+  const [guestFirstName, setGuestFirstName] = useState("");
+  const [guestLastName, setGuestLastName] = useState("");
+  const cardTest = useMutation({
+    mutationFn: () =>
+      runCardTest({
+        data: {
+          ...(guestFirstName.trim() ? { guestFirstName: guestFirstName.trim() } : {}),
+          ...(guestLastName.trim() ? { guestLastName: guestLastName.trim() } : {}),
+        },
+      }),
+  });
   const checkStatus = useServerFn(checkBookingStatusByOrderId);
   const [statusOrderId, setStatusOrderId] = useState("");
   const statusCheck = useMutation({
@@ -179,6 +189,26 @@ function AdminRateHawkPage() {
             corporate card a few USD (refundable) — cancel it afterwards. Requires the
             RATEHAWK_CARD_* secrets and a whitelisted return_path.
           </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-sm text-navy">
+            Guest first name (real)
+            <Input
+              id="card-test-first-name"
+              value={guestFirstName}
+              onChange={(event) => setGuestFirstName(event.target.value)}
+              placeholder="e.g. Afolabi"
+            />
+          </label>
+          <label className="text-sm text-navy">
+            Guest last name (real)
+            <Input
+              id="card-test-last-name"
+              value={guestLastName}
+              onChange={(event) => setGuestLastName(event.target.value)}
+              placeholder="e.g. Adeyemi"
+            />
+          </label>
         </div>
         <Button
           className="btn-gradient border-0 text-white"
