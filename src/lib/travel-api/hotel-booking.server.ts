@@ -27,10 +27,15 @@ export function hotelMarkupPercent(): number {
   return Number.isFinite(configured) && configured >= 0 ? configured : 15;
 }
 
-/** The 3D-Secure return URL whitelisted with ETG (RateHawk). */
-export function hotelReturnPath(): string {
+/**
+ * The 3D-Secure return URL whitelisted with ETG (RateHawk; the host is
+ * whitelisted). It carries the order so the return page can keep polling
+ * Check booking process until the final status, as ETG requires.
+ */
+export function hotelReturnPath(partnerOrderId?: string): string {
   const base = (process.env["APP_URL"] || "https://amazingfly.ng").replace(/\/+$/, "");
-  return `${base}/hotels/ratehawk/return`;
+  const path = `${base}/hotels/ratehawk/return`;
+  return partnerOrderId ? `${path}?order=${encodeURIComponent(partnerOrderId)}` : path;
 }
 export type CertificationScenario =
   | "unknown_success"
@@ -554,8 +559,20 @@ async function checkOnce(partnerOrderId: string): Promise<CheckBookingResult> {
   }
 }
 
-export async function checkBookingProcess(partnerOrderId: string): Promise<CheckBookingResult> {
-  const deadline = Date.now() + bookingTimeoutMs(partnerOrderId);
+export async function checkBookingProcess(
+  partnerOrderId: string,
+  options: {
+    /**
+     * Keep polling while ETG reports "3ds" (used after the cardholder returns
+     * from the bank). ETG requires polling booking/finish/status until a final
+     * status; stopping at "3ds" left paid orders without a final status.
+     */
+    waitThroughThreeDs?: boolean;
+    /** Overrides the polling window (ms). */
+    timeoutMs?: number;
+  } = {},
+): Promise<CheckBookingResult> {
+  const deadline = Date.now() + (options.timeoutMs ?? bookingTimeoutMs(partnerOrderId));
   let last: CheckBookingResult = {
     status: "processing",
     providerStatus: "processing",
@@ -565,7 +582,7 @@ export async function checkBookingProcess(partnerOrderId: string): Promise<Check
 
   while (Date.now() + CHECK_POLL_DELAY_MS < deadline) {
     last = await checkOnce(partnerOrderId);
-    if (last.providerStatus === "3ds") {
+    if (last.providerStatus === "3ds" && !options.waitThroughThreeDs) {
       // Return straight away so the 3-D Secure challenge can be completed
       // while it is still valid. Waiting out the booking timeout here made the
       // challenge expire (ETG then auto-cancels: Internal_CronAutocancelThreeDs)
@@ -598,6 +615,17 @@ export async function checkBookingProcess(partnerOrderId: string): Promise<Check
 
   // ETG explicitly recommends one final request at the booking deadline.
   last = await checkOnce(partnerOrderId);
+  if (last.status === "processing" && options.waitThroughThreeDs) {
+    // Still in progress after the bank step: report it as processing so the
+    // caller polls again, rather than marking a possibly paid order failed.
+    await applyBookingStatus({
+      partnerOrderId,
+      status: "processing",
+      providerStatus: last.providerStatus,
+      errorMessage: last.message,
+    });
+    return last;
+  }
   if (last.status === "processing") {
     last = {
       status: "failed",
@@ -716,7 +744,7 @@ async function finishCreatedBooking(
       paymentType: input.paymentType,
       comment: input.comment ?? "",
       ...(isNow
-        ? { payUuid, initUuid, returnPath: hotelReturnPath(), amountSellB2b2c }
+        ? { payUuid, initUuid, returnPath: hotelReturnPath(created.partnerOrderId), amountSellB2b2c }
         : {}),
     });
   } catch (error) {
@@ -1057,4 +1085,26 @@ export async function cancelStoredHotelRequest(
   const { notifyHotelBookingCancelled } = await import("../notifications.server");
   await notifyHotelBookingCancelled({ requestId });
   return { partnerOrderId: row.partner_order_id, cancelled: true };
+}
+
+/**
+ * Cancels a RateHawk order by partner_order_id (e.g. an admin test booking
+ * that has no service request). Refundable rates are refunded to the card by
+ * ETG. An "already cancelled" reply counts as success.
+ */
+export async function cancelProviderOrder(partnerOrderId: string): Promise<{ alreadyCancelled: boolean }> {
+  let alreadyCancelled = false;
+  try {
+    await bookingRequest("/hotel/order/cancel/", { partner_order_id: partnerOrderId });
+  } catch (error) {
+    const code = errorCode(error);
+    if (!(code.includes("already") && code.includes("cancel"))) throw error;
+    alreadyCancelled = true;
+  }
+  const db = await admin();
+  await db
+    .from("hotel_bookings")
+    .update({ provider_status: "cancelled", updated_at: new Date().toISOString() })
+    .eq("partner_order_id", partnerOrderId);
+  return { alreadyCancelled };
 }
